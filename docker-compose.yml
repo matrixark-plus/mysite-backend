@@ -1,0 +1,27 @@
+services:
+  hyperf-skeleton:
+    container_name: hyperf-skeleton
+    image: hyperf-skeleton
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/opt/www
+    ports:
+      - 9501:9501
+    networks:
+      - mysite_app-network
+    environment:
+      - APP_ENV=development
+      - SCAN_CACHEABLE=false
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=app_database
+      - DB_USERNAME=app_user
+      - DB_PASSWORD=app_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+networks:
+  mysite_app-network:
+    external: true
