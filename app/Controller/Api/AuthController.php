@@ -26,10 +26,6 @@ class AuthController extends AbstractController
 {
     use LogTrait;
     
-    // Logger通过LogTrait获取，不需要在此注入
-    
-
-    
     /**
      * @var UserService
      */

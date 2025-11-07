@@ -9,6 +9,7 @@ use Qbhy\HyperfAuth\Authenticatable;
 
 /**
  * 用户模型
+ * 实现hyperf-auth的认证接口
  */
 class User extends Model implements Authenticatable
 {
@@ -85,6 +86,14 @@ class User extends Model implements Authenticatable
     }
 
     /**
+     * 获取密码哈希用于认证
+     */
+    public function getAuthPassword(): string
+    {
+        return $this->{$this->getAuthPasswordName()};
+    }
+
+    /**
      * 设置密码属性，转换为密码哈希
      */
     public function setPasswordAttribute(string $value): void
@@ -94,17 +103,14 @@ class User extends Model implements Authenticatable
     
     /**
      * 获取用户ID
-     * @return mixed
      */
-    public function getId()
+    public function getId(): int
     {
         return $this->{$this->getAuthIdentifierName()};
     }
     
     /**
-     * 根据键检索用户
-     * @param mixed $key
-     * @return static|null
+     * 根据键检索用户（符合hyperf-auth规范）
      */
     public static function retrieveById($key): ?\Qbhy\HyperfAuth\Authenticatable
     {
@@ -112,10 +118,10 @@ class User extends Model implements Authenticatable
     }
     
     /**
-     * 获取密码哈希用于认证
+     * 验证密码是否正确
      */
-    public function getAuthPassword(): string
+    public function validatePassword(string $password): bool
     {
-        return $this->{$this->getAuthPasswordName()};
+        return password_verify($password, $this->getAuthPassword());
     }
 }

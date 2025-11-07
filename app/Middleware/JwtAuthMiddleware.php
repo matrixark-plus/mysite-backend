@@ -13,11 +13,11 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Qbhy\HyperfAuth\AuthManager;
-use App\Service\UserService;
+use Qbhy\HyperfAuth\Exception\UnauthorizedException;
 
 /**
  * JWT认证中间件
- * 用于验证API请求的JWT令牌和用户角色
+ * 遵循hyperf-auth官方标准的认证中间件实现
  */
 class JwtAuthMiddleware implements MiddlewareInterface
 {
@@ -37,11 +37,6 @@ class JwtAuthMiddleware implements MiddlewareInterface
     protected AuthManager $auth;
 
     /**
-     * @Inject
-     */
-    protected UserService $userService;
-
-    /**
      * @var \Psr\Log\LoggerInterface
      */
     protected $logger;
@@ -53,6 +48,12 @@ class JwtAuthMiddleware implements MiddlewareInterface
     protected ?string $role;
 
     /**
+     * 认证守卫名称
+     * @var string
+     */
+    protected string $guard = 'jwt';
+
+    /**
      * JwtAuthMiddleware constructor.
      * @param string|null $role 需要验证的角色
      */
@@ -62,11 +63,14 @@ class JwtAuthMiddleware implements MiddlewareInterface
         $this->role = $role;
     }
 
+    /**
+     * 处理请求，验证JWT令牌
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         try {
-            // 尝试获取当前认证用户
-            $user = $this->auth->user();
+            // 使用指定的guard获取当前认证用户
+            $user = $this->auth->guard($this->guard)->user();
             
             // 检查用户是否已认证
             if (!$user) {
@@ -82,7 +86,8 @@ class JwtAuthMiddleware implements MiddlewareInterface
             if ($this->role && !$this->checkUserRole($user, $this->role)) {
                 $this->logger->warning('JWT角色验证失败', [
                     'user_id' => $user->id ?? 'unknown',
-                    'required_role' => $this->role
+                    'required_role' => $this->role,
+                    'user_role' => $user->role ?? null
                 ]);
                 return $this->response->json([
                     'code' => StatusCode::FORBIDDEN,
@@ -93,6 +98,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
             
             // 将用户信息存储到上下文，便于后续使用
             Context::set('user', $user);
+            Context::set('user_id', $user->id ?? null);
             
             // 认证成功，继续处理请求
             $this->logger->info('JWT认证成功', [
@@ -100,11 +106,22 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 'role' => $this->role
             ]);
             return $handler->handle($request);
-        } catch (\Throwable $e) {
-            $this->logger->error('JWT认证异常: ' . $e->getMessage());
+        } catch (UnauthorizedException $e) {
+            // 捕获hyperf-auth特定的未授权异常
+            $this->logger->warning('JWT认证未授权', ['error' => $e->getMessage()]);
             return $this->response->json([
                 'code' => StatusCode::UNAUTHORIZED,
-                'message' => '认证失败: ' . $e->getMessage(),
+                'message' => '未授权，请先登录',
+                'data' => null
+            ])->withStatus(401);
+        } catch (\Throwable $e) {
+            $this->logger->error('JWT认证异常', [
+                'error' => $e->getMessage(),
+                'trace' => substr($e->getTraceAsString(), 0, 200) // 限制日志长度
+            ]);
+            return $this->response->json([
+                'code' => StatusCode::UNAUTHORIZED,
+                'message' => '认证失败，请重新登录',
                 'data' => null
             ])->withStatus(401);
         }
@@ -116,14 +133,8 @@ class JwtAuthMiddleware implements MiddlewareInterface
      * @param string $role 需要的角色
      * @return bool 用户是否具有指定角色
      */
-    protected function checkUserRole(\App\Model\User $user, string $role): bool
+    protected function checkUserRole($user, string $role): bool
     {
-        // 使用UserService的isAdmin()方法检查用户是否为管理员
-        if ($this->userService->isAdmin($user)) {
-            return true; // 管理员拥有所有权限
-        }
-        
-        // 检查用户角色是否匹配
         return $user->role === $role;
     }
 }
