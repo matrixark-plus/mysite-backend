@@ -92,5 +92,6 @@ Router::post('/api/auth/register', 'App\Controller\Api\AuthController@register')
 Router::delete('/api/auth/logout', 'App\Controller\Api\AuthController@logout');
 Router::post('/api/auth/change-password', 'App\Controller\Api\AuthController@changePassword');
 Router::get('/api/auth/me', 'App\Controller\Api\AuthController@me');
+// 前端已修改为使用/api/auth/me，不再需要兼容路由
 Router::post('/api/auth/refresh', 'App\Controller\Api\AuthController@refresh');
 Router::put('/api/auth/profile', 'App\Controller\Api\AuthController@updateProfile');

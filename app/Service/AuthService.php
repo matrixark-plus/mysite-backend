@@ -42,33 +42,25 @@ class AuthService
      * 用户登录并生成令牌
      * @param string $email 邮箱
      * @param string $password 密码
+     * @param bool $remember 是否记住
      * @return array 包含token和用户信息
      * @throws \InvalidArgumentException 凭证无效时抛出
      * @throws \Exception 其他错误时抛出
      */
-    public function login(string $email, string $password): array
+    public function login(string $email, string $password, bool $remember = false): array
     {
-        // 参数验证
-        if (empty($email) || empty($password)) {
-            throw new \InvalidArgumentException('邮箱和密码不能为空');
-        }
-
         try {
-            $credentials = ['email' => $email, 'password' => $password];
+            // 验证参数并获取用户信息
+            $user = $this->userService->login($email, $password);
             
-            // 使用hyperf-auth标准的attempt方法进行认证
-            $token = $this->auth->guard($this->guard)->attempt($credentials);
+            // 使用hyperf-auth标准的login方法进行登录
+            $this->auth->guard($this->guard)->login($user, $remember);
             
-            if (!$token) {
-                throw new \InvalidArgumentException('邮箱或密码错误');
-            }
-
-            // 获取认证后的用户信息
-            $user = $this->auth->guard($this->guard)->user();
+            // 获取token
+            $token = $this->auth->guard($this->guard)->getToken()->__toString();
             
-            // 返回用户信息和token
             return [
-                'user' => $user,
+                'user' => $this->formatUserInfo($user, 'basic'),
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => (int)config('auth.guards.jwt.ttl', 3600)
@@ -94,26 +86,18 @@ class AuthService
      */
     public function register(array $data): array
     {
-        // 参数验证
-        if (empty($data['email']) || empty($data['password']) || empty($data['username'])) {
-            throw new \InvalidArgumentException('用户名、邮箱和密码不能为空');
-        }
-
         try {
-            // 检查邮箱是否已存在
-            if ($this->userService->getUserByEmail($data['email'])) {
-                throw new \InvalidArgumentException('邮箱已被注册');
-            }
-
-            // 创建用户
+            // 利用UserService的createUser方法创建用户（包含完整验证）
             $user = $this->userService->createUser($data);
-
-            // 使用hyperf-auth标准的login方法自动登录
-            $token = $this->auth->guard($this->guard)->login($user);
-
-            // 返回用户信息和token
+            
+            // 自动登录
+            $this->auth->guard($this->guard)->login($user);
+            
+            // 获取token
+            $token = $this->auth->guard($this->guard)->getToken()->__toString();
+            
             return [
-                'user' => $user,
+                'user' => $this->formatUserInfo($user, 'basic'),
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => (int)config('auth.guards.jwt.ttl', 3600)
@@ -123,7 +107,7 @@ class AuthService
         } catch (\Exception $e) {
             // 记录错误日志
             $this->loggerFactory->get('auth')->error('注册失败', [
-                'email' => $data['email'] ?? '',
+                'data' => $data,
                 'error' => $e->getMessage()
             ]);
             throw new \Exception('注册失败，请稍后重试');
@@ -270,6 +254,51 @@ class AuthService
             throw $e;
         } catch (\Exception $e) {
             throw new UnauthorizedException('获取当前用户失败');
+        }
+    }
+    
+    /**
+     * 获取当前用户信息
+     * @param string $type 信息类型: 'basic', 'profile', 'full'
+     * @return array 格式化后的用户信息
+     * @throws UnauthorizedException 未登录时抛出
+     */
+    public function getCurrentUserInfo(string $type = 'profile'): array
+    {
+        $user = $this->getCurrentUser();
+        return $this->formatUserInfo($user, $type);
+    }
+    
+    /**
+     * 更新用户资料
+     * @param array $data 用户资料数据
+     * @return array 更新后的用户信息
+     * @throws \InvalidArgumentException 参数无效时抛出
+     * @throws UnauthorizedException 未登录时抛出
+     * @throws \Exception 更新失败时抛出
+     */
+    public function updateProfile(array $data): array
+    {
+        try {
+            // 获取当前用户
+            $user = $this->getCurrentUser();
+            
+            // 更新用户信息
+            $updatedUser = $this->userService->updateUser($user, $data);
+            
+            return $this->formatUserInfo($updatedUser, 'profile');
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (UnauthorizedException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            // 记录错误日志
+            $this->loggerFactory->get('auth')->error('更新用户资料失败', [
+                'user_id' => $user->id ?? null,
+                'data' => $data,
+                'error' => $e->getMessage()
+            ]);
+            throw new \Exception('更新资料失败，请稍后重试');
         }
     }
 }
