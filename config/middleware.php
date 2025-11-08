@@ -17,13 +17,24 @@ return [
         // 跨域中间件
         App\Middleware\CorsMiddleware::class,
     ],
+    
+    // 路由中间件
+    'route' => [
+        // JWT认证中间件
+        'auth' => App\Middleware\JwtAuthMiddleware::class,
+        // 管理员权限中间件
+        'admin' => function() {
+            return new App\Middleware\JwtAuthMiddleware('admin');
+        },
+    ],
     'group' => [
-        // 中间件组配置
-        'auth' => [
-            App\Middleware\JwtAuthMiddleware::class,
+        // 权限管理接口中间件分组
+        'permission' => [
+            'auth',
         ],
-        'admin' => [
-            App\Middleware\JwtAuthMiddleware::class,
+        // 管理员权限接口中间件分组
+        'admin_permission' => [
+            'admin',
         ],
     ],
     'alias' => [

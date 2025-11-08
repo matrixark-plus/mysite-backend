@@ -49,12 +49,14 @@ class AuthController extends AbstractController
     
     /**
      * 获取当前用户信息
-     * @return \App\Model\User|null
+     * @return array|null
      */
     protected function getCurrentUser()
     {
         try {
-            return $this->auth->guard('jwt')->user();
+            $user = $this->auth->guard('jwt')->user();
+            // 如果是模型对象，转换为数组
+            return is_object($user) ? $user->toArray() : $user;
         } catch (\Exception $e) {
             $this->logError('获取当前用户失败', ['error' => $e->getMessage()], $e, 'auth');
             return null;
@@ -64,35 +66,40 @@ class AuthController extends AbstractController
     /**
      * 格式化用户信息
      *
-     * @param \App\Model\User $user 用户模型
+     * @param array $user 用户数组
      * @param string $type 信息类型: 'basic', 'profile', 'full'
      * @return array
      */
     protected function formatUserInfo($user, string $type = 'basic'): array
     {
+        // 确保user是数组
+        if (is_object($user)) {
+            $user = $user->toArray();
+        }
+        
         $basicInfo = [
-            'id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'status' => $user->status
+            'id' => $user['id'] ?? null,
+            'username' => $user['username'] ?? null,
+            'email' => $user['email'] ?? null,
+            'status' => $user['status'] ?? null
         ];
         
         switch ($type) {
             case 'profile':
                 $basicInfo += [
-                    'real_name' => $user->real_name,
-                    'avatar' => $user->avatar,
-                    'bio' => $user->bio,
-                    'role' => $user->role
+                    'real_name' => $user['real_name'] ?? null,
+                    'avatar' => $user['avatar'] ?? null,
+                    'bio' => $user['bio'] ?? null,
+                    'role' => $user['role'] ?? null
                 ];
                 break;
             case 'full':
                 $basicInfo += [
-                    'real_name' => $user->real_name,
-                    'avatar' => $user->avatar,
-                    'bio' => $user->bio,
-                    'role' => $user->role,
-                    'created_at' => $user->created_at
+                    'real_name' => $user['real_name'] ?? null,
+                    'avatar' => $user['avatar'] ?? null,
+                    'bio' => $user['bio'] ?? null,
+                    'role' => $user['role'] ?? null,
+                    'created_at' => $user['created_at'] ?? null
                 ];
                 break;
         }
@@ -191,10 +198,17 @@ class AuthController extends AbstractController
                     throw new \InvalidArgumentException('邮箱或密码错误');
                 }
                 
-                // User模型使用password_hash字段存储密码，并且实现了Authenticatable接口
-                // 使用JWT guard的login方法直接登录（内部会处理密码验证）
-                // 这里我们直接将用户对象传递给login方法，让框架处理验证
-                $token = $this->auth->guard('jwt')->login($user);
+                // 创建一个简单的认证对象或数组供JWT使用
+                $authUser = [
+                    'id' => $user['id'],
+                    'email' => $user['email'],
+                    'username' => $user['username'],
+                    'role' => $user['role'] ?? 'user',
+                    'status' => $user['status'] ?? 0
+                ];
+                
+                // 使用JWT guard的login方法
+                $token = $this->auth->guard('jwt')->login((object)$authUser);
                 
                 if (!$token) {
                     $this->logWarning('登录失败', ['email' => $email], 'auth');
@@ -241,7 +255,7 @@ class AuthController extends AbstractController
     {
         // 先获取用户ID，确保在catch块中也能访问
         $user = $this->getCurrentUser();
-        $userId = $user ? $user->id : null;
+        $userId = $user ? ($user['id'] ?? null) : null;
         
         try {
             
@@ -269,7 +283,7 @@ class AuthController extends AbstractController
         try {
             // 获取当前用户信息用于日志记录
             $user = $this->getCurrentUser();
-            $userId = $user ? $user->id : null;
+            $userId = $user ? ($user['id'] ?? null) : null;
             
             // 刷新token
             $token = $this->auth->guard('jwt')->refresh();
@@ -309,7 +323,7 @@ class AuthController extends AbstractController
             }
             
             // 记录获取用户信息成功
-            $this->logAction('获取用户信息成功', ['user_id' => $user->id]);
+            $this->logAction('获取用户信息成功', ['user_id' => $user['id']]);
             
             // 格式化用户信息
             return $this->success([
@@ -358,7 +372,7 @@ class AuthController extends AbstractController
             }
             
             // 修改密码
-            $this->userService->changePassword($user, $currentPassword, $newPassword);
+            $this->userService->changePassword($user['id'], $currentPassword, $newPassword);
             
             // 强制登出，需要重新登录
             $this->auth->guard('jwt')->logout();
@@ -412,7 +426,7 @@ class AuthController extends AbstractController
             ]);
             
             // 使用UserService更新用户信息
-            $updatedUser = $this->userService->updateUser($user, $data);
+            $updatedUser = $this->userService->updateUser($user['id'], $data);
             
             // 记录更新成功
             $this->logAction('个人资料更新成功', ['user_id' => $userId]);

@@ -84,6 +84,14 @@ Router::addGroup('/api', function () {
     // 配置相关路由
     Router::get('/config/get', 'App\Controller\Api\ConfigController@getConfig');
     // 注意：ConfigController中只实现了getConfig方法，updateConfig和batchUpdateConfig需要在控制器中实现后再启用
+    
+    // 权限管理相关路由
+    // 获取角色列表 - 仅管理员可访问
+    Router::get('/permission/roles', 'App\Controller\Api\PermissionController@getRoles', ['middleware' => 'admin_permission']);
+    // 获取用户角色信息 - 需要认证
+    Router::get('/permission/user-role', 'App\Controller\Api\PermissionController@getUserRole', ['middleware' => 'permission']);
+    // 更新用户角色 - 仅管理员可访问
+    Router::post('/permission/update-role', 'App\Controller\Api\PermissionController@updateRole', ['middleware' => 'admin_permission']);
 });
 
 // 认证相关路由 - 显式配置以确保API正常工作

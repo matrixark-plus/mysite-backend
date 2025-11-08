@@ -84,10 +84,13 @@ class JwtAuthMiddleware implements MiddlewareInterface
             
             // 如果需要验证角色
             if ($this->role && !$this->checkUserRole($user, $this->role)) {
+                $userId = is_object($user) ? ($user->id ?? 'unknown') : ($user['id'] ?? 'unknown');
+                $userRole = is_object($user) ? ($user->role ?? null) : ($user['role'] ?? null);
+                
                 $this->logger->warning('JWT角色验证失败', [
-                    'user_id' => $user->id ?? 'unknown',
+                    'user_id' => $userId,
                     'required_role' => $this->role,
-                    'user_role' => $user->role ?? null
+                    'user_role' => $userRole
                 ]);
                 return $this->response->json([
                     'code' => StatusCode::FORBIDDEN,
@@ -96,9 +99,11 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ])->withStatus(403);
             }
             
-            // 将用户信息存储到上下文，便于后续使用
-            Context::set('user', $user);
-            Context::set('user_id', $user->id ?? null);
+            // 将用户信息转换为数组并存储到上下文，便于后续使用
+            $userArray = is_object($user) ? $user->toArray() : $user;
+            Context::set('user', $userArray);
+            Context::set('user_id', $userArray['id'] ?? null);
+            Context::set('user_role', $userArray['role'] ?? null);
             
             // 认证成功，继续处理请求
             $this->logger->info('JWT认证成功', [
@@ -129,12 +134,15 @@ class JwtAuthMiddleware implements MiddlewareInterface
 
     /**
      * 检查用户角色
-     * @param \App\Model\User $user 用户对象
+     * @param array|object $user 用户对象或数组
      * @param string $role 需要的角色
      * @return bool 用户是否具有指定角色
      */
     protected function checkUserRole($user, string $role): bool
     {
-        return $user->role === $role;
+        if (is_object($user)) {
+            return $user->role === $role;
+        }
+        return $user['role'] ?? null === $role;
     }
 }

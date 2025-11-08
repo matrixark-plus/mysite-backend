@@ -10,6 +10,8 @@ use Hyperf\Config\ConfigInterface;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerInterface;
 use Carbon\Carbon;
+// 注意：权限管理相关功能已移至PermissionService
+
 
 class SystemService
 {
@@ -350,4 +352,6 @@ class SystemService
         
         return $start->diffInDays($end) + 1;
     }
+    
+    // 权限管理相关功能已移至PermissionService
 }

@@ -3,7 +3,7 @@
 use Hyperf\Database\Schema\Schema;
 use Hyperf\Database\Schema\Blueprint;
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\DB;
+use Hyperf\DbConnection\Db;
 
 class CreateUsersTable extends Migration
 {
@@ -12,30 +12,33 @@ class CreateUsersTable extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('username', 50)->unique()->comment('用户名');
-            $table->string('email', 100)->unique()->comment('邮箱');
-            $table->string('password', 255)->comment('密码');
-            $table->string('nickname', 50)->comment('昵称');
-            $table->string('avatar', 255)->nullable()->comment('头像');
-            $table->text('bio')->nullable()->comment('个人简介');
-            $table->string('website', 255)->nullable()->comment('个人网站');
-            $table->json('social_links')->nullable()->comment('社交链接');
-            $table->boolean('is_active')->default(false)->comment('是否激活');
-            $table->boolean('is_admin')->default(false)->comment('是否管理员');
-            $table->timestamp('last_login_at')->nullable()->comment('最后登录时间');
-            $table->timestamps();
-            $table->softDeletes();
-            
-            // 索引设计
-            $table->index('username');
-            $table->index('email');
-            $table->index('is_active');
-        });
+        // 如果users表不存在才创建
+        if (!Schema::hasTable('users')) {
+            Schema::create('users', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->string('username', 50)->unique()->comment('用户名');
+                $table->string('email', 100)->unique()->comment('邮箱');
+                $table->string('password', 255)->comment('密码');
+                $table->string('nickname', 50)->comment('昵称');
+                $table->string('avatar', 255)->nullable()->comment('头像');
+                $table->text('bio')->nullable()->comment('个人简介');
+                $table->string('website', 255)->nullable()->comment('个人网站');
+                $table->json('social_links')->nullable()->comment('社交链接');
+                $table->boolean('is_active')->default(false)->comment('是否激活');
+                $table->boolean('is_admin')->default(false)->comment('是否管理员');
+                $table->timestamp('last_login_at')->nullable()->comment('最后登录时间');
+                $table->timestamps();
+                $table->softDeletes();
+                
+                // 索引设计
+                $table->index('username');
+                $table->index('email');
+                $table->index('is_active');
+            });
+        }
         
         // 添加测试数据
-        DB::table('users')->insert([
+        Db::table('users')->insert([
             [
                 'username' => 'admin',
                 'email' => 'admin@example.com',

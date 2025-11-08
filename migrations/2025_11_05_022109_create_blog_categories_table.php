@@ -3,7 +3,7 @@
 use Hyperf\Database\Schema\Schema;
 use Hyperf\Database\Schema\Blueprint;
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\DB;
+use Hyperf\DbConnection\Db;
 
 class CreateBlogCategoriesTable extends Migration
 {
@@ -30,7 +30,7 @@ class CreateBlogCategoriesTable extends Migration
         });
         
         // 添加测试数据
-        DB::table('blog_categories')->insert([
+        Db::table('blog_categories')->insert([
             [
                 'name' => '技术分享',
                 'slug' => 'tech',

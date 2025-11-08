@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\User;
-use Hyperf\DbConnection\Db;
+use App\Repository\UserRepository;
 use Hyperf\Di\Annotation\Inject;
-use Hyperf\Logger\LoggerFactory;
-use Hyperf\Utils\ApplicationContext;
-use Hyperf\Utils\Str;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,6 +19,12 @@ class UserService
      * @var LoggerInterface
      */
     protected $logger;
+    
+    /**
+     * @Inject
+     * @var UserRepository
+     */
+    protected $userRepository;
     /**
      * 创建新用户
      *
@@ -30,7 +32,7 @@ class UserService
      * @return User
      * @throws \InvalidArgumentException
      */
-    public function createUser(array $data): User
+    public function createUser(array $data): array
     {
         // 验证数据
         $this->validateUserData($data);
@@ -45,34 +47,37 @@ class UserService
             throw new \InvalidArgumentException('邮箱已被注册');
         }
         
-        // 创建用户
-        $user = new User();
-        $user->username = $data['username'];
-        $user->email = $data['email'];
-        $user->password = $data['password']; // 利用setPasswordAttribute方法自动加密
-        $user->status = $data['status'] ?? 1;
-        $user->created_at = date('Y-m-d H:i:s');
-        $user->updated_at = date('Y-m-d H:i:s');
+        // 准备数据
+        $userData = [
+            'username' => $data['username'],
+            'email' => $data['email'],
+            'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
+            'status' => $data['status'] ?? 1,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
         
         // 设置可选字段
         if (isset($data['real_name'])) {
-            $user->real_name = $data['real_name'];
+            $userData['real_name'] = $data['real_name'];
         }
         if (isset($data['avatar'])) {
-            $user->avatar = $data['avatar'];
+            $userData['avatar'] = $data['avatar'];
         }
         if (isset($data['bio'])) {
-            $user->bio = $data['bio'];
+            $userData['bio'] = $data['bio'];
         }
         if (isset($data['role'])) {
-            $user->role = $data['role'];
+            $userData['role'] = $data['role'];
         }
         
-        Db::transaction(function () use ($user) {
-            $user->save();
-        });
-        
-        return $user;
+        try {
+            $user = $this->userRepository->create($userData);
+            return $user;
+        } catch (\Exception $e) {
+            $this->logger->error('创建用户失败: ' . $e->getMessage(), ['data' => $data]);
+            throw $e;
+        }
     }
     
     /**
@@ -81,9 +86,9 @@ class UserService
      * @param int $id 用户ID
      * @return User|null
      */
-    public function getUserById(int $id): ?User
+    public function getUserById(int $id): ?array
     {
-        return User::find($id);
+        return $this->userRepository->findById($id);
     }
     
     /**
@@ -92,9 +97,9 @@ class UserService
      * @param string $email 邮箱
      * @return User|null
      */
-    public function getUserByEmail(string $email): ?User
+    public function getUserByEmail(string $email): ?array
     {
-        return User::query()->where('email', $email)->first();
+        return $this->userRepository->findBy(['email' => $email]);
     }
     
     /**
@@ -103,9 +108,9 @@ class UserService
      * @param string $username 用户名
      * @return User|null
      */
-    public function getUserByUsername(string $username): ?User
+    public function getUserByUsername(string $username): ?array
     {
-        return User::query()->where('username', $username)->first();
+        return $this->userRepository->findBy(['username' => $username]);
     }
     
     /**
@@ -115,7 +120,7 @@ class UserService
      * @param string $password 密码
      * @return User|null
      */
-    public function validateCredentials(string $email, string $password): ?User
+    public function validateCredentials(string $email, string $password): ?array
     {
         $user = $this->getUserByEmail($email);
         
@@ -124,12 +129,12 @@ class UserService
         }
         
         // 检查密码是否正确
-        if (!password_verify($password, $user->password_hash)) {
+        if (!password_verify($password, $user['password_hash'] ?? '')) {
             return null;
         }
         
         // 检查用户状态
-        if ($user->status !== 1) {
+        if ($user['status'] !== 1) {
             return null;
         }
         
@@ -144,7 +149,7 @@ class UserService
      * @return User
      * @throws \InvalidArgumentException
      */
-    public function login(string $email, string $password): User
+    public function login(string $email, string $password): array
     {
         // 参数验证
         if (empty($email) || empty($password)) {
@@ -174,44 +179,57 @@ class UserService
      * @return User
      * @throws \InvalidArgumentException
      */
-    public function updateUser(User $user, array $data): User
+    public function updateUser(int $id, array $data): array
     {
+        // 检查用户是否存在
+        $user = $this->getUserById($id);
+        if (!$user) {
+            throw new \InvalidArgumentException('用户不存在');
+        }
+        
         // 检查用户名是否被其他用户使用
-        if (isset($data['username']) && $data['username'] !== $user->username) {
-            $existingUser = User::query()
-                ->where('username', $data['username'])
-                ->where('id', '!=', $user->id)
-                ->first();
+        if (isset($data['username']) && $data['username'] !== $user['username']) {
+            $existingUser = $this->userRepository->findBy(['username' => $data['username'], 'id' => ['!=' => $id]]);
             
             if ($existingUser) {
                 throw new \InvalidArgumentException('用户名已被使用');
             }
-            
-            $user->username = $data['username'];
         }
         
-        // 更新其他字段
+        // 准备更新数据
+        $updateData = [];
+        if (isset($data['username'])) {
+            $updateData['username'] = $data['username'];
+        }
         if (isset($data['real_name'])) {
-            $user->real_name = $data['real_name'];
+            $updateData['real_name'] = $data['real_name'];
         }
         if (isset($data['avatar'])) {
-            $user->avatar = $data['avatar'];
+            $updateData['avatar'] = $data['avatar'];
         }
         if (isset($data['bio'])) {
-            $user->bio = $data['bio'];
+            $updateData['bio'] = $data['bio'];
         }
         if (isset($data['status'])) {
-            $user->status = $data['status'];
+            $updateData['status'] = $data['status'];
         }
         if (isset($data['role'])) {
-            $user->role = $data['role'];
+            $updateData['role'] = $data['role'];
         }
         
         // 确保更新时间戳
-        $user->updated_at = date('Y-m-d H:i:s');
+        $updateData['updated_at'] = date('Y-m-d H:i:s');
         
-        $user->save();
-        return $user;
+        try {
+            $result = $this->userRepository->update($id, $updateData);
+            if ($result) {
+                return $this->getUserById($id);
+            }
+            throw new \Exception('更新用户失败');
+        } catch (\Exception $e) {
+            $this->logger->error('更新用户信息失败: ' . $e->getMessage(), ['id' => $id, 'data' => $data]);
+            throw $e;
+        }
     }
     
     /**
@@ -223,16 +241,11 @@ class UserService
      * @return bool
      * @throws \InvalidArgumentException
      */
-    public function changePassword(User $user, string $currentPassword, string $newPassword): bool
+    public function changePassword(int $userId, string $currentPassword, string $newPassword): bool
     {
         // 参数验证
         if (empty($currentPassword) || empty($newPassword)) {
             throw new \InvalidArgumentException('当前密码和新密码不能为空');
-        }
-        
-        // 验证当前密码
-        if (!password_verify($currentPassword, $user->password_hash)) {
-            throw new \InvalidArgumentException('当前密码错误');
         }
         
         // 验证新密码强度
@@ -240,10 +253,31 @@ class UserService
             throw new \InvalidArgumentException('新密码长度不能少于6位');
         }
         
-        // 设置新密码
-        $user->password = $newPassword;
-        $user->updated_at = date('Y-m-d H:i:s');
-        return $user->save();
+        // 获取用户信息
+        $user = $this->getUserById($userId);
+        
+        if (!$user) {
+            throw new \InvalidArgumentException('用户不存在');
+        }
+        
+        // 验证当前密码
+        if (!password_verify($currentPassword, $user['password_hash'] ?? '')) {
+            throw new \InvalidArgumentException('当前密码错误');
+        }
+        
+        try {
+            $result = $this->userRepository->update($userId, [
+                'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            $this->logger->info('用户密码已更新', ['user_id' => $userId]);
+            
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger->error('更新用户密码失败: ' . $e->getMessage(), ['user_id' => $userId]);
+            throw $e;
+        }
     }
     
     /**
@@ -254,45 +288,53 @@ class UserService
      */
     public function getUsers(array $params = []): array
     {
-        $query = User::query();
+        // 构建查询条件
+        $conditions = [];
+        $likeConditions = [];
         
         // 搜索条件
         if (isset($params['keyword']) && $params['keyword']) {
             $keyword = $params['keyword'];
-            $query->where(function ($q) use ($keyword) {
-                $q->where('username', 'like', '%' . $keyword . '%')
-                  ->orWhere('email', 'like', '%' . $keyword . '%')
-                  ->orWhere('real_name', 'like', '%' . $keyword . '%');
-            });
+            $likeConditions = [
+                ['field' => 'username', 'value' => '%' . $keyword . '%'],
+                ['field' => 'email', 'value' => '%' . $keyword . '%'],
+                ['field' => 'real_name', 'value' => '%' . $keyword . '%']
+            ];
         }
         
         // 状态筛选
         if (isset($params['status'])) {
-            $query->where('status', $params['status']);
+            $conditions['status'] = $params['status'];
         }
         
         // 角色筛选
         if (isset($params['role'])) {
-            $query->where('role', $params['role']);
+            $conditions['role'] = $params['role'];
         }
         
         // 排序
         $sortBy = $params['sort_by'] ?? 'created_at';
         $sortOrder = $params['sort_order'] ?? 'desc';
-        $query->orderBy($sortBy, $sortOrder);
         
         // 分页
         $page = $params['page'] ?? 1;
         $pageSize = $params['page_size'] ?? 20;
         
-        $users = $query->paginate($pageSize, ['*'], 'page', $page);
-        
-        return [
-            'total' => $users->total(),
-            'page' => $users->currentPage(),
-            'page_size' => $users->perPage(),
-            'data' => $users->items()
-        ];
+        try {
+            // 使用Repository获取用户列表
+            $result = $this->userRepository->findAllBy(
+                $conditions,
+                $likeConditions,
+                [$sortBy => $sortOrder],
+                $page,
+                $pageSize
+            );
+            
+            return $result;
+        } catch (\Exception $e) {
+            $this->logger->error('获取用户列表失败: ' . $e->getMessage(), ['params' => $params]);
+            throw $e;
+        }
     }
     
     /**
@@ -340,9 +382,9 @@ class UserService
      * @param User $user 用户模型
      * @return bool
      */
-    public function isAdmin(User $user): bool
+    public function isAdmin(array $user): bool
     {
-        return $user->role === 'admin';
+        return $user['role'] === 'admin';
     }
     
     /**
@@ -360,9 +402,16 @@ class UserService
             throw new \InvalidArgumentException('用户不存在');
         }
         
-        $user->status = $user->status === 1 ? 0 : 1;
-        $user->updated_at = date('Y-m-d H:i:s');
+        $newStatus = $user['status'] === 1 ? 0 : 1;
         
-        return $user->save();
+        try {
+            return $this->userRepository->update($id, [
+                'status' => $newStatus,
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('切换用户状态失败: ' . $e->getMessage(), ['user_id' => $id]);
+            throw $e;
+        }
     }
 }
