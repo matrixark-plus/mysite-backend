@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Service;
 
 use Hyperf\Contract\ConfigInterface;
-use Hyperf\Context\ApplicationContext;
 use Hyperf\Coroutine\Coroutine;
 use Hyperf\Logger\Logger;
+use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -17,11 +17,13 @@ use Psr\Log\LoggerInterface;
 class MailService
 {
     /**
+     * @Inject
      * @var ConfigInterface
      */
     protected $config;
 
     /**
+     * @Inject
      * @var LoggerInterface
      */
     protected $logger;
@@ -34,10 +36,6 @@ class MailService
 
     public function __construct()
     {
-        $container = ApplicationContext::getContainer();
-        $this->config = $container->get(ConfigInterface::class);
-        $this->logger = $container->get(LoggerInterface::class);
-        
         // 初始化邮件配置
         $this->initMailConfig();
     }

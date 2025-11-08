@@ -7,10 +7,12 @@ namespace App\Service;
 use Hyperf\Contract\ConfigInterface;
 use Hyperf\Context\ApplicationContext;
 use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 use Yurun\OAuthLogin\GitHub\GitHubOAuth;
 use Yurun\OAuthLogin\Google\GoogleOAuth;
 use Yurun\OAuthLogin\Weixin\WeixinOAuth;
+use App\Service\JwtAuthService;
 
 /**
  * OAuth服务
@@ -50,13 +52,33 @@ class OAuthService
      */
     protected $oauthInstances = [];
 
+    /**
+     * @Inject
+     * @var ConfigInterface
+     */
+    protected $config;
+    
+    /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
+    
+    /**
+     * @Inject
+     * @var ResponseInterface
+     */
+    protected $response;
+    
+    /**
+     * @Inject
+     * @var JwtAuthService
+     */
+    protected $jwtAuthService;
+    
     public function __construct()
     {
-        $container = ApplicationContext::getContainer();
-        $this->config = $container->get(ConfigInterface::class);
-        $this->logger = $container->get(LoggerInterface::class);
-        $this->response = $container->get(ResponseInterface::class);
-        $this->jwtAuthService = $container->get(JwtAuthService::class);
+        // 构造函数为空，依赖通过@Inject注解自动注入
     }
 
     /**

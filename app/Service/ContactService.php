@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
 use Hyperf\DbConnection\Db;
-use Hyperf\Utils\ApplicationContext;
 use Hyperf\Redis\RedisFactory;
+use Hyperf\Di\Annotation\Inject;
 use Carbon\Carbon;
 
 class ContactService
@@ -15,15 +17,20 @@ class ContactService
     protected $redis;
     
     /**
+     * @Inject
+     * @var RedisFactory
+     */
+    protected $redisFactory;
+    
+    /**
+     * @Inject
      * @var MailService
      */
     protected $mailService;
     
     public function __construct()
     {
-        $container = ApplicationContext::getContainer();
-        $this->redis = $container->get(RedisFactory::class)->get('default');
-        $this->mailService = $container->get(MailService::class);
+        $this->redis = $this->redisFactory->get('default');
     }
     
     /**

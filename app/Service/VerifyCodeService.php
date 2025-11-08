@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Service;
 
-use Hyperf\Utils\ApplicationContext;
 use Hyperf\Redis\RedisFactory;
 use Hyperf\Config\ConfigInterface;
+use Hyperf\Di\Annotation\Inject;
 
 class VerifyCodeService
 {
@@ -14,21 +16,26 @@ class VerifyCodeService
     protected $redis;
     
     /**
+     * @Inject
+     * @var RedisFactory
+     */
+    protected $redisFactory;
+    
+    /**
+     * @Inject
      * @var ConfigInterface
      */
     protected $config;
     
     /**
+     * @Inject
      * @var MailService
      */
     protected $mailService;
     
     public function __construct()
     {
-        $container = ApplicationContext::getContainer();
-        $this->redis = $container->get(RedisFactory::class)->get('default');
-        $this->config = $container->get(ConfigInterface::class);
-        $this->mailService = $container->get(MailService::class);
+        $this->redis = $this->redisFactory->get('default');
     }
     
     /**

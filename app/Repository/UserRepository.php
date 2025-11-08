@@ -117,7 +117,7 @@ class UserRepository
                 $user = new User();
                 foreach ($data as $key => $value) {
                     if (property_exists($user, $key)) {
-                        $user-{$key} = $value;
+                        $user->{$key} = $value;
                     }
                 }
                 
@@ -151,7 +151,7 @@ class UserRepository
             return Db::transaction(function () use ($user, $data) {
                 foreach ($data as $key => $value) {
                     if (property_exists($user, $key)) {
-                        $user-{$key} = $value;
+                        $user->{$key} = $value;
                     }
                 }
                 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller\Api;
 
 use App\Controller\AbstractController;
@@ -8,12 +10,16 @@ use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
+use App\Constants\StatusCode;
+use App\Traits\LogTrait;
 
 /**
  * @Controller(prefix="/api/mind-map")
  */
 class MindMapController extends AbstractController
 {
+    use LogTrait;
+    
     /**
      * @Inject
      * @var MindMapService
@@ -32,8 +38,8 @@ class MindMapController extends AbstractController
             $result = $this->mindMapService->getRootNodes($params);
             return $this->success($result);
         } catch (\Exception $e) {
-            logger()->error('获取脑图根节点列表异常: ' . $e->getMessage());
-            return $this->fail(500, '获取脑图列表失败');
+            $this->logError('获取脑图根节点列表异常', ['message' => $e->getMessage()], $e, 'mindmap');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取脑图列表失败');
         }
     }
     
@@ -42,15 +48,15 @@ class MindMapController extends AbstractController
      * 
      * @RequestMapping(path="/{id}", methods={"GET"})
      */
-    public function getMindMapData($id, RequestInterface $request)
+    public function getMindMapData(int $id, RequestInterface $request)
     {
         try {
             $includeContent = (bool)$request->input('include_content', false);
             $result = $this->mindMapService->getMindMapData($id, $includeContent);
             return $this->success($result);
         } catch (\Exception $e) {
-            logger()->error('获取脑图数据异常: ' . $e->getMessage());
-            return $this->fail(404, $e->getMessage() ?: '脑图不存在');
+            $this->logError('获取脑图数据异常', ['message' => $e->getMessage(), 'id' => $id], $e, 'mindmap');
+            return $this->fail(StatusCode::NOT_FOUND, $e->getMessage() ?: '脑图不存在');
         }
     }
 }

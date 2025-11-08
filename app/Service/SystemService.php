@@ -17,9 +17,24 @@ class SystemService
 {
     /**
      * @Inject
+     * @var RedisFactory
+     */
+    protected $redisFactory;
+    
+    /**
+     * Redis实例
      * @var \Redis
      */
     protected $redis;
+    
+    /**
+     * 构造函数
+     */
+    public function __construct()
+    {
+        // 初始化Redis实例
+        $this->redis = $this->redisFactory->get('default');
+    }
     
     /**
      * @Inject
@@ -202,6 +217,31 @@ class SystemService
         }
         
         return $stats;
+    }
+    
+    /**
+     * 获取系统配置
+     * 
+     * @return array 系统配置
+     */
+    public function getSystemConfig(): array
+    {
+        try {
+            // 直接调用getConfig方法获取所有配置
+            $configs = $this-\u003egetConfig();
+            
+            // 转换为前端需要的格式
+            return [
+                'site_name' => $configs['site.name'] ?? '默认站点',
+                'site_description' => $configs['site.description'] ?? '站点描述',
+                'site_keywords' => $configs['site.keywords'] ?? '',
+                'copyright' => $configs['site.copyright'] ?? '',
+                'icp_info' => $configs['site.icp_info'] ?? ''
+            ];
+        } catch (\Exception $e) {
+            $this->logger->error('获取系统配置异常: ' . $e->getMessage());
+            throw $e;
+        }
     }
     
     /**
