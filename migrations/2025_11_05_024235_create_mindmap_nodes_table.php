@@ -1,9 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\Query\Builder;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateMindmapNodesTable extends Migration
 {
@@ -23,17 +31,17 @@ class CreateMindmapNodesTable extends Migration
             $table->float('position_y')->nullable()->comment('节点Y坐标');
             $table->datetime('created_at')->notNull()->default('CURRENT_TIMESTAMP');
             $table->datetime('updated_at')->notNull()->default('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
-            
+
             // 外键约束
             $table->foreign('root_id')->references('id')->on('mindmap_roots')->onDelete('cascade');
             $table->foreign('parent_id')->references('id')->on('mindmap_nodes')->onDelete('cascade');
             $table->foreign('note_id')->references('id')->on('notes')->onDelete('set null');
-            
+
             // 索引设计
             $table->index(['root_id', 'parent_id'])->comment('支持获取脑图的节点树结构');
             $table->index(['node_type', 'note_id'])->comment('支持按类型和关联笔记查询');
         });
-        
+
         // 插入测试数据
         $this->insertTestData();
     }
@@ -45,9 +53,9 @@ class CreateMindmapNodesTable extends Migration
     {
         Schema::dropIfExists('mindmap_nodes');
     }
-    
+
     /**
-     * 插入测试数据
+     * 插入测试数据.
      */
     protected function insertTestData()
     {

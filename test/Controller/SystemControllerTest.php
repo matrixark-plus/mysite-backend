@@ -1,22 +1,35 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace HyperfTest\Controller;
 
+use App\Constants\StatusCode;
 use App\Controller\Api\SystemController;
 use App\Service\SystemService;
-use App\Constants\StatusCode;
+use Exception;
 use Hyperf\Context\ApplicationContext;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Logger\LoggerInterface;
 use Hyperf\Testing\TestCase;
+use InvalidArgumentException;
 use Mockery;
+use ReflectionClass;
 
 /**
  * SystemController的单元测试
- * 测试系统控制器的各项功能
+ * 测试系统控制器的各项功能.
+ * @internal
+ * @coversNothing
  */
 class SystemControllerTest extends TestCase
 {
@@ -31,7 +44,7 @@ class SystemControllerTest extends TestCase
     protected $systemServiceMock;
 
     /**
-     * @var Mockery\MockInterface|LoggerInterface
+     * @var LoggerInterface|Mockery\MockInterface
      */
     protected $loggerMock;
 
@@ -57,7 +70,7 @@ class SystemControllerTest extends TestCase
 
         // 获取容器并注册mocks
         $container = ApplicationContext::getContainer();
-        
+
         // 确保系统服务正确注册
         $container->set(SystemService::class, $this->systemServiceMock);
         $container->set(LoggerInterface::class, $this->loggerMock);
@@ -71,18 +84,18 @@ class SystemControllerTest extends TestCase
 
         // 直接创建控制器并设置依赖
         $this->controller = new SystemController();
-        $reflection = new \ReflectionClass($this->controller);
-        
+        $reflection = new ReflectionClass($this->controller);
+
         // 设置systemService属性
         $systemServiceProperty = $reflection->getProperty('systemService');
         $systemServiceProperty->setAccessible(true);
         $systemServiceProperty->setValue($this->controller, $this->systemServiceMock);
-        
+
         // 设置logger属性
         $loggerProperty = $reflection->getProperty('logger');
         $loggerProperty->setAccessible(true);
         $loggerProperty->setValue($this->controller, $this->loggerMock);
-        
+
         // 设置response属性
         $responseProperty = $reflection->getProperty('response');
         $responseProperty->setAccessible(true);
@@ -96,7 +109,7 @@ class SystemControllerTest extends TestCase
     }
 
     /**
-     * 测试获取统计数据成功的情况
+     * 测试获取统计数据成功的情况.
      */
     public function testGetStatisticsSuccess()
     {
@@ -106,7 +119,7 @@ class SystemControllerTest extends TestCase
             'users_count' => 150,
             'blogs_count' => 50,
             'comments_count' => 200,
-            'visits_count' => 1000
+            'visits_count' => 1000,
         ];
 
         // 模拟请求参数
@@ -122,7 +135,7 @@ class SystemControllerTest extends TestCase
         $this->controller->shouldReceive('success')
             ->with($expectedData)
             ->andReturn($this->responseMock);
-        
+
         // 设置控制器的依赖
         $this->controller->systemService = $this->systemServiceMock;
         $this->controller->logger = $this->loggerMock;
@@ -135,7 +148,7 @@ class SystemControllerTest extends TestCase
     }
 
     /**
-     * 测试获取统计数据成功-复杂统计数据
+     * 测试获取统计数据成功-复杂统计数据.
      */
     public function testGetStatisticsSuccessWithComplexData()
     {
@@ -149,12 +162,12 @@ class SystemControllerTest extends TestCase
             'daily_trend' => [
                 ['date' => '2023-10-01', 'visits' => 350],
                 ['date' => '2023-10-02', 'visits' => 420],
-                ['date' => '2023-10-03', 'visits' => 380]
+                ['date' => '2023-10-03', 'visits' => 380],
             ],
             'top_pages' => [
                 ['page' => '/home', 'visits' => 5000],
-                ['page' => '/about', 'visits' => 3000]
-            ]
+                ['page' => '/about', 'visits' => 3000],
+            ],
         ];
 
         // 模拟请求参数
@@ -170,7 +183,7 @@ class SystemControllerTest extends TestCase
         $this->controller->shouldReceive('success')
             ->with($expectedData)
             ->andReturn($this->responseMock);
-        
+
         // 设置控制器的依赖
         $this->controller->systemService = $this->systemServiceMock;
         $this->controller->logger = $this->loggerMock;
@@ -183,7 +196,7 @@ class SystemControllerTest extends TestCase
     }
 
     /**
-     * 测试获取统计数据失败的情况-数据库连接错误
+     * 测试获取统计数据失败的情况-数据库连接错误.
      */
     public function testGetStatisticsFailure()
     {
@@ -195,7 +208,7 @@ class SystemControllerTest extends TestCase
         $this->requestMock->shouldReceive('all')->andReturn($params);
 
         // 模拟服务抛出异常
-        $exception = new \Exception($exceptionMessage);
+        $exception = new Exception($exceptionMessage);
         $this->systemServiceMock->shouldReceive('getStatistics')
             ->with($params)
             ->andThrow($exception);
@@ -210,7 +223,7 @@ class SystemControllerTest extends TestCase
         $this->controller->shouldReceive('fail')
             ->with(StatusCode::INTERNAL_SERVER_ERROR, '获取统计数据失败')
             ->andReturn($this->responseMock);
-        
+
         // 设置控制器的依赖
         $this->controller->systemService = $this->systemServiceMock;
         $this->controller->logger = $this->loggerMock;
@@ -223,7 +236,7 @@ class SystemControllerTest extends TestCase
     }
 
     /**
-     * 测试获取统计数据失败的情况-无效参数异常
+     * 测试获取统计数据失败的情况-无效参数异常.
      */
     public function testGetStatisticsWithInvalidParamsException()
     {
@@ -235,7 +248,7 @@ class SystemControllerTest extends TestCase
         $this->requestMock->shouldReceive('all')->andReturn($params);
 
         // 模拟服务抛出异常
-        $exception = new \InvalidArgumentException($exceptionMessage);
+        $exception = new InvalidArgumentException($exceptionMessage);
         $this->systemServiceMock->shouldReceive('getStatistics')
             ->with($params)
             ->andThrow($exception);
@@ -250,7 +263,7 @@ class SystemControllerTest extends TestCase
         $this->controller->shouldReceive('fail')
             ->with(StatusCode::INTERNAL_SERVER_ERROR, '获取统计数据失败')
             ->andReturn($this->responseMock);
-        
+
         // 设置控制器的依赖
         $this->controller->systemService = $this->systemServiceMock;
         $this->controller->logger = $this->loggerMock;
@@ -263,7 +276,7 @@ class SystemControllerTest extends TestCase
     }
 
     /**
-     * 测试获取统计数据-空参数情况
+     * 测试获取统计数据-空参数情况.
      */
     public function testGetStatisticsWithEmptyParams()
     {
@@ -273,7 +286,7 @@ class SystemControllerTest extends TestCase
             'users_count' => 0,
             'blogs_count' => 0,
             'comments_count' => 0,
-            'visits_count' => 0
+            'visits_count' => 0,
         ];
 
         // 模拟请求参数
@@ -289,7 +302,7 @@ class SystemControllerTest extends TestCase
         $this->controller->shouldReceive('success')
             ->with($expectedData)
             ->andReturn($this->responseMock);
-        
+
         // 设置控制器的依赖
         $this->controller->systemService = $this->systemServiceMock;
         $this->controller->logger = $this->loggerMock;

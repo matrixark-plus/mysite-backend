@@ -1,9 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\Query\Builder;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateMindmapRootsTable extends Migration
 {
@@ -21,16 +29,16 @@ class CreateMindmapRootsTable extends Migration
             $table->tinyInteger('is_public')->notNull()->default(1)->comment('是否公开');
             $table->datetime('created_at')->notNull()->default('CURRENT_TIMESTAMP');
             $table->datetime('updated_at')->notNull()->default('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
-            
+
             // 外键约束
             $table->foreign('creator_id')->references('id')->on('users')->onDelete('cascade');
-            
+
             // 索引设计
             $table->index(['is_public', 'created_at'])->comment('支持公开状态排序查询');
             $table->index(['creator_id', 'created_at'])->comment('支持用户的脑图列表');
             $table->index('title')->comment('支持标题搜索');
         });
-        
+
         // 插入测试数据
         $this->insertTestData();
     }
@@ -42,9 +50,9 @@ class CreateMindmapRootsTable extends Migration
     {
         Schema::dropIfExists('mindmap_roots');
     }
-    
+
     /**
-     * 插入测试数据
+     * 插入测试数据.
      */
     protected function insertTestData()
     {

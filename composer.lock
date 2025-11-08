@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1470d47309eb9186ab6bc9350c2755e3",
+    "content-hash": "059b51a6288b7207de33d95c506b45e7",
     "packages": [
         {
             "name": "96qbhy/hyperf-auth",
@@ -2474,6 +2474,51 @@
                 "source": "https://github.com/hyperf/hyperf"
             },
             "time": "2023-11-22T06:13:01+00:00"
+        },
+        {
+            "name": "hyperf/ide-helper",
+            "version": "v3.0.45",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/hyperf/ide-helper.git",
+                "reference": "6e1550be4c8514482c021184378507dbbdc1ee1b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/hyperf/ide-helper/zipball/6e1550be4c8514482c021184378507dbbdc1ee1b",
+                "reference": "6e1550be4c8514482c021184378507dbbdc1ee1b",
+                "shasum": ""
+            },
+            "require": {
+                "hyperf/code-parser": "~3.0.0",
+                "hyperf/support": "~3.0.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.0-dev"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "IDE help files for Hyperf.",
+            "homepage": "https://hyperf.io",
+            "keywords": [
+                "dev",
+                "hyperf",
+                "ide-helper",
+                "php",
+                "swoole"
+            ],
+            "support": {
+                "docs": "https://hyperf.wiki",
+                "issues": "https://github.com/hyperf/hyperf/issues",
+                "pull-request": "https://github.com/hyperf/hyperf/pulls",
+                "source": "https://github.com/hyperf/hyperf"
+            },
+            "time": "2023-11-23T03:49:28+00:00"
         },
         {
             "name": "hyperf/logger",
@@ -6708,13 +6753,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/hyperf/devtool/zipball/21010063ad92b74399106070d88c3d85633e7ed3",
                 "reference": "21010063ad92b74399106070d88c3d85633e7ed3",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "hyperf/code-parser": "~3.0.0",
@@ -6749,57 +6788,6 @@
                 "dev",
                 "devtool",
                 "hyperf",
-                "php",
-                "swoole"
-            ],
-            "support": {
-                "docs": "https://hyperf.wiki",
-                "issues": "https://github.com/hyperf/hyperf/issues",
-                "pull-request": "https://github.com/hyperf/hyperf/pulls",
-                "source": "https://github.com/hyperf/hyperf"
-            },
-            "time": "2023-11-23T03:49:28+00:00"
-        },
-        {
-            "name": "hyperf/ide-helper",
-            "version": "v3.0.45",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/hyperf/ide-helper.git",
-                "reference": "6e1550be4c8514482c021184378507dbbdc1ee1b"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/hyperf/ide-helper/zipball/6e1550be4c8514482c021184378507dbbdc1ee1b",
-                "reference": "6e1550be4c8514482c021184378507dbbdc1ee1b",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
-            },
-            "require": {
-                "hyperf/code-parser": "~3.0.0",
-                "hyperf/support": "~3.0.0"
-            },
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-master": "3.0-dev"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "IDE help files for Hyperf.",
-            "homepage": "https://hyperf.io",
-            "keywords": [
-                "dev",
-                "hyperf",
-                "ide-helper",
                 "php",
                 "swoole"
             ],
@@ -9358,23 +9346,17 @@
         },
         {
             "name": "swoole/ide-helper",
-            "version": "5.1.7",
+            "version": "6.0.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/swoole/ide-helper.git",
-                "reference": "c6f9cd0aa1a1e3691ed736253f0cdce381d96cae"
+                "reference": "6f12243dce071714c5febe059578d909698f9a52"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/swoole/ide-helper/zipball/c6f9cd0aa1a1e3691ed736253f0cdce381d96cae",
-                "reference": "c6f9cd0aa1a1e3691ed736253f0cdce381d96cae",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "url": "https://api.github.com/repos/swoole/ide-helper/zipball/6f12243dce071714c5febe059578d909698f9a52",
+                "reference": "6f12243dce071714c5febe059578d909698f9a52",
+                "shasum": ""
             },
             "type": "library",
             "notification-url": "https://packagist.org/downloads/",
@@ -9390,9 +9372,9 @@
             "description": "IDE help files for Swoole.",
             "support": {
                 "issues": "https://github.com/swoole/ide-helper/issues",
-                "source": "https://github.com/swoole/ide-helper/tree/5.1.7"
+                "source": "https://github.com/swoole/ide-helper/tree/6.0.2"
             },
-            "time": "2025-03-22T23:53:02+00:00"
+            "time": "2025-03-23T07:31:41+00:00"
         },
         {
             "name": "symfony/event-dispatcher",
@@ -10076,12 +10058,12 @@
     ],
     "aliases": [],
     "minimum-stability": "dev",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": ">=8.0"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "plugin-api-version": "2.6.0"
 }

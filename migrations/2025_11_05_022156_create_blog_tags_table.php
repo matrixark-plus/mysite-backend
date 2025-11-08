@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateBlogTagsTable extends Migration
 {
@@ -19,13 +28,13 @@ class CreateBlogTagsTable extends Migration
             $table->text('description')->nullable()->comment('标签描述');
             $table->integer('usage_count')->default(0)->comment('使用次数');
             $table->timestamps();
-            
+
             // 索引设计
             $table->index('name');
             $table->index('slug');
             $table->index('usage_count');
         });
-        
+
         // 添加测试数据
         DB::table('blog_tags')->insert([
             [
@@ -34,7 +43,7 @@ class CreateBlogTagsTable extends Migration
                 'description' => 'PHP编程语言',
                 'usage_count' => 0,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'name' => 'Laravel',
@@ -42,7 +51,7 @@ class CreateBlogTagsTable extends Migration
                 'description' => 'Laravel框架',
                 'usage_count' => 0,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'name' => 'Vue.js',
@@ -50,7 +59,7 @@ class CreateBlogTagsTable extends Migration
                 'description' => 'Vue.js前端框架',
                 'usage_count' => 0,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'name' => 'JavaScript',
@@ -58,8 +67,8 @@ class CreateBlogTagsTable extends Migration
                 'description' => 'JavaScript编程语言',
                 'usage_count' => 0,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

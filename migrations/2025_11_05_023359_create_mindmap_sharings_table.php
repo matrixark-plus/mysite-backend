@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateMindmapSharingsTable extends Migration
 {
@@ -23,23 +32,23 @@ class CreateMindmapSharingsTable extends Migration
             $table->timestamp('expires_at')->nullable()->comment('过期时间');
             $table->boolean('is_active')->default(true)->comment('是否有效');
             $table->datetimes();
-            
+
             // 外键关系
             $table->foreign('mindmap_id')
                 ->references('id')
                 ->on('mindmaps')
                 ->onDelete('cascade');
-            
+
             $table->foreign('from_user_id')
                 ->references('id')
                 ->on('users')
                 ->onDelete('cascade');
-            
+
             $table->foreign('to_user_id')
                 ->references('id')
                 ->on('users')
                 ->onDelete('set null');
-            
+
             // 索引设计
             $table->index('mindmap_id');
             $table->index('from_user_id');
@@ -48,7 +57,7 @@ class CreateMindmapSharingsTable extends Migration
             $table->index('expires_at');
             $table->index('is_active');
         });
-        
+
         // 插入测试数据
         DB::table('mindmap_sharings')->insert([
             [
@@ -61,7 +70,7 @@ class CreateMindmapSharingsTable extends Migration
                 'expires_at' => date('Y-m-d H:i:s', strtotime('+7 days')),
                 'is_active' => true,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'mindmap_id' => 1,
@@ -73,8 +82,8 @@ class CreateMindmapSharingsTable extends Migration
                 'expires_at' => null,
                 'is_active' => true,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

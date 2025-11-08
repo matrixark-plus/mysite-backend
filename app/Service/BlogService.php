@@ -1,20 +1,26 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Service;
 
 use App\Model\Blog;
 use App\Model\BlogCategory;
 use Hyperf\DbConnection\Db;
-use Hyperf\Utils\Arr;
 
 class BlogService
 {
     /**
-     * 获取博客列表
+     * 获取博客列表.
      * @param array $params 查询参数
-     * @return array
      */
     public function getBlogs(array $params): array
     {
@@ -32,7 +38,7 @@ class BlogService
             $keyword = $params['keyword'];
             $query->where(function ($q) use ($keyword) {
                 $q->where('title', 'like', '%' . $keyword . '%')
-                  ->orWhere('content', 'like', '%' . $keyword . '%');
+                    ->orWhere('content', 'like', '%' . $keyword . '%');
             });
         }
 
@@ -51,14 +57,13 @@ class BlogService
             'total' => $blogs->total(),
             'page' => $blogs->currentPage(),
             'page_size' => $blogs->perPage(),
-            'data' => $blogs->items()
+            'data' => $blogs->items(),
         ];
     }
 
     /**
-     * 根据ID获取博客详情
+     * 根据ID获取博客详情.
      * @param int $id 博客ID
-     * @return Blog|null
      */
     public function getBlogById(int $id): ?Blog
     {
@@ -76,9 +81,8 @@ class BlogService
     }
 
     /**
-     * 创建博客
+     * 创建博客.
      * @param array $data 博客数据
-     * @return Blog
      */
     public function createBlog(array $data): Blog
     {
@@ -106,15 +110,14 @@ class BlogService
     }
 
     /**
-     * 更新博客
+     * 更新博客.
      * @param int $id 博客ID
      * @param array $data 更新数据
-     * @return Blog|null
      */
     public function updateBlog(int $id, array $data): ?Blog
     {
         $blog = Blog::find($id);
-        if (!$blog) {
+        if (! $blog) {
             return null;
         }
 
@@ -128,7 +131,7 @@ class BlogService
             if (isset($data['content'])) {
                 $updateData['content'] = $data['content'];
                 // 如果没有提供摘要，重新生成
-                if (!isset($data['summary'])) {
+                if (! isset($data['summary'])) {
                     $updateData['summary'] = $this->generateSummary($data['content']);
                 }
             }
@@ -159,14 +162,13 @@ class BlogService
     }
 
     /**
-     * 删除博客
+     * 删除博客.
      * @param int $id 博客ID
-     * @return bool
      */
     public function deleteBlog(int $id): bool
     {
         $blog = Blog::find($id);
-        if (!$blog) {
+        if (! $blog) {
             return false;
         }
 
@@ -182,8 +184,7 @@ class BlogService
     }
 
     /**
-     * 获取博客分类列表
-     * @return array
+     * 获取博客分类列表.
      */
     public function getCategories(): array
     {
@@ -193,9 +194,8 @@ class BlogService
     }
 
     /**
-     * 获取热门博客
+     * 获取热门博客.
      * @param int $limit 数量限制
-     * @return array
      */
     public function getHotBlogs(int $limit = 10): array
     {
@@ -208,9 +208,8 @@ class BlogService
     }
 
     /**
-     * 获取推荐博客
+     * 获取推荐博客.
      * @param int $limit 数量限制
-     * @return array
      */
     public function getRecommendedBlogs(int $limit = 10): array
     {
@@ -224,10 +223,9 @@ class BlogService
     }
 
     /**
-     * 搜索博客
+     * 搜索博客.
      * @param string $keyword 搜索关键词
      * @param array $params 其他参数
-     * @return array
      */
     public function searchBlogs(string $keyword, array $params): array
     {
@@ -238,8 +236,8 @@ class BlogService
         // 关键词搜索
         $query->where(function ($q) use ($keyword) {
             $q->where('title', 'like', '%' . $keyword . '%')
-              ->orWhere('content', 'like', '%' . $keyword . '%')
-              ->orWhere('summary', 'like', '%' . $keyword . '%');
+                ->orWhere('content', 'like', '%' . $keyword . '%')
+                ->orWhere('summary', 'like', '%' . $keyword . '%');
         });
 
         // 排序
@@ -257,17 +255,14 @@ class BlogService
             'total' => $blogs->total(),
             'page' => $blogs->currentPage(),
             'page_size' => $blogs->perPage(),
-            'data' => $blogs->items()
+            'data' => $blogs->items(),
         ];
     }
-
-
 
     /**
      * 生成博客摘要
      * @param string $content 博客内容
      * @param int $length 摘要长度
-     * @return string
      */
     protected function generateSummary(string $content, int $length = 200): string
     {
@@ -280,10 +275,9 @@ class BlogService
     }
 
     /**
-     * 生成博客slug
+     * 生成博客slug.
      * @param string $title 博客标题
      * @param int $excludeId 排除的ID（用于更新时避免冲突）
-     * @return string
      */
     protected function generateSlug(string $title, int $excludeId = 0): string
     {

@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace HyperfTest\Controller;
 
@@ -10,10 +18,13 @@ use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Testing\TestCase;
 use Mockery;
+use ReflectionClass;
 
 /**
  * IndexController的单元测试
- * 测试首页控制器的功能
+ * 测试首页控制器的功能.
+ * @internal
+ * @coversNothing
  */
 class IndexControllerTest extends TestCase
 {
@@ -33,7 +44,7 @@ class IndexControllerTest extends TestCase
     protected $responseMock;
 
     /**
-     * 设置测试环境
+     * 设置测试环境.
      */
     protected function setUp(): void
     {
@@ -50,7 +61,7 @@ class IndexControllerTest extends TestCase
 
         // 创建控制器实例
         $this->controller = new IndexController();
-        $reflection = new \ReflectionClass($this->controller);
+        $reflection = new ReflectionClass($this->controller);
 
         // 设置request属性
         $requestProperty = $reflection->getProperty('request');
@@ -64,7 +75,7 @@ class IndexControllerTest extends TestCase
     }
 
     /**
-     * 清理测试环境
+     * 清理测试环境.
      */
     protected function tearDown(): void
     {
@@ -73,7 +84,7 @@ class IndexControllerTest extends TestCase
     }
 
     /**
-     * 测试index方法使用默认参数
+     * 测试index方法使用默认参数.
      */
     public function testIndexWithDefaultUser()
     {
@@ -81,7 +92,7 @@ class IndexControllerTest extends TestCase
         $this->requestMock->shouldReceive('input')
             ->with('user', 'Hyperf')
             ->andReturn('Hyperf');
-        
+
         $this->requestMock->shouldReceive('getMethod')
             ->andReturn('GET');
 
@@ -97,7 +108,7 @@ class IndexControllerTest extends TestCase
     }
 
     /**
-     * 测试index方法使用自定义用户参数
+     * 测试index方法使用自定义用户参数.
      */
     public function testIndexWithCustomUser()
     {
@@ -106,7 +117,7 @@ class IndexControllerTest extends TestCase
         $this->requestMock->shouldReceive('input')
             ->with('user', 'Hyperf')
             ->andReturn($customUser);
-        
+
         $this->requestMock->shouldReceive('getMethod')
             ->andReturn('POST');
 
@@ -122,7 +133,7 @@ class IndexControllerTest extends TestCase
     }
 
     /**
-     * 测试index方法使用空用户参数
+     * 测试index方法使用空用户参数.
      */
     public function testIndexWithEmptyUser()
     {
@@ -130,7 +141,7 @@ class IndexControllerTest extends TestCase
         $this->requestMock->shouldReceive('input')
             ->with('user', 'Hyperf')
             ->andReturn('');
-        
+
         $this->requestMock->shouldReceive('getMethod')
             ->andReturn('PUT');
 
@@ -146,7 +157,7 @@ class IndexControllerTest extends TestCase
     }
 
     /**
-     * 测试index方法使用特殊字符用户参数
+     * 测试index方法使用特殊字符用户参数.
      */
     public function testIndexWithSpecialCharsUser()
     {
@@ -155,7 +166,7 @@ class IndexControllerTest extends TestCase
         $this->requestMock->shouldReceive('input')
             ->with('user', 'Hyperf')
             ->andReturn($specialUser);
-        
+
         $this->requestMock->shouldReceive('getMethod')
             ->andReturn('DELETE');
 
@@ -171,26 +182,26 @@ class IndexControllerTest extends TestCase
     }
 
     /**
-     * 测试index方法使用非GET请求方法
+     * 测试index方法使用非GET请求方法.
      */
     public function testIndexWithDifferentHttpMethods()
     {
         // 测试不同的HTTP方法
         $methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'];
-        
+
         foreach ($methods as $method) {
             // 重置mock期望
             $this->requestMock = Mockery::mock(RequestInterface::class);
-            $reflection = new \ReflectionClass($this->controller);
+            $reflection = new ReflectionClass($this->controller);
             $requestProperty = $reflection->getProperty('request');
             $requestProperty->setAccessible(true);
             $requestProperty->setValue($this->controller, $this->requestMock);
-            
+
             // 设置模拟行为
             $this->requestMock->shouldReceive('input')
                 ->with('user', 'Hyperf')
                 ->andReturn('TestUser');
-            
+
             $this->requestMock->shouldReceive('getMethod')
                 ->andReturn($method);
 

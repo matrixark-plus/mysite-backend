@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Middleware;
 
@@ -13,7 +21,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * CORS中间件
- * 使用Hyperf框架内置组件实现跨域资源共享
+ * 使用Hyperf框架内置组件实现跨域资源共享.
  */
 class CorsMiddleware implements MiddlewareInterface
 {
@@ -54,12 +62,12 @@ class CorsMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 添加CORS头信息
+     * 添加CORS头信息.
      */
     protected function addHeaders(ResponseInterface $response): ResponseInterface
     {
         $origin = '*'; // 允许所有来源，生产环境应该配置具体域名
-        
+
         return $response
             ->withHeader('Access-Control-Allow-Origin', $origin)
             ->withHeader('Access-Control-Allow-Credentials', 'true')

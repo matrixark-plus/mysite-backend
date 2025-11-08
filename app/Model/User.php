@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Model;
 
@@ -9,37 +17,58 @@ use Qbhy\HyperfAuth\Authenticatable;
 
 /**
  * 用户模型
- * 实现hyperf-auth的认证接口
+ * 实现hyperf-auth的认证接口.
+ * 
+ * @property int $id
+ * @property string $username
+ * @property string $email
+ * @property string $password_hash
+ * @property string $real_name
+ * @property string $avatar
+ * @property string $bio
+ * @property string $role
+ * @property int $status
+ * @property string $created_at
+ * @property string $updated_at
+ * 
+ * @method static static|\Hyperf\Database\Query\Builder where($column, $operator = null, $value = null, $boolean = 'and')
+ * @method static static|\Hyperf\Database\Query\Builder orderBy($column, $direction = 'asc')
+ * @method static static|\Hyperf\Database\Query\Builder select($columns = ['*'])
+ * @method static static|\Hyperf\Database\Query\Builder first($columns = ['*'])
+ * @method static static|\Hyperf\Database\Query\Builder get($columns = ['*'])
+ * @method static static|\Hyperf\Database\Query\Builder count($columns = '*')
+ * @method static static|\Hyperf\Database\Query\Builder update(array $values)
+ * @method static static|null find($id, $columns = ['*'])
  */
 class User extends Model implements Authenticatable
 {
     /**
-     * 表名
-     */
-    protected ?string $table = 'users';
-
-    /**
-     * 主键
-     */
-    protected string $primaryKey = 'id';
-
-    /**
-     * 是否自动递增
+     * 是否自动递增.
      */
     public bool $incrementing = true;
 
     /**
-     * 主键类型
-     */
-    protected string $keyType = 'int';
-
-    /**
-     * 时间戳
+     * 时间戳.
      */
     public bool $timestamps = true;
 
     /**
-     * 可填充字段
+     * 表名.
+     */
+    protected ?string $table = 'users';
+
+    /**
+     * 主键.
+     */
+    protected string $primaryKey = 'id';
+
+    /**
+     * 主键类型.
+     */
+    protected string $keyType = 'int';
+
+    /**
+     * 可填充字段.
      * @var string[]
      */
     protected array $fillable = [
@@ -54,7 +83,7 @@ class User extends Model implements Authenticatable
     ];
 
     /**
-     * 隐藏字段
+     * 隐藏字段.
      * @var string[]
      */
     protected array $hidden = [
@@ -62,7 +91,7 @@ class User extends Model implements Authenticatable
     ];
 
     /**
-     * 用于JWT认证的唯一标识字段
+     * 用于JWT认证的唯一标识字段.
      */
     public function getAuthIdentifierName(): string
     {
@@ -70,7 +99,7 @@ class User extends Model implements Authenticatable
     }
 
     /**
-     * 获取用于JWT认证的唯一标识
+     * 获取用于JWT认证的唯一标识.
      */
     public function getAuthIdentifier(): int
     {
@@ -78,7 +107,7 @@ class User extends Model implements Authenticatable
     }
 
     /**
-     * 获取用于验证密码的字段
+     * 获取用于验证密码的字段.
      */
     public function getAuthPasswordName(): string
     {
@@ -94,31 +123,32 @@ class User extends Model implements Authenticatable
     }
 
     /**
-     * 设置密码属性，转换为密码哈希
+     * 设置密码属性，转换为密码哈希.
      */
     public function setPasswordAttribute(string $value): void
     {
         $this->attributes['password_hash'] = password_hash($value, PASSWORD_DEFAULT);
     }
-    
+
     /**
-     * 获取用户ID
+     * 获取用户ID.
      */
     public function getId(): int
     {
         return $this->{$this->getAuthIdentifierName()};
     }
-    
+
     /**
-     * 根据键检索用户（符合hyperf-auth规范）
+     * 根据键检索用户（符合hyperf-auth规范）.
+     * @param mixed $key
      */
-    public static function retrieveById($key): ?\Qbhy\HyperfAuth\Authenticatable
+    public static function retrieveById($key): ?Authenticatable
     {
         return static::find($key);
     }
-    
+
     /**
-     * 验证密码是否正确
+     * 验证密码是否正确.
      */
     public function validatePassword(string $password): bool
     {

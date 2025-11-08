@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
 namespace App\Controller;
 
 use App\Traits\LogTrait;
@@ -26,12 +27,12 @@ class IndexController extends AbstractController
     {
         $user = $this->request->input('user', 'Hyperf');
         $method = $this->request->getMethod();
-        
+
         // 使用LogTrait记录日志
         $this->logAction('IndexController accessed', [
             'method' => $method,
             'user' => $user,
-            'timestamp' => time()
+            'timestamp' => time(),
         ], 'app');
 
         return [

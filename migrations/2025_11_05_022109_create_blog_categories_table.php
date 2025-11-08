@@ -1,8 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 use Hyperf\DbConnection\Db;
 
 class CreateBlogCategoriesTable extends Migration
@@ -21,14 +30,14 @@ class CreateBlogCategoriesTable extends Migration
             $table->integer('sort_order')->default(0)->comment('排序顺序');
             $table->timestamps();
             $table->softDeletes();
-            
+
             // 索引设计
             $table->index('name');
             $table->index('slug');
             $table->index('parent_id');
             $table->index('sort_order');
         });
-        
+
         // 添加测试数据
         Db::table('blog_categories')->insert([
             [
@@ -38,7 +47,7 @@ class CreateBlogCategoriesTable extends Migration
                 'description' => '分享技术文章和教程',
                 'sort_order' => 1,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'name' => '生活随笔',
@@ -47,7 +56,7 @@ class CreateBlogCategoriesTable extends Migration
                 'description' => '记录生活点滴',
                 'sort_order' => 2,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'name' => '前端开发',
@@ -56,8 +65,8 @@ class CreateBlogCategoriesTable extends Migration
                 'description' => '前端技术相关文章',
                 'sort_order' => 1,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

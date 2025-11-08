@@ -1,16 +1,25 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Job;
 
+use Exception;
 use Hyperf\Context\ApplicationContext;
 use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
 
 /**
  * 任务基类
- * 所有任务都应该继承此类
+ * 所有任务都应该继承此类.
  */
 abstract class AbstractJob
 {
@@ -47,30 +56,29 @@ abstract class AbstractJob
     abstract public function handle();
 
     /**
-     * 执行任务并处理异常
+     * 执行任务并处理异常.
      */
     public function execute(): bool
     {
-        $this->attempts++;
+        ++$this->attempts;
         try {
             $this->handle();
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->failed($e->getMessage());
-            
+
             // 如果失败次数小于最大重试次数，重新执行
             if ($this->attempts < $this->maxAttempts) {
                 $this->logger->info('Retrying job', ['job' => get_class($this), 'attempt' => $this->attempts]);
                 return $this->execute();
             }
-            
+
             return false;
         }
     }
 
     /**
-     * 任务失败处理
-     * @param string $throwable
+     * 任务失败处理.
      */
     public function failed(string $throwable): void
     {
@@ -83,7 +91,7 @@ abstract class AbstractJob
     }
 
     /**
-     * 获取任务参数
+     * 获取任务参数.
      */
     public function getParams(): array
     {
@@ -91,7 +99,7 @@ abstract class AbstractJob
     }
 
     /**
-     * 获取当前重试次数
+     * 获取当前重试次数.
      */
     public function attempts(): int
     {
@@ -99,7 +107,7 @@ abstract class AbstractJob
     }
 
     /**
-     * 获取最大重试次数
+     * 获取最大重试次数.
      */
     public function maxAttempts(): int
     {

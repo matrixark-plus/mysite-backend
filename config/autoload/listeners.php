@@ -9,13 +9,26 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+use App\Event\NewCommentEvent;
+use App\Listener\NewCommentListener;
+use Hyperf\Command\Listener\FailToHandleListener;
+use Hyperf\ExceptionHandler\Listener\ErrorExceptionHandler;
+
+/**
+ * This file is part of Hyperf.
+ *
+ * @see     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 return [
-    Hyperf\ExceptionHandler\Listener\ErrorExceptionHandler::class,
-    Hyperf\Command\Listener\FailToHandleListener::class,
-    
+    ErrorExceptionHandler::class,
+    FailToHandleListener::class,
+
     // 新评论事件监听器
     [
-        'event' => App\Event\NewCommentEvent::class,
-        'listener' => App\Listener\NewCommentListener::class,
+        'event' => NewCommentEvent::class,
+        'listener' => NewCommentListener::class,
     ],
 ];

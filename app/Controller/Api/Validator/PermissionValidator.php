@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
@@ -9,7 +17,7 @@ use Hyperf\Validation\ValidationException;
 use Psr\Container\ContainerInterface;
 
 /**
- * 权限管理相关的参数验证器
+ * 权限管理相关的参数验证器.
  */
 class PermissionValidator
 {
@@ -19,9 +27,7 @@ class PermissionValidator
     protected $validatorFactory;
 
     /**
-     * 构造函数
-     * 
-     * @param ContainerInterface $container
+     * 构造函数.
      */
     public function __construct(ContainerInterface $container)
     {
@@ -29,8 +35,8 @@ class PermissionValidator
     }
 
     /**
-     * 验证获取用户角色信息的请求参数
-     * 
+     * 验证获取用户角色信息的请求参数.
+     *
      * @param array $data 请求数据
      * @return array 验证后的数据
      * @throws ValidationException 当验证失败时抛出异常
@@ -52,8 +58,8 @@ class PermissionValidator
     }
 
     /**
-     * 验证更新用户角色的请求参数
-     * 
+     * 验证更新用户角色的请求参数.
+     *
      * @param array $data 请求数据
      * @return array 验证后的数据
      * @throws ValidationException 当验证失败时抛出异常

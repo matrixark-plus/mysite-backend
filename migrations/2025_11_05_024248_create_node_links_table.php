@@ -1,9 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\Query\Builder;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateNodeLinksTable extends Migration
 {
@@ -19,11 +27,11 @@ class CreateNodeLinksTable extends Migration
             $table->string('link_type', 50)->notNull()->default('bidirectional')->comment('链接类型(bidirectional/unidirectional)');
             $table->string('label', 100)->nullable()->comment('链接标签');
             $table->datetime('created_at')->notNull()->default('CURRENT_TIMESTAMP');
-            
+
             // 外键约束
             $table->foreign('source_node_id')->references('id')->on('mindmap_nodes')->onDelete('cascade');
             $table->foreign('target_node_id')->references('id')->on('mindmap_nodes')->onDelete('cascade');
-            
+
             // 索引设计
             $table->index('source_node_id')->comment('支持源节点查询');
             $table->index('target_node_id')->comment('支持目标节点查询');
@@ -31,7 +39,7 @@ class CreateNodeLinksTable extends Migration
             $table->index(['source_node_id', 'target_node_id'])->comment('支持节点对查询');
             $table->index(['target_node_id', 'source_node_id'])->comment('支持反向节点对查询');
         });
-        
+
         // 插入测试数据
         $this->insertTestData();
     }
@@ -43,9 +51,9 @@ class CreateNodeLinksTable extends Migration
     {
         Schema::dropIfExists('node_links');
     }
-    
+
     /**
-     * 插入测试数据
+     * 插入测试数据.
      */
     protected function insertTestData()
     {

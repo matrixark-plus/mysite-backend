@@ -1,77 +1,94 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Service;
 
-use Hyperf\DbConnection\Db;
-use Hyperf\Redis\RedisFactory;
-use Hyperf\Config\ConfigInterface;
-use Hyperf\Di\Annotation\Inject;
-use Hyperf\Logger\LoggerInterface;
 use Carbon\Carbon;
-// 注意：权限管理相关功能已移至PermissionService
+use Exception;
+use Hyperf\Config\ConfigInterface;
+use Hyperf\DbConnection\Db;
+use Psr\Log\LoggerInterface;
+use Hyperf\Redis\RedisFactory;
+use Redis;
 
+// 注意：权限管理相关功能已移至PermissionService
 
 class SystemService
 {
     /**
-     * @Inject
      * @var RedisFactory
      */
     protected $redisFactory;
-    
+
     /**
-     * Redis实例
-     * @var \Redis
+     * Redis实例.
+     * @var mixed
      */
     protected $redis;
-    
+
     /**
-     * 构造函数
-     */
-    public function __construct()
-    {
-        // 初始化Redis实例
-        $this->redis = $this->redisFactory->get('default');
-    }
-    
-    /**
-     * @Inject
-     * @var ConfigInterface
+     * @var mixed
      */
     protected $config;
-    
+
     /**
-     * @Inject
      * @var LoggerInterface
      */
     protected $logger;
-    
+
     /**
-     * 获取统计数据
-     * 
-     * @param array $params 查询参数
-     * @return array 统计数据
+     * 构造函数. 注入依赖
+     *
+     * @param RedisFactory $redisFactory Redis工厂
+     * @param mixed $config 配置接口
+     * @param LoggerInterface $logger 日志接口
+     */
+    public function __construct(RedisFactory $redisFactory, $config, LoggerInterface $logger)
+    {
+        $this->redisFactory = $redisFactory;
+        $this->config = $config;
+        $this->logger = $logger;
+        
+        // 初始化Redis实例
+        $this->redis = $this->redisFactory->get('default');
+    }
+
+    // 构造函数已移至上方，使用依赖注入的方式
+
+    /**
+     * 获取统计数据.
+     *
+     * @param array<string, mixed> $params 查询参数
+     * @return array<string, mixed> 统计数据
      */
     public function getStatistics(array $params = []): array
     {
         try {
-            // 构建缓存键
-            $cacheKey = 'system:statistics:' . md5(json_encode($params));
-            
+            // 构建缓存键，确保json_encode返回的是字符串
+            $paramsJson = json_encode($params) ?: '{}';
+            $cacheKey = 'system:statistics:' . md5($paramsJson);
+
             // 尝试从缓存获取（如果不在管理员面板且缓存存在）
             $isAdmin = isset($params['admin']) && $params['admin'];
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $cached = $this->redis->get($cacheKey);
                 if ($cached) {
                     return json_decode($cached, true);
                 }
             }
-            
+
             // 获取时间范围
             $timeRange = $this->getTimeRange($params);
-            
+
             // 构建统计数据
             $statistics = [
                 'user_count' => $this->getUserCount($timeRange),
@@ -79,215 +96,103 @@ class SystemService
                 'comment_count' => $this->getCommentCount($timeRange),
                 'view_count' => $this->getViewCount($timeRange),
                 'recent_activities' => $this->getRecentActivities($params),
-                'daily_stats' => $this->getDailyStats($timeRange)
+                'daily_stats' => $this->getDailyStats($timeRange),
             ];
-            
+
             // 设置缓存（非管理员面板）
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $this->redis->set($cacheKey, json_encode($statistics), 300); // 5分钟缓存
             }
-            
+
             return $statistics;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('获取统计数据异常: ' . $e->getMessage());
             throw $e;
         }
     }
-    
+
     /**
-     * 获取用户统计
-     * 
-     * @param array $timeRange 时间范围
-     * @return int
-     */
-    protected function getUserCount(array $timeRange): int
-    {
-        $query = Db::table('users');
-        
-        if (isset($timeRange['start'])) {
-            $query->where('created_at', '>=', $timeRange['start']);
-        }
-        if (isset($timeRange['end'])) {
-            $query->where('created_at', '<=', $timeRange['end']);
-        }
-        
-        return $query->count();
-    }
-    
-    /**
-     * 获取文章统计
-     * 
-     * @param array $timeRange 时间范围
-     * @return int
-     */
-    protected function getArticleCount(array $timeRange): int
-    {
-        $query = Db::table('articles')
-            ->where('status', 1); // 只统计已发布的
-        
-        if (isset($timeRange['start'])) {
-            $query->where('created_at', '>=', $timeRange['start']);
-        }
-        if (isset($timeRange['end'])) {
-            $query->where('created_at', '<=', $timeRange['end']);
-        }
-        
-        return $query->count();
-    }
-    
-    /**
-     * 获取评论统计
-     * 
-     * @param array $timeRange 时间范围
-     * @return int
-     */
-    protected function getCommentCount(array $timeRange): int
-    {
-        $query = Db::table('comments')
-            ->where('status', 1); // 只统计已审核通过的
-        
-        if (isset($timeRange['start'])) {
-            $query->where('created_at', '>=', $timeRange['start']);
-        }
-        if (isset($timeRange['end'])) {
-            $query->where('created_at', '<=', $timeRange['end']);
-        }
-        
-        return $query->count();
-    }
-    
-    /**
-     * 获取浏览量统计
-     * 
-     * @param array $timeRange 时间范围
-     * @return int
-     */
-    protected function getViewCount(array $timeRange): int
-    {
-        // 这里假设浏览量存储在redis中
-        // 实际项目中可能需要从日志或专门的统计表中获取
-        $cacheKey = 'statistics:view_count';
-        $totalViews = $this->redis->get($cacheKey);
-        return $totalViews ? (int)$totalViews : 0;
-    }
-    
-    /**
-     * 获取最近活动
-     * 
-     * @param array $params 查询参数
-     * @return array
-     */
-    protected function getRecentActivities(array $params): array
-    {
-        $limit = $params['limit'] ?? 10;
-        
-        // 从活动日志表获取最近活动并转换为数组
-        return Db::table('activity_logs')
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get()
-            ->toArray();
-    }
-    
-    /**
-     * 获取每日统计数据
-     * 
-     * @param array $timeRange 时间范围
-     * @return array
-     */
-    protected function getDailyStats(array $timeRange): array
-    {
-        // 这里简化处理，实际项目中可能需要更复杂的统计逻辑
-        $days = $this->calculateDays($timeRange);
-        $stats = [];
-        
-        for ($i = 0; $i < $days; $i++) {
-            $date = Carbon::parse($timeRange['start'])->addDays($i);
-            $dateStr = $date->format('Y-m-d');
-            
-            // 这里应该从每日统计表中获取数据
-            // 简化处理，返回空数据
-            $stats[] = [
-                'date' => $dateStr,
-                'user_count' => 0,
-                'article_count' => 0,
-                'comment_count' => 0,
-                'view_count' => 0
-            ];
-        }
-        
-        return $stats;
-    }
-    
-    /**
-     * 获取系统配置
-     * 
-     * @return array 系统配置
+     * 获取系统配置.
+     *
+     * @return array<string, string> 系统配置
      */
     public function getSystemConfig(): array
     {
         try {
-            // 直接调用getConfig方法获取所有配置
-            $configs = $this-\u003egetConfig();
-            
+            // 使用Hyperf ConfigInterface获取所有配置
+            $configs = $this->getSystemConfigFromCache();
+
             // 转换为前端需要的格式
             return [
                 'site_name' => $configs['site.name'] ?? '默认站点',
                 'site_description' => $configs['site.description'] ?? '站点描述',
                 'site_keywords' => $configs['site.keywords'] ?? '',
                 'copyright' => $configs['site.copyright'] ?? '',
-                'icp_info' => $configs['site.icp_info'] ?? ''
+                'icp_info' => $configs['site.icp_info'] ?? '',
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('获取系统配置异常: ' . $e->getMessage());
             throw $e;
         }
     }
-    
+
     /**
-     * 获取系统配置
-     * 
+     * 获取系统配置（从数据库和缓存）.
+     *
      * @param string $key 配置键
-     * @return array|mixed
+     * @return array<string, mixed>|mixed
      */
-    public function getConfig(?string $key = null): mixed
+    public function getSystemConfigFromCache(?string $key = null): mixed
     {
         try {
             // 尝试从缓存获取
             $cacheKey = 'system:config' . ($key ? ':' . $key : '');
             $cached = $this->redis->get($cacheKey);
-            
+
             if ($cached) {
                 return json_decode($cached, true);
             }
-            
+
             // 从数据库获取配置
             $query = Db::table('system_configs');
-            
+
             if ($key) {
                 $config = $query->where('key', $key)->first();
-                $result = $config ? json_decode($config->value, true) : null;
+                // 使用简洁的方式处理配置值
+                $result = null;
+                if ($config) {
+                    // 将结果转换为数组以避免类型问题
+                    $configArray = (array) $config;
+                    $value = isset($configArray['value']) ? $configArray['value'] : 'null';
+                    $result = json_decode($value, true);
+                }
             } else {
                 $configs = $query->get();
                 $result = [];
                 foreach ($configs as $config) {
-                    $result[$config->key] = json_decode($config->value, true);
+                    // 将结果转换为数组以避免类型问题
+                    $configArray = (array) $config;
+                    if (isset($configArray['key']) && !empty($configArray['key'])) {
+                        $key = $configArray['key'];
+                        $value = isset($configArray['value']) ? $configArray['value'] : 'null';
+                        $result[$key] = json_decode($value, true);
+                    }
                 }
             }
-            
+
             // 设置缓存，1小时过期
             $this->redis->set($cacheKey, json_encode($result), 3600);
-            
+
             return $result;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('获取系统配置异常: ' . $e->getMessage());
             throw $e;
         }
     }
-    
+
     /**
-     * 更新系统配置
-     * 
+     * 更新系统配置.
+     *
      * @param string $key 配置键
      * @param mixed $value 配置值
      * @return bool
@@ -296,66 +201,198 @@ class SystemService
     {
         try {
             // 验证配置键是否合法
-            if (!preg_match('/^[a-zA-Z0-9_\.]+$/', $key)) {
-                throw new \Exception('配置键格式不合法');
+            if (! preg_match('/^[a-zA-Z0-9_\.]+$/', $key)) {
+                throw new Exception('配置键格式不合法');
             }
-            
+
             // 序列化配置值
             $valueStr = json_encode($value);
-            
+
             // 更新数据库
             $result = Db::table('system_configs')
                 ->updateOrInsert(
                     ['key' => $key],
                     ['value' => $valueStr, 'updated_at' => Carbon::now()->toDateTimeString()]
                 );
-            
+
             // 清除缓存
             $this->redis->del('system:config');
             $this->redis->del('system:config:' . $key);
-            
+
             return $result;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('更新系统配置异常: ' . $e->getMessage());
             throw $e;
         }
     }
-    
+
     /**
-     * 批量更新系统配置
-     * 
-     * @param array $configs 配置数组
+     * 批量更新系统配置.
+     *
+     * @param array<string, mixed> $configs 配置数组
      * @return bool
      */
     public function batchUpdateConfig(array $configs): bool
     {
         try {
             Db::beginTransaction();
-            
+
             foreach ($configs as $key => $value) {
                 $this->updateConfig($key, $value);
             }
-            
+
             Db::commit();
-            
+
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Db::rollBack();
             $this->logger->error('批量更新系统配置异常: ' . $e->getMessage());
             throw $e;
         }
     }
-    
+
     /**
-     * 获取时间范围
-     * 
-     * @param array $params 查询参数
-     * @return array
+     * 获取用户统计
+     *
+     * @param array<string, string> $timeRange 时间范围
+     * @return int
+     */
+    protected function getUserCount(array $timeRange): int
+    {
+        $query = Db::table('users');
+
+        if (isset($timeRange['start'])) {
+            $query->where('created_at', '>=', $timeRange['start']);
+        }
+        if (isset($timeRange['end'])) {
+            $query->where('created_at', '<=', $timeRange['end']);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * 获取文章统计
+     *
+     * @param array<string, string> $timeRange 时间范围
+     * @return int
+     */
+    protected function getArticleCount(array $timeRange): int
+    {
+        $query = Db::table('articles')
+            ->where('status', 1); // 只统计已发布的
+
+        if (isset($timeRange['start'])) {
+            $query->where('created_at', '>=', $timeRange['start']);
+        }
+        if (isset($timeRange['end'])) {
+            $query->where('created_at', '<=', $timeRange['end']);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * 获取评论统计
+     *
+     * @param array<string, string> $timeRange 时间范围
+     * @return int
+     */
+    protected function getCommentCount(array $timeRange): int
+    {
+        $query = Db::table('comments')
+            ->where('status', 1); // 只统计已审核通过的
+
+        if (isset($timeRange['start'])) {
+            $query->where('created_at', '>=', $timeRange['start']);
+        }
+        if (isset($timeRange['end'])) {
+            $query->where('created_at', '<=', $timeRange['end']);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * 获取浏览量统计
+     *
+     * @param array<string, string> $timeRange 时间范围
+     * @return int
+     */
+    protected function getViewCount(array $timeRange): int
+    {
+        // 这里假设浏览量存储在redis中
+        // 实际项目中可能需要从日志或专门的统计表中获取
+        $cacheKey = 'statistics:view_count';
+        $totalViews = $this->redis->get($cacheKey);
+        return $totalViews ? (int) $totalViews : 0;
+    }
+
+    /**
+     * 获取最近活动.
+     *
+     * @param array<string, mixed> $params 查询参数
+     * @return array<array<string, mixed>>
+     */
+    protected function getRecentActivities(array $params): array
+    {
+        $limit = $params['limit'] ?? 10;
+
+        // 从活动日志表获取最近活动并转换为数组
+        $activities = Db::table('activity_logs')
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
+        
+        // 确保返回数组格式
+        $result = [];
+        foreach ($activities as $activity) {
+            $result[] = (array) $activity;
+        }
+        
+        return $result;
+    }
+
+    /**
+     * 获取每日统计数据.
+     *
+     * @param array<string, string> $timeRange 时间范围
+     * @return array<array<string, mixed>>
+     */
+    protected function getDailyStats(array $timeRange): array
+    {
+        // 这里简化处理，实际项目中可能需要更复杂的统计逻辑
+        $days = $this->calculateDays($timeRange);
+        $stats = [];
+
+        for ($i = 0; $i < $days; ++$i) {
+            $date = Carbon::parse($timeRange['start'])->addDays($i);
+            $dateStr = $date->format('Y-m-d');
+
+            // 这里应该从每日统计表中获取数据
+            // 简化处理，返回空数据
+            $stats[] = [
+                'date' => $dateStr,
+                'user_count' => 0,
+                'article_count' => 0,
+                'comment_count' => 0,
+                'view_count' => 0,
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * 获取时间范围.
+     *
+     * @param array<string, mixed> $params 查询参数
+     * @return array<string, string>
      */
     protected function getTimeRange(array $params): array
     {
         $timeRange = [];
-        
+
         if (isset($params['date_range'])) {
             $dateRange = $params['date_range'];
             if (isset($dateRange['start']) && $dateRange['start']) {
@@ -365,33 +402,33 @@ class SystemService
                 $timeRange['end'] = $dateRange['end'];
             }
         }
-        
+
         // 默认时间范围为最近30天
         if (empty($timeRange)) {
             $timeRange['start'] = Carbon::now()->subDays(30)->toDateTimeString();
             $timeRange['end'] = Carbon::now()->toDateTimeString();
         }
-        
+
         return $timeRange;
     }
-    
+
     /**
-     * 计算天数
-     * 
-     * @param array $timeRange 时间范围
+     * 计算天数.
+     *
+     * @param array<string, string> $timeRange 时间范围
      * @return int
      */
     protected function calculateDays(array $timeRange): int
     {
-        if (!isset($timeRange['start']) || !isset($timeRange['end'])) {
+        if (! isset($timeRange['start']) || ! isset($timeRange['end'])) {
             return 30; // 默认30天
         }
-        
+
         $start = Carbon::parse($timeRange['start']);
         $end = Carbon::parse($timeRange['end']);
-        
+
         return $start->diffInDays($end) + 1;
     }
-    
+
     // 权限管理相关功能已移至PermissionService
 }

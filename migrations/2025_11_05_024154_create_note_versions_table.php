@@ -1,9 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\Query\Builder;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateNoteVersionsTable extends Migration
 {
@@ -20,16 +28,16 @@ class CreateNoteVersionsTable extends Migration
             $table->integer('version_number')->notNull()->comment('版本号');
             $table->integer('created_by')->notNull()->comment('创建人ID，关联users表');
             $table->datetime('created_at')->notNull()->default('CURRENT_TIMESTAMP');
-            
+
             // 外键约束
             $table->foreign('note_id')->references('id')->on('notes')->onDelete('cascade');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
-            
+
             // 索引设计
             $table->index(['note_id', 'version_number'])->comment('支持笔记版本查询和排序');
             $table->index('created_by')->comment('支持创建人查询');
         });
-        
+
         // 插入测试数据
         $this->insertTestData();
     }
@@ -41,9 +49,9 @@ class CreateNoteVersionsTable extends Migration
     {
         Schema::dropIfExists('note_versions');
     }
-    
+
     /**
-     * 插入测试数据
+     * 插入测试数据.
      */
     protected function insertTestData()
     {

@@ -1,22 +1,32 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Service;
 
 use Hyperf\Contract\ConfigInterface;
-use Hyperf\Context\ApplicationContext;
-use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Contract\ResponseInterface;
+use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
+use Qbhy\HyperfAuth\AuthManager;
+use RuntimeException;
+use Throwable;
 use Yurun\OAuthLogin\GitHub\GitHubOAuth;
 use Yurun\OAuthLogin\Google\GoogleOAuth;
 use Yurun\OAuthLogin\Weixin\WeixinOAuth;
-use Qbhy\HyperfAuth\AuthManager;
 
 /**
  * OAuth服务
- * 使用yurunsoft/yurun-oauth-login组件处理第三方登录功能
+ * 使用yurunsoft/yurun-oauth-login组件处理第三方登录功能.
  */
 class OAuthService
 {
@@ -37,13 +47,13 @@ class OAuthService
      * @var ResponseInterface
      */
     protected $response;
-    
+
     /**
      * @Inject
      * @var UserService
      */
     protected $userService;
-    
+
     /**
      * @Inject
      * @var AuthManager
@@ -51,46 +61,24 @@ class OAuthService
     protected $auth;
 
     /**
-     * 支持的第三方平台
+     * 支持的第三方平台.
      * @var array
      */
     protected $supportedPlatforms = ['github', 'wechat', 'google'];
 
     /**
-     * OAuth实例缓存
+     * OAuth实例缓存.
      * @var array
      */
     protected $oauthInstances = [];
-    
+
     public function __construct()
     {
         // 构造函数为空，依赖通过@Inject注解自动注入
     }
 
     /**
-     * 生成微信用户的用户名
-     * 
-     * @param mixed $openid 微信openid
-     * @return string 生成的用户名
-     */
-    protected function generateWechatUsername($openid): string
-    {
-        // 使用前缀标识微信用户
-        $prefix = 'wx_';
-        
-        // 检查openid是否为有效字符串
-        if (is_string($openid) && !empty($openid)) {
-            // 对有效openid进行哈希处理并取前12位，确保唯一性和安全性
-            return $prefix . substr(md5($openid), 0, 12);
-        }
-        
-        // 当openid无效时，生成随机哈希值
-        return $prefix . substr(md5(uniqid('', true)), 0, 12);
-    }
-    
-
-    /**
-     * 获取平台的OAuth配置
+     * 获取平台的OAuth配置.
      *
      * @param string $platform 平台名称
      * @return array 配置信息
@@ -98,7 +86,7 @@ class OAuthService
     public function getPlatformConfig(string $platform): array
     {
         $config = $this->config->get('oauth.' . $platform, []);
-        
+
         // 如果配置不存在，返回默认配置
         if (empty($config)) {
             $config = [
@@ -113,39 +101,180 @@ class OAuthService
     }
 
     /**
-     * 获取对应平台的OAuth实例
+     * 生成授权URL.
+     *
+     * @param string $platform 平台名称
+     * @return string 授权URL
+     */
+    public function getAuthorizeUrl(string $platform): string
+    {
+        $oauth = $this->getOAuthInstance($platform);
+
+        // 生成state并保存到session中
+        $state = md5(uniqid('', true));
+        // 这里应该使用Hyperf的Session或Redis组件来存储state
+        // 为了简化，暂时只生成state
+
+        // 设置state
+        $oauth->setState($state);
+
+        // 获取授权URL
+        return $oauth->getAuthUrl();
+    }
+
+    /**
+     * 处理回调并获取用户信息.
+     *
+     * @param string $platform 平台名称
+     * @param string $code 授权码
+     * @param string $state state参数
+     * @return array 用户信息
+     */
+    public function handleCallback(string $platform, string $code, string $state = ''): array
+    {
+        $oauth = $this->getOAuthInstance($platform);
+
+        try {
+            // 验证state
+            if (! empty($state) && $state !== $oauth->getState()) {
+                throw new RuntimeException('State验证失败');
+            }
+
+            // 获取accessToken
+            $accessToken = $oauth->getAccessToken($code);
+
+            // 获取用户信息
+            $userInfo = $oauth->getUserInfo();
+
+            // 标准化用户信息
+            $normalizedUserInfo = $this->normalizeUserInfo($platform, $userInfo);
+
+            return [
+                'platform' => $platform,
+                'platform_user_id' => $normalizedUserInfo['id'],
+                'user_info' => $normalizedUserInfo,
+                'access_token' => $accessToken,
+            ];
+        } catch (Throwable $e) {
+            $this->logger->error('OAuth回调处理失败: ' . $e->getMessage());
+            throw new RuntimeException('第三方登录失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 生成JWT token.
+     *
+     * @param array $userInfo 用户信息
+     * @return array JWT信息
+     */
+    public function generateJwt(array $userInfo): array
+    {
+        try {
+            // 检查用户是否已存在
+            $existingUser = null;
+            if (! empty($userInfo['email'])) {
+                $existingUser = $this->userService->getUserByEmail($userInfo['email']);
+            }
+
+            if (! $existingUser) {
+                $existingUser = $this->userService->getUserByUsername($userInfo['username']);
+            }
+
+            // 如果用户不存在，则创建新用户
+            if (! $existingUser) {
+                $userData = [
+                    'username' => $userInfo['username'],
+                    'email' => $userInfo['email'] ?? '',
+                    'password' => 'oauth_' . md5(uniqid('', true)), // 生成随机密码
+                    'real_name' => $userInfo['name'] ?? '',
+                    'avatar' => $userInfo['avatar'] ?? '',
+                    'bio' => $userInfo['bio'] ?? '',
+                    'status' => 1,
+                ];
+
+                $existingUser = $this->userService->createUser($userData);
+                $this->logger->info('OAuth用户创建成功', ['username' => $userInfo['username']]);
+            }
+
+            // 创建一个简单的认证对象供JWT使用
+            $authUser = (object) [
+                'id' => $existingUser->id,
+                'email' => $existingUser->email,
+                'username' => $existingUser->username,
+                'role' => $existingUser->role ?? 'user',
+                'status' => $existingUser->status ?? 0,
+            ];
+
+            // 直接使用AuthManager生成token
+            $token = $this->auth->guard('jwt')->login($authUser);
+
+            return [
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in' => $this->config->get('auth.guards.jwt.ttl', 7200),
+                'user' => $existingUser,
+            ];
+        } catch (Throwable $e) {
+            $this->logger->error('JWT生成失败: ' . $e->getMessage());
+            throw new RuntimeException('登录失败，请稍后重试');
+        }
+    }
+
+    /**
+     * 生成微信用户的用户名.
+     *
+     * @param mixed $openid 微信openid
+     * @return string 生成的用户名
+     */
+    protected function generateWechatUsername($openid): string
+    {
+        // 使用前缀标识微信用户
+        $prefix = 'wx_';
+
+        // 检查openid是否为有效字符串
+        if (is_string($openid) && ! empty($openid)) {
+            // 对有效openid进行哈希处理并取前12位，确保唯一性和安全性
+            return $prefix . substr(md5($openid), 0, 12);
+        }
+
+        // 当openid无效时，生成随机哈希值
+        return $prefix . substr(md5(uniqid('', true)), 0, 12);
+    }
+
+    /**
+     * 获取对应平台的OAuth实例.
      *
      * @param string $platform 平台名称
      * @return mixed OAuth实例
      */
     protected function getOAuthInstance(string $platform)
     {
-        if (!in_array($platform, $this->supportedPlatforms)) {
-            throw new \InvalidArgumentException('不支持的平台: ' . $platform);
+        if (! in_array($platform, $this->supportedPlatforms)) {
+            throw new InvalidArgumentException('不支持的平台: ' . $platform);
         }
 
-        if (!isset($this->oauthInstances[$platform])) {
+        if (! isset($this->oauthInstances[$platform])) {
             $config = $this->getPlatformConfig($platform);
-            
+
             switch ($platform) {
                 case 'github':
                     $this->oauthInstances[$platform] = new GitHubOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
                     // 设置scopes
-                    if (!empty($config['scopes'])) {
+                    if (! empty($config['scopes'])) {
                         $this->oauthInstances[$platform]->setScopes($config['scopes']);
                     }
                     break;
                 case 'google':
                     $this->oauthInstances[$platform] = new GoogleOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
                     // 设置scopes
-                    if (!empty($config['scopes'])) {
+                    if (! empty($config['scopes'])) {
                         $this->oauthInstances[$platform]->setScopes($config['scopes']);
                     }
                     break;
                 case 'wechat':
                     $this->oauthInstances[$platform] = new WeixinOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
                     // 设置scope
-                    if (!empty($config['scopes'][0])) {
+                    if (! empty($config['scopes'][0])) {
                         $this->oauthInstances[$platform]->setScope($config['scopes'][0]);
                     }
                     break;
@@ -156,68 +285,7 @@ class OAuthService
     }
 
     /**
-     * 生成授权URL
-     *
-     * @param string $platform 平台名称
-     * @return string 授权URL
-     */
-    public function getAuthorizeUrl(string $platform): string
-    {
-        $oauth = $this->getOAuthInstance($platform);
-        
-        // 生成state并保存到session中
-        $state = md5(uniqid('', true));
-        // 这里应该使用Hyperf的Session或Redis组件来存储state
-        // 为了简化，暂时只生成state
-        
-        // 设置state
-        $oauth->setState($state);
-        
-        // 获取授权URL
-        return $oauth->getAuthUrl();
-    }
-
-    /**
-     * 处理回调并获取用户信息
-     *
-     * @param string $platform 平台名称
-     * @param string $code 授权码
-     * @param string $state state参数
-     * @return array 用户信息
-     */
-    public function handleCallback(string $platform, string $code, string $state = ''): array
-    {
-        $oauth = $this->getOAuthInstance($platform);
-        
-        try {
-            // 验证state
-            if (!empty($state) && $state !== $oauth->getState()) {
-                throw new \RuntimeException('State验证失败');
-            }
-            
-            // 获取accessToken
-            $accessToken = $oauth->getAccessToken($code);
-            
-            // 获取用户信息
-            $userInfo = $oauth->getUserInfo();
-            
-            // 标准化用户信息
-            $normalizedUserInfo = $this->normalizeUserInfo($platform, $userInfo);
-            
-            return [
-                'platform' => $platform,
-                'platform_user_id' => $normalizedUserInfo['id'],
-                'user_info' => $normalizedUserInfo,
-                'access_token' => $accessToken,
-            ];
-        } catch (\Throwable $e) {
-            $this->logger->error('OAuth回调处理失败: ' . $e->getMessage());
-            throw new \RuntimeException('第三方登录失败: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 标准化用户信息
+     * 标准化用户信息.
      *
      * @param string $platform 平台名称
      * @param array $userInfo 原始用户信息
@@ -228,14 +296,14 @@ class OAuthService
         switch ($platform) {
             case 'github':
                 return [
-                    'id' => (string)$userInfo['id'],
+                    'id' => (string) $userInfo['id'],
                     'name' => $userInfo['name'] ?? $userInfo['login'],
                     'username' => $userInfo['login'],
                     'email' => $userInfo['email'] ?? '',
                     'avatar' => $userInfo['avatar_url'] ?? '',
                     'bio' => $userInfo['bio'] ?? '',
                 ];
-                
+
             case 'google':
                 return [
                     'id' => $userInfo['id'] ?? '',
@@ -245,7 +313,7 @@ class OAuthService
                     'avatar' => $userInfo['picture'] ?? '',
                     'bio' => '',
                 ];
-                
+
             case 'wechat':
                 return [
                     'id' => $userInfo['openid'] ?? '',
@@ -255,68 +323,9 @@ class OAuthService
                     'avatar' => $userInfo['headimgurl'] ?? '',
                     'bio' => '',
                 ];
-                
+
             default:
                 return $userInfo;
-        }
-    }
-
-    /**
-     * 生成JWT token
-     *
-     * @param array $userInfo 用户信息
-     * @return array JWT信息
-     */
-    public function generateJwt(array $userInfo): array
-    {
-        try {
-            // 检查用户是否已存在
-            $existingUser = null;
-            if (!empty($userInfo['email'])) {
-                $existingUser = $this->userService->getUserByEmail($userInfo['email']);
-            }
-            
-            if (!$existingUser) {
-                $existingUser = $this->userService->getUserByUsername($userInfo['username']);
-            }
-            
-            // 如果用户不存在，则创建新用户
-            if (!$existingUser) {
-                $userData = [
-                    'username' => $userInfo['username'],
-                    'email' => $userInfo['email'] ?? '',
-                    'password' => 'oauth_' . md5(uniqid('', true)), // 生成随机密码
-                    'real_name' => $userInfo['name'] ?? '',
-                    'avatar' => $userInfo['avatar'] ?? '',
-                    'bio' => $userInfo['bio'] ?? '',
-                    'status' => 1
-                ];
-                
-                $existingUser = $this->userService->createUser($userData);
-                $this->logger->info('OAuth用户创建成功', ['username' => $userInfo['username']]);
-            }
-            
-            // 创建一个简单的认证对象供JWT使用
-            $authUser = (object)[
-                'id' => $existingUser['id'],
-                'email' => $existingUser['email'],
-                'username' => $existingUser['username'],
-                'role' => $existingUser['role'] ?? 'user',
-                'status' => $existingUser['status'] ?? 0
-            ];
-            
-            // 直接使用AuthManager生成token
-            $token = $this->auth->guard('jwt')->login($authUser);
-            
-            return [
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-                'expires_in' => $this->config->get('auth.guards.jwt.ttl', 7200),
-                'user' => $existingUser
-            ];
-        } catch (\Throwable $e) {
-            $this->logger->error('JWT生成失败: ' . $e->getMessage());
-            throw new \RuntimeException('登录失败，请稍后重试');
         }
     }
 }

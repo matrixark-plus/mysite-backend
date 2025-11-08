@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateBlogsTable extends Migration
 {
@@ -30,11 +39,11 @@ class CreateBlogsTable extends Migration
             $table->text('seo_description')->nullable()->comment('SEO描述');
             $table->timestamps();
             $table->softDeletes();
-            
+
             // 外键关系
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('category_id')->references('id')->on('blog_categories')->onDelete('cascade');
-            
+
             // 索引设计
             $table->index('user_id');
             $table->index('category_id');
@@ -44,7 +53,7 @@ class CreateBlogsTable extends Migration
             $table->index('view_count');
             $table->fullText('title', 'content', 'excerpt');
         });
-        
+
         // 添加测试数据
         DB::table('blogs')->insert([
             [
@@ -57,7 +66,7 @@ class CreateBlogsTable extends Migration
                 'is_published' => true,
                 'view_count' => 100,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'user_id' => 1,
@@ -69,8 +78,8 @@ class CreateBlogsTable extends Migration
                 'is_published' => true,
                 'view_count' => 200,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

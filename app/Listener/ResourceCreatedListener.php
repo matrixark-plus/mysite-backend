@@ -1,17 +1,22 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Listener;
 
-use Hyperf\Event\Annotation\Listener;
 use Hyperf\Event\Contract\ListenerInterface;
-use Hyperf\Framework\Event\OnPipeMessage;
-use Hyperf\Utils\ApplicationContext;
 use Psr\Container\ContainerInterface;
 
 /**
- * 资源创建事件监听器
+ * 资源创建事件监听器.
  */
 class ResourceCreatedListener implements ListenerInterface
 {
@@ -26,7 +31,7 @@ class ResourceCreatedListener implements ListenerInterface
     }
 
     /**
-     * 返回需要监听的事件列表
+     * 返回需要监听的事件列表.
      */
     public function listen(): array
     {
@@ -37,7 +42,7 @@ class ResourceCreatedListener implements ListenerInterface
     }
 
     /**
-     * 处理事件
+     * 处理事件.
      * @param object $event 事件对象
      */
     public function process(object $event): void
@@ -47,7 +52,8 @@ class ResourceCreatedListener implements ListenerInterface
     }
 
     /**
-     * 静态方法，布隆过滤器功能已移除
+     * 静态方法，布隆过滤器功能已移除.
+     * @param mixed $resourceId
      */
     public static function updateBloomFilter(string $resourceType, $resourceId): void
     {

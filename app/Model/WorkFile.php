@@ -1,35 +1,43 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Model;
 
+use Hyperf\Model\Relations\BelongsTo;
+
 /**
- * 作品文件模型
+ * 作品文件模型.
  */
 class WorkFile extends Model
 {
     /**
-     * 表名
-     * @var ?string
+     * 状态常量.
+     */
+    public const STATUS_DISABLED = 0;
+
+    public const STATUS_ENABLED = 1;
+
+    /**
+     * 表名.
      */
     protected ?string $table = 'work_files';
 
     /**
-     * 主键
-     * @var string
+     * 主键.
      */
     protected string $primaryKey = 'id';
 
     /**
-     * 状态常量
-     */
-    const STATUS_DISABLED = 0;
-    const STATUS_ENABLED = 1;
-
-    /**
-     * 可填充字段
-     * @var array
+     * 可填充字段.
      */
     protected array $fillable = [
         'work_id',
@@ -46,14 +54,12 @@ class WorkFile extends Model
     ];
 
     /**
-     * 隐藏字段
-     * @var array
+     * 隐藏字段.
      */
     protected array $hidden = [];
 
     /**
-     * 时间戳字段
-     * @var array
+     * 时间戳字段.
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -66,7 +72,7 @@ class WorkFile extends Model
 
     /**
      * 获取所属作品
-     * @return \Hyperf\Model\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function work()
     {
@@ -74,7 +80,7 @@ class WorkFile extends Model
     }
 
     /**
-     * 获取文件的完整URL
+     * 获取文件的完整URL.
      * @return string
      */
     public function getFileUrlAttribute()
@@ -85,7 +91,7 @@ class WorkFile extends Model
     }
 
     /**
-     * 获取文件大小的可读格式
+     * 获取文件大小的可读格式.
      * @return string
      */
     public function getReadableSizeAttribute()
@@ -95,7 +101,7 @@ class WorkFile extends Model
         $i = 0;
         while ($size >= 1024 && $i < 4) {
             $size /= 1024;
-            $i++;
+            ++$i;
         }
         return round($size, 2) . ' ' . $units[$i];
     }

@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace HyperfTest\Controller;
 
@@ -13,10 +21,13 @@ use Hyperf\Logger\LoggerInterface;
 use Hyperf\Testing\TestCase;
 use Mockery;
 use Qbhy\HyperfAuth\AuthManager;
+use ReflectionClass;
 
 /**
  * AuthController的单元测试
- * 测试认证控制器的各项功能
+ * 测试认证控制器的各项功能.
+ * @internal
+ * @coversNothing
  */
 class AuthControllerTest extends TestCase
 {
@@ -31,12 +42,12 @@ class AuthControllerTest extends TestCase
     protected $userServiceMock;
 
     /**
-     * @var Mockery\MockInterface|AuthManager
+     * @var AuthManager|Mockery\MockInterface
      */
     protected $authMock;
 
     /**
-     * @var Mockery\MockInterface|LoggerInterface
+     * @var LoggerInterface|Mockery\MockInterface
      */
     protected $loggerMock;
 
@@ -75,25 +86,25 @@ class AuthControllerTest extends TestCase
 
         // 直接创建控制器并设置依赖
         $this->controller = new AuthController();
-        $reflection = new \ReflectionClass($this->controller);
-        
+        $reflection = new ReflectionClass($this->controller);
+
         // 设置各个属性
         $userServiceProperty = $reflection->getProperty('userService');
         $userServiceProperty->setAccessible(true);
         $userServiceProperty->setValue($this->controller, $this->userServiceMock);
-        
+
         $authProperty = $reflection->getProperty('auth');
         $authProperty->setAccessible(true);
         $authProperty->setValue($this->controller, $this->authMock);
-        
+
         $loggerProperty = $reflection->getProperty('logger');
         $loggerProperty->setAccessible(true);
         $loggerProperty->setValue($this->controller, $this->loggerMock);
-        
+
         $requestProperty = $reflection->getProperty('request');
         $requestProperty->setAccessible(true);
         $requestProperty->setValue($this->controller, $this->requestMock);
-        
+
         $responseProperty = $reflection->getProperty('response');
         $responseProperty->setAccessible(true);
         $responseProperty->setValue($this->controller, $this->responseMock);
@@ -106,7 +117,7 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试用户注册成功的情况
+     * 测试用户注册成功的情况.
      */
     public function testRegisterSuccess()
     {
@@ -114,16 +125,16 @@ class AuthControllerTest extends TestCase
         $params = [
             'email' => 'test@example.com',
             'password' => 'password123',
-            'username' => 'testuser'
+            'username' => 'testuser',
         ];
-        
-        $userMock = (object)[
+
+        $userMock = (object) [
             'id' => 1,
             'username' => 'testuser',
             'email' => 'test@example.com',
-            'status' => 1
+            'status' => 1,
         ];
-        
+
         $token = 'mock-jwt-token';
 
         // 模拟请求参数
@@ -156,7 +167,7 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试用户注册失败-参数不完整
+     * 测试用户注册失败-参数不完整.
      */
     public function testRegisterWithMissingParams()
     {
@@ -178,7 +189,7 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试用户注册失败-邮箱格式不正确
+     * 测试用户注册失败-邮箱格式不正确.
      */
     public function testRegisterWithInvalidEmail()
     {
@@ -200,24 +211,24 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试用户登录成功的情况
+     * 测试用户登录成功的情况.
      */
     public function testLoginSuccess()
     {
         // 准备测试数据
         $email = 'test@example.com';
         $password = 'password123';
-        
-        $userMock = (object)[
+
+        $userMock = (object) [
             'id' => 1,
             'username' => 'testuser',
             'email' => 'test@example.com',
             'real_name' => 'Test User',
             'avatar' => 'avatar.jpg',
             'role' => 'user',
-            'status' => 1
+            'status' => 1,
         ];
-        
+
         $token = 'mock-jwt-token';
 
         // 模拟请求参数
@@ -251,7 +262,7 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试用户登录失败-凭据错误
+     * 测试用户登录失败-凭据错误.
      */
     public function testLoginWithInvalidCredentials()
     {
@@ -284,12 +295,12 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试用户登出成功的情况
+     * 测试用户登出成功的情况.
      */
     public function testLogoutSuccess()
     {
         // 准备测试数据
-        $userMock = (object)['id' => 1];
+        $userMock = (object) ['id' => 1];
 
         // 模拟auth行为
         $guardMock = Mockery::mock();
@@ -312,12 +323,12 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试获取当前用户信息成功的情况
+     * 测试获取当前用户信息成功的情况.
      */
     public function testMeSuccess()
     {
         // 准备测试数据
-        $userMock = (object)[
+        $userMock = (object) [
             'id' => 1,
             'username' => 'testuser',
             'email' => 'test@example.com',
@@ -326,7 +337,7 @@ class AuthControllerTest extends TestCase
             'bio' => 'Test bio',
             'role' => 'user',
             'status' => 1,
-            'created_at' => '2023-01-01 00:00:00'
+            'created_at' => '2023-01-01 00:00:00',
         ];
 
         // 模拟auth行为
@@ -350,7 +361,7 @@ class AuthControllerTest extends TestCase
     }
 
     /**
-     * 测试获取当前用户信息失败-未登录
+     * 测试获取当前用户信息失败-未登录.
      */
     public function testMeWithNoUser()
     {

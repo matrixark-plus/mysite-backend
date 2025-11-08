@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
 namespace App\Controller;
 
 use App\Traits\ResponseTrait;
@@ -20,7 +21,7 @@ use Psr\Container\ContainerInterface;
 abstract class AbstractController
 {
     use ResponseTrait;
-    
+
     /**
      * @Inject
      * @var ContainerInterface

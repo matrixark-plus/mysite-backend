@@ -26,34 +26,34 @@ Router::get('/favicon.ico', function () {
 Router::addGroup('/api/comments', function () {
     // 获取评论列表（公开访问）
     Router::get('', 'App\Controller\Api\CommentController@index');
-    
+
     // 创建评论
     Router::post('', 'App\Controller\Api\CommentController@store');
-    
+
     // 获取评论详情
     Router::get('/{id}', 'App\Controller\Api\CommentController@show');
-    
+
     // 更新评论
     Router::put('/{id}', 'App\Controller\Api\CommentController@update');
-    
+
     // 删除评论
     Router::delete('/{id}', 'App\Controller\Api\CommentController@destroy');
-    
+
     // 获取待审核评论列表
     Router::get('/pending/list', 'App\Controller\Api\CommentController@getPendingComments');
-    
+
     // 审核通过评论
     Router::put('/{id}/approve', 'App\Controller\Api\CommentController@approveComment');
-    
+
     // 拒绝评论
     Router::put('/{id}/reject', 'App\Controller\Api\CommentController@rejectComment');
-    
+
     // 批量审核评论
     Router::post('/batch-review', 'App\Controller\Api\CommentController@batchReviewComments');
-    
+
     // 获取评论的回复
     Router::get('/{id}/replies', 'App\Controller\Api\CommentController@getReplies');
-    
+
     // 回复评论
     Router::post('/{id}/reply', 'App\Controller\Api\CommentController@replyComment');
 });
@@ -63,28 +63,28 @@ Router::addGroup('/api', function () {
     // 邮箱相关路由
     Router::post('/email/send-verify-code', 'App\Controller\Api\EmailController@sendVerifyCode');
     Router::post('/email/send', 'App\Controller\Api\EmailController@sendEmail');
-    
+
     // 订阅相关路由
     Router::post('/subscribe/blog', 'App\Controller\Api\SubscribeController@subscribeBlog');
     Router::get('/subscribe/confirm', 'App\Controller\Api\SubscribeController@confirmSubscribe');
-    
+
     // 联系表单相关路由
     Router::post('/contact/submit', 'App\Controller\Api\ContactController@submitContact');
-    
+
     // 社交媒体分享路由
     Router::get('/social/share/config', 'App\Controller\Api\SocialShareController@getShareConfig');
-    
+
     // 脑图相关路由
     Router::get('/mind-map/root-nodes', 'App\Controller\Api\MindMapController@getRootNodes');
     Router::get('/mind-map/{id}', 'App\Controller\Api\MindMapController@getMindMapData'); // 修正方法名为getMindMapData
-    
+
     // 系统相关路由
     Router::get('/system/statistics', 'App\Controller\Api\SystemController@getStatistics');
-    
+
     // 配置相关路由
     Router::get('/config/get', 'App\Controller\Api\ConfigController@getConfig');
     // 注意：ConfigController中只实现了getConfig方法，updateConfig和batchUpdateConfig需要在控制器中实现后再启用
-    
+
     // 权限管理相关路由
     // 获取角色列表 - 仅管理员可访问
     Router::get('/permission/roles', 'App\Controller\Api\PermissionController@getRoles', ['middleware' => ['admin_permission']]);

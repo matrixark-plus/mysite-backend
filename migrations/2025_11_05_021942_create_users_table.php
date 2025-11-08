@@ -1,8 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 use Hyperf\DbConnection\Db;
 
 class CreateUsersTable extends Migration
@@ -13,7 +22,7 @@ class CreateUsersTable extends Migration
     public function up(): void
     {
         // 如果users表不存在才创建
-        if (!Schema::hasTable('users')) {
+        if (! Schema::hasTable('users')) {
             Schema::create('users', function (Blueprint $table) {
                 $table->bigIncrements('id');
                 $table->string('username', 50)->unique()->comment('用户名');
@@ -29,14 +38,14 @@ class CreateUsersTable extends Migration
                 $table->timestamp('last_login_at')->nullable()->comment('最后登录时间');
                 $table->timestamps();
                 $table->softDeletes();
-                
+
                 // 索引设计
                 $table->index('username');
                 $table->index('email');
                 $table->index('is_active');
             });
         }
-        
+
         // 添加测试数据
         Db::table('users')->insert([
             [
@@ -47,7 +56,7 @@ class CreateUsersTable extends Migration
                 'is_active' => true,
                 'is_admin' => true,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'username' => 'user1',
@@ -57,8 +66,8 @@ class CreateUsersTable extends Migration
                 'is_active' => true,
                 'is_admin' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

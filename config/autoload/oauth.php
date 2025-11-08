@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-
 /**
  * This file is part of Hyperf.
  *
@@ -18,7 +17,7 @@ return [
         'redirect_uri' => env('APP_URL', '') . '/api/oauth/github/callback',
         'scopes' => ['user:email'],
     ],
-    
+
     // Google OAuth配置
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID', ''),
@@ -26,7 +25,7 @@ return [
         'redirect_uri' => env('APP_URL', '') . '/api/oauth/google/callback',
         'scopes' => ['email', 'profile'],
     ],
-    
+
     // 微信OAuth配置
     'wechat' => [
         'client_id' => env('WECHAT_CLIENT_ID', ''),
@@ -34,7 +33,7 @@ return [
         'redirect_uri' => env('APP_URL', '') . '/api/oauth/wechat/callback',
         'scopes' => ['snsapi_userinfo'],
     ],
-    
+
     // 通用配置
     'common' => [
         // OAuth state存储配置
@@ -42,7 +41,7 @@ return [
             'driver' => 'redis', // session, redis
             'expire' => 300, // 5分钟过期
         ],
-        
+
         // 用户绑定配置
         'user_binding' => [
             'enabled' => true,

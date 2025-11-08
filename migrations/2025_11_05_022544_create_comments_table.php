@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateCommentsTable extends Migration
 {
@@ -26,12 +35,12 @@ class CreateCommentsTable extends Migration
             $table->json('user_agent')->nullable()->comment('用户代理信息');
             $table->timestamps();
             $table->softDeletes();
-            
+
             // 外键关系
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             // 自引用外键，用于回复功能
             $table->foreign('parent_id')->references('id')->on('comments')->onDelete('cascade');
-            
+
             // 索引设计
             $table->index('user_id');
             $table->index(['commentable_type', 'commentable_id']);
@@ -39,7 +48,7 @@ class CreateCommentsTable extends Migration
             $table->index('is_approved');
             $table->index('created_at');
         });
-        
+
         // 添加测试数据
         DB::table('comments')->insert([
             [
@@ -51,7 +60,7 @@ class CreateCommentsTable extends Migration
                 'is_approved' => true,
                 'ip_address' => '127.0.0.1',
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'user_id' => 1,
@@ -62,7 +71,7 @@ class CreateCommentsTable extends Migration
                 'is_approved' => true,
                 'ip_address' => '127.0.0.1',
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'user_id' => 2,
@@ -74,10 +83,10 @@ class CreateCommentsTable extends Migration
                 'is_approved' => true,
                 'ip_address' => '127.0.0.1',
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
-        
+
         // 更新博客评论数量
         DB::table('blogs')->where('id', 1)->increment('comment_count', 2);
     }

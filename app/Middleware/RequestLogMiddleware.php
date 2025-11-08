@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Middleware;
 
@@ -14,7 +22,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * 请求日志中间件
- * 使用Hyperf框架内置的Logger组件记录API请求日志
+ * 使用Hyperf框架内置的Logger组件记录API请求日志.
  */
 class RequestLogMiddleware implements MiddlewareInterface
 {
@@ -36,7 +44,7 @@ class RequestLogMiddleware implements MiddlewareInterface
         $path = $request->getUri()->getPath();
         $method = $request->getMethod();
         $ip = $request->getServerParams()['remote_addr'] ?? 'unknown';
-        
+
         // 记录请求信息，但避免记录敏感数据
         $this->logger->info('Request started', [
             'path' => $path,

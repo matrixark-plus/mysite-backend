@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateSystemConfigsTable extends Migration
 {
@@ -24,17 +33,17 @@ class CreateSystemConfigsTable extends Migration
             $table->unsignedBigInteger('created_by')->nullable()->comment('创建者ID');
             $table->unsignedBigInteger('updated_by')->nullable()->comment('更新者ID');
             $table->timestamps();
-            
+
             // 外键关系
             $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->foreign('updated_by')->references('id')->on('users')->onDelete('set null');
-            
+
             // 索引设计
             $table->index('key');
             $table->index('group');
             $table->index('created_at');
         });
-        
+
         // 添加基础系统配置
         DB::table('system_configs')->insert([
             // 网站基本配置
@@ -46,7 +55,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '网站名称',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'key' => 'site.description',
@@ -56,7 +65,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '网站描述',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'key' => 'site.logo',
@@ -66,7 +75,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '网站Logo',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             // 博客配置
             [
@@ -77,7 +86,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '每页显示博客数量',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'key' => 'blog.allow_comments',
@@ -87,7 +96,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '是否允许评论',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             // 邮箱配置
             [
@@ -98,7 +107,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '是否启用邮件功能',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             // 用户配置
             [
@@ -109,7 +118,7 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '是否允许用户注册',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             // SEO配置
             [
@@ -120,8 +129,8 @@ class CreateSystemConfigsTable extends Migration
                 'description' => '网站关键词',
                 'is_readonly' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

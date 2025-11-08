@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateContactFormsTable extends Migration
 {
@@ -29,11 +38,11 @@ class CreateContactFormsTable extends Migration
             $table->json('meta')->nullable()->comment('元数据');
             $table->timestamps();
             $table->softDeletes();
-            
+
             // 外键关系
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('replied_by')->references('id')->on('users')->onDelete('set null');
-            
+
             // 索引设计
             $table->index('user_id');
             $table->index('email');
@@ -42,7 +51,7 @@ class CreateContactFormsTable extends Migration
             $table->fullText('subject', 'idx_contact_subject_fulltext');
             $table->fullText('message', 'idx_contact_message_fulltext');
         });
-        
+
         // 添加测试数据
         DB::table('contact_forms')->insert([
             [
@@ -54,7 +63,7 @@ class CreateContactFormsTable extends Migration
                 'status' => 'processing',
                 'ip_address' => '127.0.0.1',
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'user_id' => null,
@@ -66,8 +75,8 @@ class CreateContactFormsTable extends Migration
                 'phone' => '13800138000',
                 'ip_address' => '192.168.1.101',
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

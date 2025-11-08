@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Middleware;
 
@@ -14,10 +22,11 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Throwable;
 
 /**
  * 请求体解析中间件
- * 用于解析JSON、表单等请求体数据
+ * 用于解析JSON、表单等请求体数据.
  */
 class RequestBodyParserMiddleware implements MiddlewareInterface
 {
@@ -34,7 +43,7 @@ class RequestBodyParserMiddleware implements MiddlewareInterface
     protected $logger;
 
     /**
-     * 支持的内容类型
+     * 支持的内容类型.
      * @var array
      */
     protected $supportedContentTypes = [
@@ -42,33 +51,28 @@ class RequestBodyParserMiddleware implements MiddlewareInterface
         'application/x-www-form-urlencoded',
     ];
 
-    /**
-     * @inheritDoc
-     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $contentType = $this->getContentType($request);
-        
+
         // 检查是否支持的内容类型
-        if (!empty($contentType) && in_array($contentType, $this->supportedContentTypes, true)) {
+        if (! empty($contentType) && in_array($contentType, $this->supportedContentTypes, true)) {
             try {
                 // 解析请求体
                 $request = $this->parseBody($request, $contentType);
                 // 将解析后的请求重新设置到上下文
                 Context::set(ServerRequestInterface::class, $request);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->warning('请求体解析失败: ' . $e->getMessage());
                 // 解析失败时不中断请求，继续处理
             }
         }
-        
+
         return $handler->handle($request);
     }
 
     /**
-     * 获取内容类型
-     * @param ServerRequestInterface $request
-     * @return string
+     * 获取内容类型.
      */
     protected function getContentType(ServerRequestInterface $request): string
     {
@@ -81,10 +85,7 @@ class RequestBodyParserMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 解析请求体
-     * @param ServerRequestInterface $request
-     * @param string $contentType
-     * @return ServerRequestInterface
+     * 解析请求体.
      */
     protected function parseBody(ServerRequestInterface $request, string $contentType): ServerRequestInterface
     {
@@ -94,8 +95,8 @@ class RequestBodyParserMiddleware implements MiddlewareInterface
         }
 
         // 保存原始请求体内容
-        $bodyContent = (string)$body;
-        
+        $bodyContent = (string) $body;
+
         // 重新创建流，因为读取后指针会移动到末尾
         $request = $request->withBody(new SwooleStream($bodyContent));
 
@@ -113,7 +114,7 @@ class RequestBodyParserMiddleware implements MiddlewareInterface
                     $request = $request->withParsedBody($parsedData);
                 }
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->warning('解析' . $contentType . '请求体失败: ' . $e->getMessage());
         }
 

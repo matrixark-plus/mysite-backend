@@ -1,43 +1,60 @@
 <?php
 
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
+
 namespace App\Model;
 
-use Hyperf\DbConnection\Db;
+use Hyperf\Database\Query\Builder;
+use Hyperf\Model\Relations\BelongsTo;
+use Hyperf\Model\Relations\HasMany;
+use Hyperf\Model\Relations\MorphTo;
 
 /**
- * 评论模型
- * @package App\Model
+ * 评论模型.
  */
 class Comment extends Model
 {
     /**
-     * 表名
-     * @var ?string
+     * 状态常量.
+     */
+    public const STATUS_PENDING = 0; // 待审核
+
+    public const STATUS_APPROVED = 1; // 已通过
+
+    public const STATUS_REJECTED = 2; // 已拒绝
+
+    /**
+     * 内容类型常量.
+     */
+    public const POST_TYPE_BLOG = 'blog';
+
+    public const POST_TYPE_WORK = 'work';
+
+    /**
+     * 时间戳.
+     */
+    public bool $timestamps = true;
+
+    /**
+     * 表名.
      */
     protected ?string $table = 'comments';
 
     /**
-     * 主键
-     * @var string
+     * 主键.
      */
     protected string $primaryKey = 'id';
 
     /**
-     * 状态常量
-     */
-    const STATUS_PENDING = 0; // 待审核
-    const STATUS_APPROVED = 1; // 已通过
-    const STATUS_REJECTED = 2; // 已拒绝
-
-    /**
-     * 内容类型常量
-     */
-    const POST_TYPE_BLOG = 'blog';
-    const POST_TYPE_WORK = 'work';
-
-    /**
-     * 可填充字段
-     * @var array
+     * 可填充字段.
      */
     protected array $fillable = [
         'user_id',
@@ -49,14 +66,8 @@ class Comment extends Model
     ];
 
     /**
-     * 时间戳
-     * @var bool
-     */
-    public bool $timestamps = true;
-
-    /**
-     * 获取评论用户
-     * @return \Hyperf\Model\Relations\BelongsTo
+     * 获取评论用户.
+     * @return BelongsTo
      */
     public function user()
     {
@@ -64,8 +75,8 @@ class Comment extends Model
     }
 
     /**
-     * 获取父评论
-     * @return \Hyperf\Model\Relations\BelongsTo
+     * 获取父评论.
+     * @return BelongsTo
      */
     public function parent()
     {
@@ -73,8 +84,8 @@ class Comment extends Model
     }
 
     /**
-     * 获取子评论
-     * @return \Hyperf\Model\Relations\HasMany
+     * 获取子评论.
+     * @return HasMany
      */
     public function children()
     {
@@ -82,8 +93,8 @@ class Comment extends Model
     }
 
     /**
-     * 获取关联的博客（多态关联）
-     * @return \Hyperf\Model\Relations\MorphTo
+     * 获取关联的博客（多态关联）.
+     * @return MorphTo
      */
     public function blog()
     {
@@ -95,8 +106,8 @@ class Comment extends Model
     }
 
     /**
-     * 获取关联的作品（多态关联）
-     * @return \Hyperf\Model\Relations\MorphTo
+     * 获取关联的作品（多态关联）.
+     * @return MorphTo
      */
     public function work()
     {
@@ -108,7 +119,7 @@ class Comment extends Model
     }
 
     /**
-     * 获取状态文本
+     * 获取状态文本.
      * @return string
      */
     public function getStatusTextAttribute()
@@ -122,9 +133,9 @@ class Comment extends Model
     }
 
     /**
-     * 范围：仅获取已审核通过的评论
-     * @param \Hyperf\Database\Query\Builder $query
-     * @return \Hyperf\Database\Query\Builder
+     * 范围：仅获取已审核通过的评论.
+     * @param Builder $query
+     * @return Builder
      */
     public function scopeApproved($query)
     {
@@ -132,10 +143,9 @@ class Comment extends Model
     }
 
     /**
-     * 范围：按类型筛选
-     * @param \Hyperf\Database\Query\Builder $query
-     * @param string $type
-     * @return \Hyperf\Database\Query\Builder
+     * 范围：按类型筛选.
+     * @param Builder $query
+     * @return Builder
      */
     public function scopeOfType($query, string $type)
     {

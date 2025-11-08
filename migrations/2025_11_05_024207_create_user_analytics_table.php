@@ -1,9 +1,17 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\Migrations\Migration;
-use Hyperf\Database\Query\Builder;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateUserAnalyticsTable extends Migration
 {
@@ -26,16 +34,16 @@ class CreateUserAnalyticsTable extends Migration
             $table->string('device', 50)->nullable()->comment('设备类型');
             $table->string('os', 50)->nullable()->comment('操作系统');
             $table->datetime('created_at')->notNull()->default('CURRENT_TIMESTAMP');
-            
+
             // 外键约束
             $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
-            
+
             // 索引设计
             $table->index(['session_id', 'created_at'])->comment('支持会话分析查询');
             $table->index(['event_type', 'created_at'])->comment('支持事件类型统计');
             $table->index('user_id')->comment('支持用户相关查询');
         });
-        
+
         // 插入测试数据
         $this->insertTestData();
     }
@@ -47,9 +55,9 @@ class CreateUserAnalyticsTable extends Migration
     {
         Schema::dropIfExists('user_analytics');
     }
-    
+
     /**
-     * 插入测试数据
+     * 插入测试数据.
      */
     protected function insertTestData()
     {

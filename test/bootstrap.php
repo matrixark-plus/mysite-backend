@@ -1,6 +1,15 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
+use Hyperf\Context\ApplicationContext;
 
 ini_set('display_errors', 'on');
 ini_set('display_startup_errors', 'on');
@@ -16,4 +25,4 @@ require BASE_PATH . '/vendor/autoload.php';
 $container = require BASE_PATH . '/config/container.php';
 
 // 设置容器到ApplicationContext
-\Hyperf\Context\ApplicationContext::setContainer($container);
+ApplicationContext::setContainer($container);

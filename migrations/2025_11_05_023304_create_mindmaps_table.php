@@ -1,9 +1,18 @@
 <?php
 
-use Hyperf\Database\Schema\Schema;
-use Hyperf\Database\Schema\Blueprint;
-use Hyperf\Database\Migrations\Migration;
+declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 use Hyperf\Database\DB;
+use Hyperf\Database\Migrations\Migration;
+use Hyperf\Database\Schema\Blueprint;
+use Hyperf\Database\Schema\Schema;
 
 class CreateMindmapsTable extends Migration
 {
@@ -24,13 +33,13 @@ class CreateMindmapsTable extends Migration
             $table->integer('favorite_count')->default(0)->comment('收藏次数');
             $table->datetimes();
             $table->softDeletes();
-            
+
             // 外键关系
             $table->foreign('user_id')
                 ->references('id')
                 ->on('users')
                 ->onDelete('cascade');
-            
+
             // 索引设计
             $table->index('user_id');
             $table->index('status');
@@ -39,7 +48,7 @@ class CreateMindmapsTable extends Migration
             $table->fullText('title');
             $table->fullText('description');
         });
-        
+
         // 插入测试数据
         DB::table('mindmaps')->insert([
             [
@@ -50,7 +59,7 @@ class CreateMindmapsTable extends Migration
                 'status' => 'published',
                 'is_public' => true,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
+                'updated_at' => date('Y-m-d H:i:s'),
             ],
             [
                 'user_id' => 2,
@@ -60,8 +69,8 @@ class CreateMindmapsTable extends Migration
                 'status' => 'draft',
                 'is_public' => false,
                 'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
 

@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-
 /**
  * This file is part of Hyperf.
  *
@@ -13,19 +12,19 @@ declare(strict_types=1);
 return [
     // 默认邮件驱动
     'default' => env('MAIL_DRIVER', 'smtp'),
-    
+
     // SMTP配置
     'smtp' => [
         // 默认配置
         'default' => [
             'host' => env('MAIL_HOST', 'smtp.example.com'),
-            'port' => (int)env('MAIL_PORT', 465),
+            'port' => (int) env('MAIL_PORT', 465),
             'username' => env('MAIL_USERNAME', ''),
             'password' => env('MAIL_PASSWORD', ''),
             'encryption' => env('MAIL_ENCRYPTION', 'ssl'),
             'timeout' => 30,
         ],
-        
+
         // 163邮箱配置
         '163' => [
             'host' => 'smtp.163.com',
@@ -35,7 +34,7 @@ return [
             'encryption' => 'ssl',
             'timeout' => 30,
         ],
-        
+
         // 阿里云企业邮箱配置
         'aliyun' => [
             'host' => 'smtp.mxhichina.com',
@@ -45,7 +44,7 @@ return [
             'encryption' => 'ssl',
             'timeout' => 30,
         ],
-        
+
         // Gmail配置
         'gmail' => [
             'host' => 'smtp.gmail.com',
@@ -56,22 +55,22 @@ return [
             'timeout' => 30,
         ],
     ],
-    
+
     // 发件人配置
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'noreply@example.com'),
         'name' => env('MAIL_FROM_NAME', 'Example App'),
     ],
-    
+
     // 联系邮箱
     'contact_email' => env('CONTACT_EMAIL', 'admin@example.com'),
-    
+
     // 异步发送配置
     'async' => [
         'enabled' => true,
         'pool_size' => 10,
     ],
-    
+
     // 邮件模板配置
     'templates' => [
         'register_confirmation' => [
