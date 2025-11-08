@@ -40,19 +40,26 @@
 **修改目的**:
 解决Hyperf框架中MiddlewareManager期望中间件参数为数组类型的要求，修复启动时的类型错误。
 
-## 4. PermissionService.php - Unicode转义和类型修复
+## 4. Unicode转义字符修复（PermissionService.php 和 UserRepository.php）
 
-**文件路径**: `app/Service/PermissionService.php`
+**文件路径**:
+- `app/Service/PermissionService.php`
+- `app/Repository/UserRepository.php`
 
 **修改内容**:
-- 移除了Unicode转义字符，将`\u003e`替换为正常的`->`操作符
-- 更新了用户数据访问方式，从对象属性访问`$user->role`改为数组索引访问`$user['role']`
-- 修改了hasRole、isAdmin、isEditorOrAbove方法的参数类型声明，从User对象改为数组类型
+- **PermissionService.php**:
+  - 移除了Unicode转义字符，将`\u003e`替换为正常的`->`操作符
+  - 更新了用户数据访问方式，从对象属性访问`$user->role`改为数组索引访问`$user['role']`
+  - 修改了hasRole、isAdmin、isEditorOrAbove方法的参数类型声明，从User对象改为数组类型
+- **UserRepository.php**:
+  - 修复了文件中的Unicode转义字符错误
+  - 将`query->select($columns)-u003eget()`替换为正确的`query->select($columns)->get()`
+  - 将`User::where('id', $userId)-u003eupdate()`替换为正确的`User::where('id', $userId)->update()`
 
 **修改目的**:
-修复语法错误并确保类型一致性，使服务能够正确处理Repository层返回的数组数据。
+修复语法错误，确保数据库查询操作能够正常执行，同时确保类型一致性，使服务能够正确处理Repository层返回的数组数据，避免因Unicode转义字符导致的语法解析失败。
 
-## 6. ArrayProvider.php - 自定义认证提供者实现
+## 5. ArrayProvider.php - 自定义认证提供者实现
 
 **文件路径**: `app/Provider/ArrayProvider.php`
 
@@ -67,7 +74,7 @@
 **修改目的**:
 解决hyperf-auth包中不存在ArrayProvider类的问题，实现了一个能够处理Repository层返回的数组数据的认证提供者，确保认证系统能够正常工作。
 
-## 7. auth.php - 认证提供者配置修正
+## 6. auth.php - 认证提供者配置修正
 
 **文件路径**: `config/autoload/auth.php`
 
@@ -87,7 +94,7 @@
 
 1. **类型不匹配问题**：修复了从Repository层返回数组数据与上层服务期望对象类型的不匹配问题
 2. **中间件配置错误**：修正了路由中间件配置格式，确保符合Hyperf框架要求
-3. **语法错误**：移除了Unicode转义字符和重复属性声明等导致的语法错误
+3. **语法错误**：移除了PermissionService和UserRepository中的Unicode转义字符以及OAuthService中的重复属性声明等导致的语法错误
 4. **认证系统兼容性**：实现了自定义ArrayProvider类，确保与Repository层的数据结构一致
 5. **ArrayProvider类缺失问题**：创建了自定义认证提供者类，解决hyperf-auth包中ArrayProvider不存在的问题
 
@@ -98,4 +105,4 @@
 ---
 
 *文档创建日期: 2024年*
-*最后更新日期: 2024年 - 添加ArrayProvider实现修复记录*
+*最后更新日期: 2024年 - 合并Unicode转义字符修复记录*

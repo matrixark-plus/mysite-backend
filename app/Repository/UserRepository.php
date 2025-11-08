@@ -77,7 +77,7 @@ class UserRepository
                 $query = $query->orderBy($field, $direction);
             }
             
-            $users = $query->select($columns)-u003eget();
+            $users = $query->select($columns)->get();
             return $users->toArray();
         } catch (\Exception $e) {
             $this->logger->error('获取用户列表失败: ' . $e->getMessage(), ['conditions' => $conditions]);
@@ -179,7 +179,7 @@ class UserRepository
     {
         try {
             return Db::transaction(function () use ($userId, $role) {
-                return User::where('id', $userId)-u003eupdate([
+                return User::where('id', $userId)->update([
                     'role' => $role,
                     'updated_at' => date('Y-m-d H:i:s')
                 ]);
