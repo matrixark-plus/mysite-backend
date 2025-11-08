@@ -9,6 +9,7 @@
   - [3.3 控制器层改进](#33-控制器层改进)
   - [3.4 中间件兼容性优化](#34-中间件兼容性优化)
   - [3.5 事务管理与日志优化](#35-事务管理与日志优化)
+  - [3.6 权限中间件统一重构](#36-权限中间件统一重构)
 - [4. 重构成果](#4-重构成果)
 - [5. 最佳实践指南](#5-最佳实践指南)
 - [6. 开发建议](#6-开发建议)
@@ -536,5 +537,238 @@ public function updateUserRole(int $userId, string $newRole): bool
 4. **文档更新**：代码变更后及时更新相关文档
 5. **性能考虑**：注意Repository方法的性能，避免N+1查询等问题
 6. **异常处理**：合理使用异常，避免过多的try-catch嵌套
+
+### 3.6 权限中间件统一重构
+
+将原有的两个权限中间件（AdminPermissionMiddleware和PermissionMiddleware）合并为一个统一的权限检查中间件（PermissionCheckMiddleware），集中处理管理员和普通用户的权限检查逻辑。
+
+#### 3.6.1 统一权限中间件设计
+
+创建了`App\Middleware\PermissionCheckMiddleware`类，具有以下特点：
+
+- 同时支持角色检查和权限列表检查
+- 可灵活配置所需角色和权限
+- 包含完整的异常处理和日志记录
+- 支持数组类型的用户角色和权限验证
+- 统一的权限检查逻辑，减少代码重复
+
+#### 3.6.2 配置优化
+
+更新了`config/middleware.php`配置文件，使用新的统一权限中间件替代原来的配置：
+
+- 调整了`permission`和`admin_permission`中间件组的配置
+- 添加了`permission_check`中间件别名
+- 确保权限检查在认证之后执行
+
+#### 3.6.3 代码示例
+
+统一权限中间件实现示例：
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Constants\StatusCode;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpServer\Contract\ResponseInterface as HttpResponse;
+use Hyperf\Logger\LoggerFactory;
+use Hyperf\Context\Context;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+/**
+ * 统一权限检查中间件
+ * 集中处理管理员和普通用户的权限检查
+ */
+class PermissionCheckMiddleware implements MiddlewareInterface
+{
+    /**
+     * @Inject
+     */
+    protected HttpResponse $response;
+
+    /**
+     * @Inject
+     */
+    protected LoggerFactory $loggerFactory;
+
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * 需要的角色
+     * @var string|null
+     */
+    protected ?string $requiredRole = null;
+
+    /**
+     * 需要的权限列表
+     * @var array
+     */
+    protected array $requiredPermissions = [];
+
+    /**
+     * PermissionCheckMiddleware constructor.
+     * @param string|null $role 需要的角色（可选，如'admin'）
+     * @param array $permissions 需要的权限列表（可选）
+     */
+    public function __construct(?string $role = null, array $permissions = [])
+    {
+        $this->logger = $this->loggerFactory->get('permission_check');
+        $this->requiredRole = $role;
+        $this->requiredPermissions = $permissions;
+    }
+
+    /**
+     * 处理请求，检查用户权限
+     */
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        try {
+            // 从上下文中获取用户信息
+            $user = Context::get('user');
+            $userId = Context::get('user_id');
+            $userRole = Context::get('user_role') ?? ($user['role'] ?? null);
+
+            // 检查用户是否已认证
+            if (!$user || !$userId) {
+                $this->logger->warning('权限检查失败: 用户未认证');
+                return $this->response->json([
+                    'code' => StatusCode::UNAUTHORIZED,
+                    'message' => '未授权，请先登录',
+                    'data' => null
+                ])->withStatus(401);
+            }
+
+            // 检查角色权限
+            if ($this->requiredRole) {
+                if (!$this->checkRole($userRole, $this->requiredRole)) {
+                    $this->logger->warning('角色权限检查失败', [
+                        'user_id' => $userId,
+                        'required_role' => $this->requiredRole,
+                        'user_role' => $userRole
+                    ]);
+                    return $this->response->json([
+                        'code' => StatusCode::FORBIDDEN,
+                        'message' => "权限不足，需要{$this->requiredRole}角色",
+                        'data' => null
+                    ])->withStatus(403);
+                }
+            }
+
+            // 检查具体权限
+            if (!empty($this->requiredPermissions)) {
+                $userPermissions = $user['permissions'] ?? [];
+                if (!$this->checkPermissions($userPermissions, $this->requiredPermissions)) {
+                    $this->logger->warning('操作权限检查失败', [
+                        'user_id' => $userId,
+                        'required_permissions' => $this->requiredPermissions,
+                        'user_permissions' => $userPermissions
+                    ]);
+                    return $this->response->json([
+                        'code' => StatusCode::FORBIDDEN,
+                        'message' => '权限不足，缺少必要的操作权限',
+                        'data' => null
+                    ])->withStatus(403);
+                }
+            }
+
+            // 权限检查通过，继续处理请求
+            $this->logger->info('权限检查通过', [
+                'user_id' => $userId,
+                'required_role' => $this->requiredRole,
+                'required_permissions' => $this->requiredPermissions
+            ]);
+            return $handler->handle($request);
+        } catch (\Throwable $e) {
+            $this->logger->error('权限检查异常', [
+                'error' => $e->getMessage(),
+                'trace' => substr($e->getTraceAsString(), 0, 200) // 限制日志长度
+            ]);
+            return $this->response->json([
+                'code' => StatusCode::FORBIDDEN,
+                'message' => '权限检查失败，请联系管理员',
+                'data' => null
+            ])->withStatus(403);
+        }
+    }
+
+    /**
+     * 检查用户角色
+     * @param mixed $userRole 用户角色
+     * @param string $requiredRole 需要的角色
+     * @return bool
+     */
+    protected function checkRole($userRole, string $requiredRole): bool
+    {
+        // 如果角色是数组，检查数组中是否包含所需角色
+        if (is_array($userRole)) {
+            return in_array($requiredRole, $userRole, true);
+        }
+
+        // 默认情况下进行字符串比较
+        return $userRole === $requiredRole;
+    }
+
+    /**
+     * 检查用户权限
+     * @param array $userPermissions 用户拥有的权限
+     * @param array $requiredPermissions 需要的权限
+     * @return bool
+     */
+    protected function checkPermissions(array $userPermissions, array $requiredPermissions): bool
+    {
+        // 检查是否拥有所有所需权限
+        foreach ($requiredPermissions as $permission) {
+            if (!in_array($permission, $userPermissions, true)) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+```
+
+中间件配置更新示例：
+
+```php
+<?php
+
+return [
+    // http middleware
+    'http' => [
+        \App\Middleware\CorsMiddleware::class,
+        \App\Middleware\RequestBodyParserMiddleware::class,
+        \App\Middleware\RequestLogMiddleware::class,
+    ],
+    // route middleware
+    'route' => [
+        'auth' => \App\Middleware\JwtAuthMiddleware::class,
+        'admin' => [\App\Middleware\JwtAuthMiddleware::class, 'admin'],
+    ],
+    // middleware group
+    'group' => [
+        'permission' => [
+            'auth',
+            [\App\Middleware\PermissionCheckMiddleware::class, null],
+        ],
+        'admin_permission' => [
+            'auth',
+            [\App\Middleware\PermissionCheckMiddleware::class, 'admin'],
+        ],
+    ],
+    // alias middleware
+    'alias' => [
+        'permission_check' => \App\Middleware\PermissionCheckMiddleware::class,
+    ],
+];
+```
 
 通过本次架构重构，我们建立了更加规范、可维护和可扩展的系统架构，为后续的功能开发和系统维护奠定了良好的基础。

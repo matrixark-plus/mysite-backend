@@ -68,17 +68,13 @@ class PermissionController extends AbstractController
             $userId = $data['user_id'] ?? null;
             
             // 如果没有指定用户ID，则获取当前用户的角色
+            $currentUser = $this->request->getAttribute('user');
             if (!$userId) {
-                $user = $this->request->getAttribute('user');
-                if (!$user) {
-                    return $this->fail(StatusCode::UNAUTHORIZED, '请先登录');
-                }
-                $userId = $user->id;
+                $userId = $currentUser['id'] ?? null;
             }
             
             // 检查权限：只能查看自己的角色或管理员可以查看所有用户的角色
-            $currentUser = $this->request->getAttribute('user');
-            if ($currentUser->role !== 'admin' && $currentUser->id != $userId) {
+            if ($currentUser['role'] !== 'admin' && $currentUser['id'] != $userId) {
                 return $this->fail(StatusCode::FORBIDDEN, '无权查看其他用户的角色信息');
             }
             
@@ -86,7 +82,7 @@ class PermissionController extends AbstractController
             return $this->success($userRoleInfo);
         } catch (ValidationException $e) {
             // 参数验证失败
-            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()-u003efirst());
+            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
         } catch (\Exception $e) {
             $this->logError('获取用户角色异常', [
                 'message' => $e->getMessage(),
@@ -117,7 +113,7 @@ class PermissionController extends AbstractController
             }
         } catch (ValidationException $e) {
             // 参数验证失败
-            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()-u003efirst());
+            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
         } catch (\Exception $e) {
             $this->logError('更新用户角色异常', [
                 'message' => $e->getMessage(),
@@ -126,6 +122,100 @@ class PermissionController extends AbstractController
                 'role' => $request->input('role')
             ], $e, 'permission');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $e->getMessage());
+        }
+    }
+    
+    /**
+     * 获取权限列表
+     * 仅管理员可访问
+     * 
+     * @RequestMapping(path="/list", methods={"GET"})
+     */
+    public function getPermissions(RequestInterface $request): ResponseInterface
+    {
+        try {
+            // 从权限服务获取所有权限列表
+            $permissions = $this->permissionService->getAllPermissions();
+            return $this->success($permissions);
+        } catch (\Exception $e) {
+            $this->logError('获取权限列表异常', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e)
+            ], $e, 'permission');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取权限列表失败');
+        }
+    }
+    
+    /**
+     * 分配权限
+     * 仅管理员可访问
+     * 
+     * @RequestMapping(path="/assign", methods={"POST"})
+     */
+    public function assignPermission(RequestInterface $request): ResponseInterface
+    {
+        try {
+            // 使用验证器验证参数
+            $data = $this->validator->validateAssignPermission($request->all());
+            
+            // 分配权限
+            $result = $this->permissionService->assignPermission(
+                $data['user_id'], 
+                $data['permissions']
+            );
+            
+            if ($result) {
+                return $this->success(['assigned' => true], '权限分配成功');
+            } else {
+                return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '权限分配失败');
+            }
+        } catch (ValidationException $e) {
+            // 参数验证失败
+            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
+        } catch (\Exception $e) {
+            $this->logError('分配权限异常', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'user_id' => $request->input('user_id')
+            ], $e, 'permission');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $e->getMessage());
+        }
+    }
+    
+    /**
+     * 检查用户权限
+     * 需要认证
+     * 
+     * @RequestMapping(path="/check", methods={"POST"})
+     */
+    public function checkPermission(RequestInterface $request): ResponseInterface
+    {
+        try {
+            // 使用验证器验证参数
+            $data = $this->validator->validateCheckPermission($request->all());
+            $requiredPermission = $data['permission'];
+            
+            // 获取当前用户信息
+            $currentUser = $this->request->getAttribute('user');
+            
+            // 管理员拥有所有权限
+            if ($currentUser['role'] === 'admin') {
+                return $this->success(['has_permission' => true]);
+            }
+            
+            // 检查用户是否拥有指定权限
+            $hasPermission = $this->permissionService->checkPermission($currentUser, $requiredPermission);
+            
+            return $this->success(['has_permission' => $hasPermission]);
+        } catch (ValidationException $e) {
+            // 参数验证失败
+            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
+        } catch (\Exception $e) {
+            $this->logError('检查权限异常', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e)
+            ], $e, 'permission');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '检查权限失败');
         }
     }
 }

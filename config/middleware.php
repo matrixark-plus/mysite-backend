@@ -27,19 +27,11 @@ return [
             return new App\Middleware\JwtAuthMiddleware('admin');
         },
     ],
-    'group' => [
-        // 权限管理接口中间件分组
-        'permission' => [
-            'auth',
-        ],
-        // 管理员权限接口中间件分组
-        'admin_permission' => [
-            'admin',
-        ],
-    ],
+
     'alias' => [
         // 中间件别名映射
         'cors' => App\Middleware\CorsMiddleware::class,
         'jwt' => App\Middleware\JwtAuthMiddleware::class,
+
     ],
 ];

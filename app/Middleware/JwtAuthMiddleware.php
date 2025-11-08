@@ -22,19 +22,43 @@ use Qbhy\HyperfAuth\Exception\UnauthorizedException;
 class JwtAuthMiddleware implements MiddlewareInterface
 {
     /**
-     * @Inject
+     * @var HttpResponse
      */
-    protected HttpResponse $response;
+    protected $response;
+
+    /**
+     * @var LoggerFactory
+     */
+    protected $loggerFactory;
+
+    /**
+     * @var AuthManager
+     */
+    protected $auth;
 
     /**
      * @Inject
      */
-    protected LoggerFactory $loggerFactory;
+    public function setResponse(HttpResponse $response)
+    {
+        $this->response = $response;
+    }
 
     /**
      * @Inject
      */
-    protected AuthManager $auth;
+    public function setLoggerFactory(LoggerFactory $loggerFactory)
+    {
+        $this->loggerFactory = $loggerFactory;
+    }
+
+    /**
+     * @Inject
+     */
+    public function setAuth(AuthManager $auth)
+    {
+        $this->auth = $auth;
+    }
 
     /**
      * @var \Psr\Log\LoggerInterface
@@ -59,8 +83,20 @@ class JwtAuthMiddleware implements MiddlewareInterface
      */
     public function __construct(?string $role = null)
     {
-        $this->logger = $this->loggerFactory->get('jwt');
+        // 构造函数中只设置角色，logger将在第一次使用时初始化
         $this->role = $role;
+    }
+
+    /**
+     * 获取或初始化logger
+     * @return \Psr\Log\LoggerInterface
+     */
+    protected function getLogger()
+    {
+        if (!isset($this->logger) && $this->loggerFactory) {
+            $this->logger = $this->loggerFactory->get('jwt');
+        }
+        return $this->logger;
     }
 
     /**
@@ -74,7 +110,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
             
             // 检查用户是否已认证
             if (!$user) {
-                $this->logger->warning('JWT认证失败: 用户未认证');
+                $this->getLogger()?->warning('JWT认证失败: 用户未认证');
                 return $this->response->json([
                     'code' => StatusCode::UNAUTHORIZED,
                     'message' => '未授权，请先登录',
@@ -90,7 +126,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 $userId = $userArray['id'] ?? 'unknown';
                 $userRole = $userArray['role'] ?? null;
                 
-                $this->logger->warning('JWT角色验证失败', [
+                $this->getLogger()?->warning('JWT角色验证失败', [
                     'user_id' => $userId,
                     'required_role' => $this->role,
                     'user_role' => $userRole
@@ -108,21 +144,21 @@ class JwtAuthMiddleware implements MiddlewareInterface
             Context::set('user_role', $userArray['role'] ?? null);
             
             // 认证成功，继续处理请求
-            $this->logger->info('JWT认证成功', [
+            $this->getLogger()?->info('JWT认证成功', [
                 'user_id' => $userArray['id'] ?? 'unknown',
                 'role' => $this->role
             ]);
             return $handler->handle($request);
         } catch (UnauthorizedException $e) {
             // 捕获hyperf-auth特定的未授权异常
-            $this->logger->warning('JWT认证未授权', ['error' => $e->getMessage()]);
+            $this->getLogger()?->warning('JWT认证未授权', ['error' => $e->getMessage()]);
             return $this->response->json([
                 'code' => StatusCode::UNAUTHORIZED,
                 'message' => '未授权，请先登录',
                 'data' => null
             ])->withStatus(401);
         } catch (\Throwable $e) {
-            $this->logger->error('JWT认证异常', [
+            $this->getLogger()?->error('JWT认证异常', [
                 'error' => $e->getMessage(),
                 'trace' => substr($e->getTraceAsString(), 0, 200) // 限制日志长度
             ]);

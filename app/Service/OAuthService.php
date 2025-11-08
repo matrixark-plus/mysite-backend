@@ -12,7 +12,7 @@ use Psr\Log\LoggerInterface;
 use Yurun\OAuthLogin\GitHub\GitHubOAuth;
 use Yurun\OAuthLogin\Google\GoogleOAuth;
 use Yurun\OAuthLogin\Weixin\WeixinOAuth;
-use App\Service\JwtAuthService;
+use Qbhy\HyperfAuth\AuthManager;
 
 /**
  * OAuth服务
@@ -37,12 +37,18 @@ class OAuthService
      * @var ResponseInterface
      */
     protected $response;
-
+    
     /**
      * @Inject
-     * @var JwtAuthService
+     * @var UserService
      */
-    protected $jwtAuthService;
+    protected $userService;
+    
+    /**
+     * @Inject
+     * @var AuthManager
+     */
+    protected $auth;
 
     /**
      * 支持的第三方平台
@@ -263,14 +269,51 @@ class OAuthService
      */
     public function generateJwt(array $userInfo): array
     {
-        // 这里应该查找或创建用户，然后生成JWT token
-        // 简化处理，实际应该先在数据库中查找或创建用户
-        $username = $userInfo['username'];
-        $password = 'oauth_' . md5(uniqid('', true)); // 生成随机密码
-        
         try {
-            // 尝试使用用户名和密码登录（实际应该先创建用户）
-            return $this->jwtAuthService->login($username, $password);
+            // 检查用户是否已存在
+            $existingUser = null;
+            if (!empty($userInfo['email'])) {
+                $existingUser = $this->userService->getUserByEmail($userInfo['email']);
+            }
+            
+            if (!$existingUser) {
+                $existingUser = $this->userService->getUserByUsername($userInfo['username']);
+            }
+            
+            // 如果用户不存在，则创建新用户
+            if (!$existingUser) {
+                $userData = [
+                    'username' => $userInfo['username'],
+                    'email' => $userInfo['email'] ?? '',
+                    'password' => 'oauth_' . md5(uniqid('', true)), // 生成随机密码
+                    'real_name' => $userInfo['name'] ?? '',
+                    'avatar' => $userInfo['avatar'] ?? '',
+                    'bio' => $userInfo['bio'] ?? '',
+                    'status' => 1
+                ];
+                
+                $existingUser = $this->userService->createUser($userData);
+                $this->logger->info('OAuth用户创建成功', ['username' => $userInfo['username']]);
+            }
+            
+            // 创建一个简单的认证对象供JWT使用
+            $authUser = (object)[
+                'id' => $existingUser['id'],
+                'email' => $existingUser['email'],
+                'username' => $existingUser['username'],
+                'role' => $existingUser['role'] ?? 'user',
+                'status' => $existingUser['status'] ?? 0
+            ];
+            
+            // 直接使用AuthManager生成token
+            $token = $this->auth->guard('jwt')->login($authUser);
+            
+            return [
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in' => $this->config->get('auth.guards.jwt.ttl', 7200),
+                'user' => $existingUser
+            ];
         } catch (\Throwable $e) {
             $this->logger->error('JWT生成失败: ' . $e->getMessage());
             throw new \RuntimeException('登录失败，请稍后重试');

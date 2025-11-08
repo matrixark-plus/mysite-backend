@@ -48,66 +48,6 @@ class AuthController extends AbstractController
     }
     
     /**
-     * 获取当前用户信息
-     * @return array|null
-     */
-    protected function getCurrentUser()
-    {
-        try {
-            $user = $this->auth->guard('jwt')->user();
-            // 如果是模型对象，转换为数组
-            return is_object($user) ? $user->toArray() : $user;
-        } catch (\Exception $e) {
-            $this->logError('获取当前用户失败', ['error' => $e->getMessage()], $e, 'auth');
-            return null;
-        }
-    }
-    
-    /**
-     * 格式化用户信息
-     *
-     * @param array $user 用户数组
-     * @param string $type 信息类型: 'basic', 'profile', 'full'
-     * @return array
-     */
-    protected function formatUserInfo($user, string $type = 'basic'): array
-    {
-        // 确保user是数组
-        if (is_object($user)) {
-            $user = $user->toArray();
-        }
-        
-        $basicInfo = [
-            'id' => $user['id'] ?? null,
-            'username' => $user['username'] ?? null,
-            'email' => $user['email'] ?? null,
-            'status' => $user['status'] ?? null
-        ];
-        
-        switch ($type) {
-            case 'profile':
-                $basicInfo += [
-                    'real_name' => $user['real_name'] ?? null,
-                    'avatar' => $user['avatar'] ?? null,
-                    'bio' => $user['bio'] ?? null,
-                    'role' => $user['role'] ?? null
-                ];
-                break;
-            case 'full':
-                $basicInfo += [
-                    'real_name' => $user['real_name'] ?? null,
-                    'avatar' => $user['avatar'] ?? null,
-                    'bio' => $user['bio'] ?? null,
-                    'role' => $user['role'] ?? null,
-                    'created_at' => $user['created_at'] ?? null
-                ];
-                break;
-        }
-        
-        return $basicInfo;
-    }
-
-    /**
      * 用户注册
      * @PostMapping(path="/register")
      * @return ResponseInterface
@@ -189,41 +129,41 @@ class AuthController extends AbstractController
                 throw new \InvalidArgumentException('邮箱和密码不能为空');
             }
             
-            // 直接验证用户凭据
-            try {
-                // 查找用户
-                $user = $this->userService->getUserByEmail($email);
-                if (!$user) {
-                    $this->logWarning('用户不存在', ['email' => $email], 'auth');
-                    throw new \InvalidArgumentException('邮箱或密码错误');
-                }
-                
-                // 创建一个简单的认证对象或数组供JWT使用
-                $authUser = [
-                    'id' => $user['id'],
-                    'email' => $user['email'],
-                    'username' => $user['username'],
-                    'role' => $user['role'] ?? 'user',
-                    'status' => $user['status'] ?? 0
-                ];
-                
-                // 使用JWT guard的login方法
-                $token = $this->auth->guard('jwt')->login((object)$authUser);
-                
-                if (!$token) {
-                    $this->logWarning('登录失败', ['email' => $email], 'auth');
-                    throw new \InvalidArgumentException('邮箱或密码错误');
-                }
-            } catch (\Exception $e) {
-                $this->logError('验证用户失败', ['email' => $email, 'error' => $e->getMessage()], $e, 'auth');
-                throw new \InvalidArgumentException('邮箱或密码错误');
+            // 查找用户
+            $user = $this->userService->getUserByEmail($email);
+            if (!$user) {
+                $this->logWarning('用户不存在', ['email' => $email], 'auth');
+                return $this->fail(401, '邮箱或密码错误');
+            }
+            
+            // 验证密码
+            if (!$this->userService->validateCredentials($user, $password)) {
+                $this->logWarning('密码错误', ['email' => $email], 'auth');
+                return $this->fail(401, '邮箱或密码错误');
+            }
+            
+            // 创建一个简单的认证对象供JWT使用
+            $authUser = (object)[
+                'id' => $user['id'],
+                'email' => $user['email'],
+                'username' => $user['username'],
+                'role' => $user['role'] ?? 'user',
+                'status' => $user['status'] ?? 0
+            ];
+            
+            // 使用JWT guard的login方法生成token
+            $token = $this->auth->guard('jwt')->login($authUser);
+            
+            if (!$token) {
+                $this->logWarning('登录失败', ['email' => $email], 'auth');
+                return $this->fail(401, '邮箱或密码错误');
             }
             
             // 记录成功登录信息
             $this->logAction('用户登录成功', [
-                'user_id' => $user->id,
+                'user_id' => $user['id'],
                 'email' => $email,
-                'user_role' => $user->role
+                'user_role' => $user['role'] ?? 'user'
             ]);
             
             // 返回成功响应
@@ -248,62 +188,33 @@ class AuthController extends AbstractController
     /**
      * 用户登出
      * @Auth(guard="jwt")
-     * @DeleteMapping(path="/logout")
+     * @PostMapping(path="/logout")
      * @return ResponseInterface
      */
     public function logout(): ResponseInterface
     {
-        // 先获取用户ID，确保在catch块中也能访问
-        $user = $this->getCurrentUser();
-        $userId = $user ? ($user['id'] ?? null) : null;
-        
         try {
+            // 获取当前用户ID用于日志
+            $user = $this->getCurrentUser();
+            $userId = $user ? $user->id : null;
             
-            // 清除JWT token
+            // 使用AuthManager登出
             $this->auth->guard('jwt')->logout();
             
-            // 记录登出成功
+            // 记录登出日志
             $this->logAction('用户登出成功', ['user_id' => $userId]);
+            
+            // 返回成功响应
             return $this->success(null, '登出成功');
         } catch (\Throwable $e) {
             // 记录错误日志
-            $this->logError('用户登出异常', ['user_id' => $userId], $e, 'auth');
+            $this->logError('用户登出异常', ['user_id' => null], $e, 'auth');
             return $this->fail(500, '登出失败，请稍后重试');
         }
     }
 
     /**
-     * 刷新Token
-     * @Auth(guard="jwt")
-     * @PostMapping(path="/refresh")
-     * @return ResponseInterface
-     */
-    public function refresh(): ResponseInterface
-    {
-        try {
-            // 获取当前用户信息用于日志记录
-            $user = $this->getCurrentUser();
-            $userId = $user ? ($user['id'] ?? null) : null;
-            
-            // 刷新token
-            $token = $this->auth->guard('jwt')->refresh();
-            
-            // 记录Token刷新成功
-            $this->logAction('Token刷新成功', ['user_id' => $userId]);
-            return $this->success([
-                'token' => $token,
-                'token_type' => 'Bearer',
-                'expires_in' => 3600
-            ], 'Token刷新成功');
-        } catch (\Throwable $e) {
-            // 记录错误日志
-            $this->logError('Token刷新异常', ['user_id' => $userId ?? 'unknown'], $e, 'auth');
-            return $this->fail(401, 'Token已过期或无效');
-        }
-    }
-
-    /**
-     * 获取当前用户信息
+     * 获取当前登录用户信息
      * @Auth(guard="jwt")
      * @GetMapping(path="/me")
      * @return ResponseInterface
@@ -311,141 +222,107 @@ class AuthController extends AbstractController
     public function me(): ResponseInterface
     {
         try {
-            // 获取当前登录用户
+            // 使用AuthManager获取当前用户
             $user = $this->getCurrentUser();
             
             if (empty($user)) {
-                $this->logWarning('获取用户信息失败', [
-                'error_code' => 401,
-                'message' => '用户未登录'
-            ], 'auth');
-                return $this->fail(401, '用户未登录');
+                return $this->fail(401, '未授权，请先登录');
             }
             
-            // 记录获取用户信息成功
-            $this->logAction('获取用户信息成功', ['user_id' => $user['id']]);
+            // 记录日志
+            $this->logAction('获取用户信息成功', ['user_id' => $user->id]);
             
-            // 格式化用户信息
+            // 返回用户信息
             return $this->success([
-                'user' => $this->formatUserInfo($user, 'full'),
-            ], '获取用户信息成功');
+                'user' => $this->formatUserInfo($user, 'profile'),
+            ], '获取成功');
         } catch (\Throwable $e) {
             // 记录错误日志
             $this->logError('获取用户信息异常', [], $e, 'auth');
-            return $this->fail(401, '未授权');
+            return $this->fail(500, '获取用户信息失败，请稍后重试');
         }
     }
 
     /**
-     * 修改密码
-     * @Auth(guard="jwt")
-     * @PutMapping(path="/password")
-     * @return ResponseInterface
+     * 获取当前登录用户信息的辅助方法
+     * @return mixed|null
      */
-    public function changePassword(): ResponseInterface
+    protected function getCurrentUser()
     {
-        // 先获取用户ID，确保在catch块中也能访问
-        $user = $this->getCurrentUser();
-        $userId = $user ? $user->id : null;
-        
-        try {
-            // 获取密码参数
-            $currentPassword = $this->request->input('current_password', '');
-            $newPassword = $this->request->input('new_password', '');
-            
-            if (empty($user)) {
-                $this->logger->warning('修改密码失败', [
-                    'error_code' => 401,
-                    'message' => '用户未登录'
-                ]);
-                return $this->fail(401, '用户未登录');
-            }
-            
-            // 参数验证
-            if (empty($currentPassword) || empty($newPassword)) {
-                throw new \InvalidArgumentException('当前密码和新密码不能为空');
-            }
-            
-            // 验证密码长度
-            if (strlen($newPassword) < 6) {
-                throw new \InvalidArgumentException('新密码长度不能少于6位');
-            }
-            
-            // 修改密码
-            $this->userService->changePassword($user['id'], $currentPassword, $newPassword);
-            
-            // 强制登出，需要重新登录
-            $this->auth->guard('jwt')->logout();
-            
-            // 记录密码修改成功
-            $this->logAction('密码修改成功', ['user_id' => $userId]);
-            
-            return $this->success(null, '密码修改成功，请重新登录');
-        } catch (\InvalidArgumentException $e) {
-            // 记录修改密码参数验证失败
-            $this->logWarning('修改密码参数验证失败', [
-                'user_id' => $userId,
-                'message' => $e->getMessage()
-            ], 'auth');
-            return $this->fail(400, $e->getMessage());
-        } catch (\Throwable $e) {
-            // 记录错误日志
-            $this->logError('修改密码异常', ['user_id' => $userId], $e, 'auth');
-            return $this->fail(500, '密码修改失败，请稍后重试');
-        }
+        return $this->auth->guard('jwt')->user();
     }
 
     /**
-     * 更新个人资料
+     * 刷新token
      * @Auth(guard="jwt")
-     * @PutMapping(path="/profile")
+     * @PostMapping(path="/refresh")
      * @return ResponseInterface
      */
-    public function updateProfile(): ResponseInterface
+    public function refreshToken(): ResponseInterface
     {
-        // 先获取用户ID，确保在catch块中也能访问
-        $user = $this->getCurrentUser();
-        $userId = $user ? $user->id : null;
-        
         try {
-            // 获取更新数据
-            $data = $this->request->all();
+            // 使用AuthManager刷新token
+            $newToken = $this->auth->guard('jwt')->refresh();
             
-            if (empty($user)) {
-                $this->logWarning('更新个人资料失败', [
-                'error_code' => 401,
-                'message' => '用户未登录'
-            ], 'auth');
-                return $this->fail(401, '用户未登录');
-            }
+            // 获取当前用户ID用于日志
+            $user = $this->getCurrentUser();
+            $userId = $user ? $user->id : null;
             
-            // 记录更新请求（不记录敏感数据）
-            $this->logAction('用户个人资料更新请求', [
-                'user_id' => $userId,
-                'updated_fields' => array_keys(array_diff_key($data, ['password' => 1, 'token' => 1])),
-            ]);
+            // 记录日志
+            $this->logAction('Token刷新成功', ['user_id' => $userId]);
             
-            // 使用UserService更新用户信息
-            $updatedUser = $this->userService->updateUser($user['id'], $data);
-            
-            // 记录更新成功
-            $this->logAction('个人资料更新成功', ['user_id' => $userId]);
-            
-            // 格式化用户信息
+            // 返回新token
             return $this->success([
-                'user' => $this->formatUserInfo($updatedUser, 'profile'),
-            ], '个人资料更新成功');
-        } catch (\InvalidArgumentException $e) {
-            // 记录更新个人资料参数验证失败
-            $this->logWarning('更新个人资料参数验证失败', [
-                'user_id' => $userId,
-                'message' => $e->getMessage()
-            ], 'auth');
-            return $this->fail(400, $e->getMessage());
+                'token' => $newToken,
+            ], 'Token刷新成功');
         } catch (\Throwable $e) {
             // 记录错误日志
-            $this->logError('更新个人资料异常', ['user_id' => $userId], $e, 'auth');
-            return $this->fail(500, '个人资料更新失败，请稍后重试');
+            $this->logError('Token刷新异常', [], $e, 'auth');
+            return $this->fail(500, 'Token刷新失败，请稍后重试');
         }
+    }
+
+    /**
+     * 格式化用户信息
+     *
+     * @param array $user 用户数组
+     * @param string $type 信息类型: 'basic', 'profile', 'full'
+     * @return array
+     */
+    protected function formatUserInfo($user, string $type = 'basic'): array
+    {
+        // 确保user是数组
+        if (is_object($user)) {
+            $user = $user->toArray();
+        }
+        
+        $basicInfo = [
+            'id' => $user['id'] ?? null,
+            'username' => $user['username'] ?? null,
+            'email' => $user['email'] ?? null,
+            'status' => $user['status'] ?? null
+        ];
+        
+        switch ($type) {
+            case 'profile':
+                $basicInfo += [
+                    'real_name' => $user['real_name'] ?? null,
+                    'avatar' => $user['avatar'] ?? null,
+                    'bio' => $user['bio'] ?? null,
+                    'role' => $user['role'] ?? null
+                ];
+                break;
+            case 'full':
+                $basicInfo += [
+                    'real_name' => $user['real_name'] ?? null,
+                    'avatar' => $user['avatar'] ?? null,
+                    'bio' => $user['bio'] ?? null,
+                    'role' => $user['role'] ?? null,
+                    'created_at' => $user['created_at'] ?? null
+                ];
+                break;
+        }
+        
+        return $basicInfo;
     }
 }

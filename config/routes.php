@@ -92,6 +92,12 @@ Router::addGroup('/api', function () {
     Router::get('/permission/user-role', 'App\Controller\Api\PermissionController@getUserRole', ['middleware' => ['permission']]);
     // 更新用户角色 - 仅管理员可访问
     Router::post('/permission/update-role', 'App\Controller\Api\PermissionController@updateRole', ['middleware' => ['admin_permission']]);
+    // 权限列表 - 仅管理员可访问
+    Router::get('/permission/list', 'App\Controller\Api\PermissionController@getPermissions', ['middleware' => ['admin_permission']]);
+    // 分配权限 - 仅管理员可访问
+    Router::post('/permission/assign', 'App\Controller\Api\PermissionController@assignPermission', ['middleware' => ['admin_permission']]);
+    // 检查用户权限 - 需要认证
+    Router::post('/permission/check', 'App\Controller\Api\PermissionController@checkPermission', ['middleware' => ['permission']]);
 });
 
 // 认证相关路由 - 显式配置以确保API正常工作
