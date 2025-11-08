@@ -50,8 +50,9 @@ return [
     // 用户提供者配置
     'providers' => [
         'users' => [
-            'driver' => \Qbhy\HyperfAuth\Provider\EloquentProvider::class,
-            'model' => App\Model\User::class, // 必须实现 Qbhy\HyperfAuth\Authenticatable 接口
+            'driver' => \App\Provider\ArrayProvider::class,
+            'model' => App\Model\User::class, // 我们的实现将确保返回兼容的用户信息
+            'rules' => [], // 这里可以添加额外的验证规则
         ],
     ],
 ];

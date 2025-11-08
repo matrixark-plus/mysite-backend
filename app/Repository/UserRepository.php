@@ -25,12 +25,13 @@ class UserRepository
      * 根据ID查找用户
      * 
      * @param int $id 用户ID
-     * @return User|null 用户模型或null
+     * @return array|null 用户数据数组或null
      */
-    public function findById(int $id): ?User
+    public function findById(int $id): ?array
     {
         try {
-            return User::find($id);
+            $user = User::find($id);
+            return $user ? $user->toArray() : null;
         } catch (\Exception $e) {
             $this->logger->error('根据ID查找用户失败: ' . $e->getMessage(), ['user_id' => $id]);
             return null;
@@ -42,12 +43,13 @@ class UserRepository
      * 
      * @param array $conditions 查询条件
      * @param array $columns 查询字段
-     * @return User|null 用户模型或null
+     * @return array|null 用户数据数组或null
      */
-    public function findBy(array $conditions, array $columns = ['*']): ?User
+    public function findBy(array $conditions, array $columns = ['*']): ?array
     {
         try {
-            return User::where($conditions)-u003efirst($columns);
+            $user = User::where($conditions)->first($columns);
+            return $user ? $user->toArray() : null;
         } catch (\Exception $e) {
             $this->logger->error('根据条件查询用户失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
@@ -60,9 +62,9 @@ class UserRepository
      * @param array $conditions 查询条件
      * @param array $columns 查询字段
      * @param array $order 排序条件
-     * @return \Hyperf\Database\Model\Collection 用户集合
+     * @return array 用户数据数组
      */
-    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): \Hyperf\Database\Model\Collection
+    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): array
     {
         try {
             $query = User::query();
@@ -75,10 +77,11 @@ class UserRepository
                 $query = $query->orderBy($field, $direction);
             }
             
-            return $query->select($columns)-u003eget();
+            $users = $query->select($columns)-u003eget();
+            return $users->toArray();
         } catch (\Exception $e) {
             $this->logger->error('获取用户列表失败: ' . $e->getMessage(), ['conditions' => $conditions]);
-            return new \Hyperf\Database\Model\Collection();
+            return [];
         }
     }
     
@@ -108,9 +111,9 @@ class UserRepository
      * 创建用户
      * 
      * @param array $data 用户数据
-     * @return User|null 创建的用户模型或null
+     * @return array|null 创建的用户数据数组或null
      */
-    public function create(array $data): ?User
+    public function create(array $data): ?array
     {
         try {
             return Db::transaction(function () use ($data) {
@@ -130,7 +133,7 @@ class UserRepository
                 }
                 
                 $user->save();
-                return $user;
+                return $user->toArray();
             });
         } catch (\Exception $e) {
             $this->logger->error('创建用户失败: ' . $e->getMessage(), ['data' => $data]);
@@ -141,30 +144,24 @@ class UserRepository
     /**
      * 更新用户
      * 
-     * @param User $user 用户模型
+     * @param int $id 用户ID
      * @param array $data 更新数据
      * @return bool 是否更新成功
      */
-    public function update(User $user, array $data): bool
+    public function update(int $id, array $data): bool
     {
         try {
-            return Db::transaction(function () use ($user, $data) {
-                foreach ($data as $key => $value) {
-                    if (property_exists($user, $key)) {
-                        $user->{$key} = $value;
-                    }
-                }
-                
+            return Db::transaction(function () use ($id, $data) {
                 // 确保更新时间戳
                 if (!isset($data['updated_at'])) {
-                    $user->updated_at = date('Y-m-d H:i:s');
+                    $data['updated_at'] = date('Y-m-d H:i:s');
                 }
                 
-                return $user->save();
+                return (bool)User::where('id', $id)->update($data);
             });
         } catch (\Exception $e) {
             $this->logger->error('更新用户失败: ' . $e->getMessage(), [
-                'user_id' => $user->id,
+                'user_id' => $id,
                 'data' => $data
             ]);
             return false;

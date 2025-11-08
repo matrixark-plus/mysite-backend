@@ -54,7 +54,7 @@ class PermissionService
      */
     public function getUserRoleInfo(int $userId): array
     {
-        $user = $this-\u003euserRepository-\u003efindById($userId);
+        $user = $this->userRepository->findById($userId);
         if (!$user) {
             throw new \Exception('用户不存在');
         }
@@ -63,19 +63,19 @@ class PermissionService
         $currentRole = null;
         
         foreach ($roles as $role) {
-            if ($role['value'] === $user->role) {
+            if ($role['value'] === $user['role']) {
                 $currentRole = $role;
                 break;
             }
         }
         
         return [
-            'user_id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'role' => $user->role,
+            'user_id' => $user['id'],
+            'username' => $user['username'],
+            'email' => $user['email'],
+            'role' => $user['role'],
             'role_info' => $currentRole,
-            'created_at' => $user->created_at
+            'created_at' => $user['created_at']
         ];
     }
     
@@ -90,42 +90,42 @@ class PermissionService
     public function updateUserRole(int $userId, string $role): bool
     {
         // 验证角色是否有效
-        $validRoles = array_column($this-\u003egetAllRoles(), 'value');
+        $validRoles = array_column($this->getAllRoles(), 'value');
         if (!in_array($role, $validRoles)) {
             throw new \Exception('无效的角色类型');
         }
         
-        $user = $this-\u003euserRepository-\u003efindById($userId);
+        $user = $this->userRepository->findById($userId);
         if (!$user) {
             throw new \Exception('用户不存在');
         }
         
         // 不允许将最后一个管理员降级
-        if ($user-\u003erole === 'admin' \u0026\u0026 $role !== 'admin') {
-            $adminCount = $this-\u003euserRepository-\u003egetAdminCount();
-            if ($adminCount \u003c= 1) {
+        if ($user['role'] === 'admin' && $role !== 'admin') {
+            $adminCount = $this->userRepository->getAdminCount();
+            if ($adminCount <= 1) {
                 throw new \Exception('不允许移除最后一个管理员角色');
             }
         }
         
         // 记录角色变更日志
-        $oldRole = $user-\u003erole; // 在更新前保存旧角色
+        $oldRole = $user['role']; // 在更新前保存旧角色
         
         try {
             // 使用Repository更新用户角色
-            $result = $this-\u003euserRepository-\u003eupdateRole($userId, $role);
+            $result = $this->userRepository->updateRole($userId, $role);
             
-            $this-\u003elogger-\u003einfo('用户角色已更新', [
-                'user_id' =\u003e $userId,
-                'old_role' =\u003e $oldRole,
-                'new_role' =\u003e $role
+            $this->logger->info('用户角色已更新', [
+                'user_id' => $userId,
+                'old_role' => $oldRole,
+                'new_role' => $role
             ]);
             
             return $result;
         } catch (\Exception $e) {
-            $this-\u003elogger-\u003eerror('更新用户角色失败: ' . $e-\u003egetMessage(), [
-                'user_id' =\u003e $userId,
-                'role' =\u003e $role
+            $this->logger->error('更新用户角色失败: ' . $e->getMessage(), [
+                'user_id' => $userId,
+                'role' => $role
             ]);
             throw $e;
         }
@@ -134,22 +134,22 @@ class PermissionService
     /**
      * 检查用户是否具有指定角色
      * 
-     * @param User $user 用户模型
+     * @param array $user 用户数据数组
      * @param string $role 角色名称
      * @return bool 是否具有指定角色
      */
-    public function hasRole(User $user, string $role): bool
+    public function hasRole(array $user, string $role): bool
     {
-        return $user->role === $role;
+        return $user['role'] === $role;
     }
     
     /**
      * 检查用户是否为管理员
      * 
-     * @param User $user 用户模型
+     * @param array $user 用户数据数组
      * @return bool 是否为管理员
      */
-    public function isAdmin(User $user): bool
+    public function isAdmin(array $user): bool
     {
         return $this->hasRole($user, 'admin');
     }
@@ -157,11 +157,11 @@ class PermissionService
     /**
      * 检查用户是否为编辑或更高权限
      * 
-     * @param User $user 用户模型
+     * @param array $user 用户数据数组
      * @return bool 是否为编辑或管理员
      */
-    public function isEditorOrAbove(User $user): bool
+    public function isEditorOrAbove(array $user): bool
     {
-        return in_array($user->role, ['admin', 'editor']);
+        return in_array($user['role'], ['admin', 'editor']);
     }
 }

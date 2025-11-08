@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\User;
+
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
 use Qbhy\HyperfAuth\AuthManager;
@@ -53,8 +53,11 @@ class AuthService
             // 验证参数并获取用户信息
             $user = $this->userService->login($email, $password);
             
+            // 创建一个简单的对象来包装用户数组，使其兼容JWT守卫
+            $userObj = (object)$user;
+            
             // 使用hyperf-auth标准的login方法进行登录
-            $this->auth->guard($this->guard)->login($user, $remember);
+            $this->auth->guard($this->guard)->login($userObj, $remember);
             
             // 获取token
             $token = $this->auth->guard($this->guard)->getToken()->__toString();
@@ -90,8 +93,11 @@ class AuthService
             // 利用UserService的createUser方法创建用户（包含完整验证）
             $user = $this->userService->createUser($data);
             
+            // 创建一个简单的对象来包装用户数组，使其兼容JWT守卫
+            $userObj = (object)$user;
+            
             // 自动登录
-            $this->auth->guard($this->guard)->login($user);
+            $this->auth->guard($this->guard)->login($userObj);
             
             // 获取token
             $token = $this->auth->guard($this->guard)->getToken()->__toString();
@@ -160,35 +166,35 @@ class AuthService
 
     /**
      * 获取格式化的用户信息
-     * @param User $user 用户模型
+     * @param array $user 用户信息数组
      * @param string $type 信息类型: 'basic', 'profile', 'full'
      * @return array 格式化后的用户信息
      */
-    public function formatUserInfo(User $user, string $type = 'basic'): array
+    public function formatUserInfo(array $user, string $type = 'basic'): array
     {
         $basicInfo = [
-            'id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'status' => $user->status ?? 1
+            'id' => $user['id'] ?? null,
+            'username' => $user['username'] ?? '',
+            'email' => $user['email'] ?? '',
+            'status' => $user['status'] ?? 1
         ];
         
         switch ($type) {
             case 'profile':
                 $basicInfo += [
-                    'real_name' => $user->real_name ?? '',
-                    'avatar' => $user->avatar ?? '',
-                    'bio' => $user->bio ?? '',
-                    'role' => $user->role ?? 'user'
+                    'real_name' => $user['real_name'] ?? '',
+                    'avatar' => $user['avatar'] ?? '',
+                    'bio' => $user['bio'] ?? '',
+                    'role' => $user['role'] ?? 'user'
                 ];
                 break;
             case 'full':
                 $basicInfo += [
-                    'real_name' => $user->real_name ?? '',
-                    'avatar' => $user->avatar ?? '',
-                    'bio' => $user->bio ?? '',
-                    'role' => $user->role ?? 'user',
-                    'created_at' => $user->created_at
+                    'real_name' => $user['real_name'] ?? '',
+                    'avatar' => $user['avatar'] ?? '',
+                    'bio' => $user['bio'] ?? '',
+                    'role' => $user['role'] ?? 'user',
+                    'created_at' => $user['created_at'] ?? null
                 ];
                 break;
         }
@@ -198,14 +204,14 @@ class AuthService
 
     /**
      * 修改密码并强制登出
-     * @param User $user 用户模型
+     * @param array $user 用户信息数组
      * @param string $currentPassword 当前密码
      * @param string $newPassword 新密码
      * @return bool 修改结果
      * @throws \InvalidArgumentException 参数无效时抛出
      * @throws \Exception 其他错误时抛出
      */
-    public function changePassword(User $user, string $currentPassword, string $newPassword): bool
+    public function changePassword(array $user, string $currentPassword, string $newPassword): bool
     {
         // 参数验证
         if (empty($currentPassword) || empty($newPassword)) {
@@ -229,7 +235,7 @@ class AuthService
         } catch (\Exception $e) {
             // 记录错误日志
             $this->loggerFactory->get('auth')->error('修改密码失败', [
-                'user_id' => $user->id,
+                'user_id' => $user['id'] ?? null,
                 'error' => $e->getMessage()
             ]);
             throw new \Exception('修改密码失败，请稍后重试');
@@ -238,10 +244,10 @@ class AuthService
 
     /**
      * 获取当前用户
-     * @return User 当前登录用户对象
+     * @return array 当前登录用户信息数组
      * @throws UnauthorizedException 未登录时抛出
      */
-    public function getCurrentUser(): User
+    public function getCurrentUser(): array
     {
         try {
             // 使用hyperf-auth标准的user方法获取当前用户
@@ -249,7 +255,8 @@ class AuthService
             if (!$user) {
                 throw new UnauthorizedException('未授权');
             }
-            return $user;
+            // 确保返回的是数组类型
+            return is_object($user) ? (array)$user : $user;
         } catch (UnauthorizedException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -284,7 +291,7 @@ class AuthService
             $user = $this->getCurrentUser();
             
             // 更新用户信息
-            $updatedUser = $this->userService->updateUser($user, $data);
+            $updatedUser = $this->userService->updateUser($user['id'], $data);
             
             return $this->formatUserInfo($updatedUser, 'profile');
         } catch (\InvalidArgumentException $e) {
@@ -294,7 +301,7 @@ class AuthService
         } catch (\Exception $e) {
             // 记录错误日志
             $this->loggerFactory->get('auth')->error('更新用户资料失败', [
-                'user_id' => $user->id ?? null,
+                'user_id' => $user['id'] ?? null,
                 'data' => $data,
                 'error' => $e->getMessage()
             ]);

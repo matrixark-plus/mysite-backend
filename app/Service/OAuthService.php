@@ -21,21 +21,25 @@ use App\Service\JwtAuthService;
 class OAuthService
 {
     /**
+     * @Inject
      * @var ConfigInterface
      */
     protected $config;
 
     /**
+     * @Inject
      * @var LoggerInterface
      */
     protected $logger;
 
     /**
+     * @Inject
      * @var ResponseInterface
      */
     protected $response;
 
     /**
+     * @Inject
      * @var JwtAuthService
      */
     protected $jwtAuthService;
@@ -51,30 +55,6 @@ class OAuthService
      * @var array
      */
     protected $oauthInstances = [];
-
-    /**
-     * @Inject
-     * @var ConfigInterface
-     */
-    protected $config;
-    
-    /**
-     * @Inject
-     * @var LoggerInterface
-     */
-    protected $logger;
-    
-    /**
-     * @Inject
-     * @var ResponseInterface
-     */
-    protected $response;
-    
-    /**
-     * @Inject
-     * @var JwtAuthService
-     */
-    protected $jwtAuthService;
     
     public function __construct()
     {

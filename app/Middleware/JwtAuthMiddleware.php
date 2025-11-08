@@ -82,10 +82,13 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ])->withStatus(401);
             }
             
-            // 如果需要验证角色
-            if ($this->role && !$this->checkUserRole($user, $this->role)) {
-                $userId = is_object($user) ? ($user->id ?? 'unknown') : ($user['id'] ?? 'unknown');
-                $userRole = is_object($user) ? ($user->role ?? null) : ($user['role'] ?? null);
+            // 将用户信息统一转换为数组格式
+            $userArray = is_object($user) ? $user->toArray() : $user;
+            
+            // 如果需要验证角色，确保传入checkUserRole的是数组
+            if ($this->role && !$this->checkUserRole($userArray, $this->role)) {
+                $userId = $userArray['id'] ?? 'unknown';
+                $userRole = $userArray['role'] ?? null;
                 
                 $this->logger->warning('JWT角色验证失败', [
                     'user_id' => $userId,
@@ -99,15 +102,14 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ])->withStatus(403);
             }
             
-            // 将用户信息转换为数组并存储到上下文，便于后续使用
-            $userArray = is_object($user) ? $user->toArray() : $user;
+            // 将用户信息存储到上下文，便于后续使用
             Context::set('user', $userArray);
             Context::set('user_id', $userArray['id'] ?? null);
             Context::set('user_role', $userArray['role'] ?? null);
             
             // 认证成功，继续处理请求
             $this->logger->info('JWT认证成功', [
-                'user_id' => $user->id ?? 'unknown',
+                'user_id' => $userArray['id'] ?? 'unknown',
                 'role' => $this->role
             ]);
             return $handler->handle($request);
@@ -134,15 +136,21 @@ class JwtAuthMiddleware implements MiddlewareInterface
 
     /**
      * 检查用户角色
-     * @param array|object $user 用户对象或数组
-     * @param string $role 需要的角色
-     * @return bool 用户是否具有指定角色
+     * @param array $user 用户信息
+     * @param string $role 角色名称
+     * @return bool
      */
-    protected function checkUserRole($user, string $role): bool
+    protected function checkUserRole(array $user, string $role): bool
     {
-        if (is_object($user)) {
-            return $user->role === $role;
+        // 获取用户角色
+        $userRole = $user['role'] ?? null;
+        
+        // 如果用户角色是数组，检查数组中是否包含指定角色
+        if (is_array($userRole)) {
+            return in_array($role, $userRole, true);
         }
-        return $user['role'] ?? null === $role;
+        
+        // 默认情况下进行字符串比较
+        return $userRole === $role;
     }
 }
