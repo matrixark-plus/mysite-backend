@@ -17,7 +17,7 @@ use Qbhy\HyperfAuth\Exception\UnauthorizedException;
 
 /**
  * JWT认证中间件
- * 遵循hyperf-auth官方标准的认证中间件实现
+ * 实现基于角色的简单权限控制
  */
 class JwtAuthMiddleware implements MiddlewareInterface
 {
