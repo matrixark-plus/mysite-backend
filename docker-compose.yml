@@ -1,27 +1,60 @@
+networks:
+  app-network:
+    driver: bridge
+
 services:
-  hyperf-skeleton:
-    container_name: hyperf-skeleton
-    image: hyperf-skeleton
+  mysql:
+    image: mysql:8.0
+    container_name: mysite-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: app_database
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ../../mysql/data:/var/lib/mysql
+      - ../../mysql/conf:/etc/mysql/conf.d
+    networks:
+      - app-network
+    command:
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+
+  redis:
+    image: redis:6.2
+    container_name: mysite-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ../../redis/data:/data
+    networks:
+      - app-network
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+
+  backend:
+    mem_limit: 2048m
+    cpus: 1.5
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: mysite-backend
+    restart: always
     volumes:
-      - ./:/opt/www
+      - .:/opt/www
     ports:
-      - 9501:9501
+      - "9501:9501"
     networks:
-      - mysite_app-network
+      - app-network
+    depends_on:
+      - mysql
+      - redis
     environment:
       - APP_ENV=development
       - SCAN_CACHEABLE=false
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_DATABASE=app_database
-      - DB_USERNAME=app_user
-      - DB_PASSWORD=app_password
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-
-networks:
-  mysite_app-network:
-    external: true
