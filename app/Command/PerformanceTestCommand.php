@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use Hyperf\Utils\Coroutine\WaitGroup;
+
 use App\Service\EventDemoService;
 use App\Service\RedisLockService;
 use Hyperf\Command\Annotation\Command;
@@ -200,7 +202,7 @@ class PerformanceTestCommand extends HyperfCommand
                                 $this->logger->debug('锁测试进度', [
                                     'coroutine' => $i,
                                     'iteration' => $j,
-                                    'locked' => $locked,
+                                    'locked' => $lockValue,
                                     'lock_time_ms' => $lockTime * 1000,
                                 ]);
                             }

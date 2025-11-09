@@ -52,7 +52,7 @@ class WorkController extends AbstractController
             try {
                 $validatedData = $this->validator->validateWorkList($params);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->validationError('参数验证失败', $e->validator->errors());
             }
 
             // 设置默认值
@@ -105,7 +105,7 @@ class WorkController extends AbstractController
             try {
                 $validatedData = $this->validator->validateCreateWork($params);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->validationError('参数验证失败', $e->validator->errors());
             }
             
             // 处理图片数组
@@ -137,7 +137,7 @@ class WorkController extends AbstractController
             try {
                 $validatedData = $this->validator->validateUpdateWork($params);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->validationError('参数验证失败', $e->validator->errors());
             }
             
             // 处理图片数组
@@ -173,26 +173,15 @@ class WorkController extends AbstractController
             // 检查作品是否存在且属于当前用户
             $existingWork = $this->workService->getWorkById($id, $userId);
             if (!$existingWork) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '作品不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->notFound('作品不存在或无权限操作');
             }
             
             $this->workService->deleteWork($id, $userId);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '删除成功',
-                'data' => [],
-            ]);
+            return $this->success([], '删除成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '删除作品失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('删除作品失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '删除作品失败');
         }
     }
 
@@ -227,7 +216,7 @@ class WorkController extends AbstractController
             try {
                 $validatedData = $this->validator->validateCreateCategory($params);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->validationError('参数验证失败', $e->validator->errors());
             }
             
             $category = $this->workService->createCategory($params);
@@ -253,7 +242,7 @@ class WorkController extends AbstractController
             try {
                 $validatedData = $this->validator->validateUpdateCategory($params, (int)$id);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->validationError('参数验证失败', $e->validator->errors());
             }
             
             $category = $this->workService->updateCategory($id, $params);

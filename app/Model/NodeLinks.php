@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Hyperf\DbConnection\Model\Model;
-use Hyperf\Model\Relations\BelongsTo;
+use Hyperf\Database\Model\Relations\BelongsTo;
 
 /**
  * 节点链接表模型

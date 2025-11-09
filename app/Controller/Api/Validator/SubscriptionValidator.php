@@ -82,4 +82,24 @@ class SubscriptionValidator
 
         return $validator->validated();
     }
+    
+    /**
+     * 验证取消订阅token参数.
+     *
+     * @param array $data 请求数据
+     * @return array 验证后的数据
+     * @throws ValidationException 当验证失败时抛出异常
+     */
+    public function validateUnsubscribeToken(array $data): array
+    {
+        $validator = $this->validatorFactory->make($data, [
+            'token' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        return $validator->validated();
+    }
 }
