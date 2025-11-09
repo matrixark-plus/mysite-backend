@@ -68,7 +68,7 @@ class NodeLinkController extends AbstractController
             // 验证创建节点链接的参数
             $this->validator->validateCreateNodeLink($data);
             
-            $result = $this->nodeLinkService->createNodeLink($userId, $data);
+            $result = $this->nodeLinkService->createNodeLink($data, $userId);
             
             if ($result['success']) {
                 return $this->success($result['data'], '创建成功');
@@ -119,7 +119,7 @@ class NodeLinkController extends AbstractController
                 $link['mindmap_id'] = $mindmapId;
             }
             
-            $result = $this->nodeLinkService->batchCreateNodeLinks($userId, $links);
+            $result = $this->nodeLinkService->batchCreateNodeLinks($links, $userId);
             
             if ($result['success']) {
                 return $this->success($result['data'], '批量创建成功');

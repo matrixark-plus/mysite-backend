@@ -201,7 +201,7 @@ class MindmapRootController extends AbstractController
             // 验证更新参数
             $this->validator->validateUpdateMindmap($data);
             
-            $result = $this->mindmapRootService->updateMindmap($id, $userId, $data);
+            $result = $this->mindmapRootService->updateMindmap($id, $data, $userId);
             
             if ($result['success']) {
                 return $this->success($result['data'], '更新成功');
