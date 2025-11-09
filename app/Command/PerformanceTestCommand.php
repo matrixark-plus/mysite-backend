@@ -13,14 +13,13 @@ declare(strict_types=1);
 namespace App\Command;
 
 use Hyperf\Utils\Coroutine;
-
+use Hyperf\Utils\WaitGroup;
 use App\Service\EventDemoService;
 use App\Service\RedisLockService;
 use Hyperf\Command\Annotation\Command;
 use Hyperf\Command\Command as HyperfCommand;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\RedisFactory;
-use Hyperf\Utils\Coroutine;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -171,7 +170,7 @@ class PerformanceTestCommand extends HyperfCommand
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
 
-        $waitGroup = new Coroutine\WaitGroup();
+        $waitGroup = new WaitGroup();
         $waitGroup->add($concurrency);
 
         for ($i = 0; $i < $concurrency; ++$i) {
@@ -240,7 +239,7 @@ class PerformanceTestCommand extends HyperfCommand
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
 
-        $waitGroup = new Coroutine\WaitGroup();
+        $waitGroup = new WaitGroup();
         $waitGroup->add($concurrency);
 
         for ($i = 0; $i < $concurrency; ++$i) {
@@ -292,7 +291,7 @@ class PerformanceTestCommand extends HyperfCommand
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
 
-        $waitGroup = new Coroutine\WaitGroup();
+        $waitGroup = new WaitGroup();
         $waitGroup->add($concurrency);
 
         for ($i = 0; $i < $concurrency; ++$i) {
@@ -343,7 +342,7 @@ class PerformanceTestCommand extends HyperfCommand
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
 
-        $waitGroup = new Coroutine\WaitGroup();
+        $waitGroup = new WaitGroup();
         $waitGroup->add($concurrency);
 
         for ($i = 0; $i < $concurrency; ++$i) {
