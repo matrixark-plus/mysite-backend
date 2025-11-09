@@ -12,30 +12,54 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Model\Subscribe;
+use App\Repository\SubscribeRepository;
 use Carbon\Carbon;
 use Exception;
-use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\RedisFactory;
-use Hyperf\Utils\ApplicationContext;
+use Psr\Log\LoggerInterface;
 use Redis;
 
 class SubscribeService
 {
     /**
+     * @Inject
      * @var Redis
      */
     protected $redis;
 
     /**
+     * @Inject
      * @var MailService
      */
     protected $mailService;
 
+    /**
+     * @Inject
+     * @var SubscribeRepository
+     */
+    protected $subscribeRepository;
+
+    /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * @Inject
+     * @var RedisFactory
+     */
+    protected $redisFactory;
+
+    /**
+     * 构造函数
+     */
     public function __construct()
     {
-        $container = ApplicationContext::getContainer();
-        $this->redis = $container->get(RedisFactory::class)->get('default');
-        $this->mailService = $container->get(MailService::class);
+        // Redis实例在构造时初始化以保持兼容性
+        $this->redis = $this->redisFactory->get('default');
     }
 
     /**
@@ -48,9 +72,9 @@ class SubscribeService
     {
         try {
             // 检查是否已订阅
-            $existing = $this->getSubscribeByEmail($email);
+            $existing = $this->subscribeRepository->findByEmail($email);
             if ($existing) {
-                if ($existing->status == 1) {
+                if ($existing->status == Subscribe::STATUS_CONFIRMED) {
                     return [
                         'success' => false,
                         'message' => '您已订阅过博客更新',
@@ -62,17 +86,25 @@ class SubscribeService
 
             // 生成确认token
             $token = $this->generateToken();
-            $expireTime = Carbon::now()->addDay()->toDateTimeString();
 
-            // 插入订阅记录
-            $id = Db::table('subscribes')->insertGetId([
+            // 创建订阅记录
+            $subscribeData = [
                 'email' => $email,
-                'type' => 'blog',
+                'type' => Subscribe::TYPE_BLOG,
                 'token' => $token,
-                'status' => 0, // 0: 待确认, 1: 已确认
-                'created_at' => Carbon::now()->toDateTimeString(),
-                'updated_at' => Carbon::now()->toDateTimeString(),
-            ]);
+                'status' => Subscribe::STATUS_PENDING,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ];
+            
+            $subscribe = $this->subscribeRepository->create($subscribeData);
+            
+            if (! $subscribe) {
+                return [
+                    'success' => false,
+                    'message' => '创建订阅记录失败，请稍后重试',
+                ];
+            }
 
             // 发送确认邮件
             $confirmUrl = $this->generateConfirmUrl($token);
@@ -84,14 +116,15 @@ class SubscribeService
                     'message' => '订阅成功，请查收验证邮件',
                 ];
             }
+            
             // 发送失败，删除记录
-            Db::table('subscribes')->where('id', $id)->delete();
+            $this->subscribeRepository->delete($subscribe->id);
             return [
                 'success' => false,
                 'message' => '邮件发送失败，请稍后重试',
             ];
         } catch (Exception $e) {
-            logger()->error('添加订阅异常: ' . $e->getMessage());
+            $this->logger->error('添加订阅异常: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => '订阅失败，请稍后重试',
@@ -108,10 +141,8 @@ class SubscribeService
     public function confirmSubscribe($token)
     {
         try {
-            $subscribe = Db::table('subscribes')
-                ->where('token', $token)
-                ->where('status', 0)
-                ->first();
+            // 根据token查找订阅记录
+            $subscribe = $this->subscribeRepository->findByToken($token);
 
             if (! $subscribe) {
                 return [
@@ -121,20 +152,27 @@ class SubscribeService
             }
 
             // 更新订阅状态
-            Db::table('subscribes')
-                ->where('id', $subscribe->id)
-                ->update([
-                    'status' => 1,
-                    'confirmed_at' => Carbon::now()->toDateTimeString(),
-                    'updated_at' => Carbon::now()->toDateTimeString(),
-                ]);
-
+            $updateData = [
+                'status' => Subscribe::STATUS_CONFIRMED,
+                'confirmed_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ];
+            
+            $success = $this->subscribeRepository->update($subscribe->id, $updateData);
+            
+            if ($success) {
+                return [
+                    'success' => true,
+                    'message' => '订阅确认成功！',
+                ];
+            }
+            
             return [
-                'success' => true,
-                'message' => '订阅确认成功！',
+                'success' => false,
+                'message' => '更新订阅状态失败，请稍后重试',
             ];
         } catch (Exception $e) {
-            logger()->error('确认订阅异常: ' . $e->getMessage());
+            $this->logger->error('确认订阅异常: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => '订阅确认失败，请稍后重试',
@@ -151,7 +189,7 @@ class SubscribeService
     public function resendConfirmation($email)
     {
         try {
-            $subscribe = $this->getSubscribeByEmail($email);
+            $subscribe = $this->subscribeRepository->findByEmail($email);
             if (! $subscribe) {
                 return [
                     'success' => false,
@@ -161,9 +199,19 @@ class SubscribeService
 
             // 生成新的token
             $token = $this->generateToken();
-            Db::table('subscribes')
-                ->where('id', $subscribe->id)
-                ->update(['token' => $token]);
+            $updateData = [
+                'token' => $token,
+                'updated_at' => Carbon::now(),
+            ];
+            
+            $success = $this->subscribeRepository->update($subscribe->id, $updateData);
+            
+            if (! $success) {
+                return [
+                    'success' => false,
+                    'message' => '更新token失败，请稍后重试',
+                ];
+            }
 
             // 发送确认邮件
             $confirmUrl = $this->generateConfirmUrl($token);
@@ -180,7 +228,7 @@ class SubscribeService
                 'message' => '邮件发送失败，请稍后重试',
             ];
         } catch (Exception $e) {
-            logger()->error('重新发送确认邮件异常: ' . $e->getMessage());
+            $this->logger->error('重新发送确认邮件异常: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => '操作失败，请稍后重试',
@@ -194,28 +242,11 @@ class SubscribeService
      * @param string $type 订阅类型
      * @return array
      */
-    public function getConfirmedSubscribers($type = 'blog')
+    public function getConfirmedSubscribers($type = Subscribe::TYPE_BLOG)
     {
-        return Db::table('subscribes')
-            ->where('type', $type)
-            ->where('status', 1)
-            ->pluck('email')
-            ->toArray();
+        return $this->subscribeRepository->getConfirmedSubscribers($type);
     }
 
-    /**
-     * 根据邮箱获取订阅记录.
-     *
-     * @param string $email 邮箱地址
-     * @return mixed
-     */
-    protected function getSubscribeByEmail($email)
-    {
-        return Db::table('subscribes')
-            ->where('email', $email)
-            ->where('type', 'blog')
-            ->first();
-    }
 
     /**
      * 生成订阅token.
@@ -235,8 +266,8 @@ class SubscribeService
      */
     protected function generateConfirmUrl($token)
     {
-        // 这里应该使用配置的域名
+        // 使用更符合当前API路径规范的URL
         $baseUrl = 'http://example.com';
-        return "{$baseUrl}/api/v1/subscribe/confirm?token={$token}";
+        return "{$baseUrl}/api/subscribe/confirm?token={$token}";
     }
 }

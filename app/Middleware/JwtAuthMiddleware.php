@@ -179,20 +179,18 @@ class JwtAuthMiddleware implements MiddlewareInterface
 
     /**
      * 检查用户角色.
-     * @param array $user 用户信息
+     * @param object $user 用户对象
      * @param string $role 角色名称
+     * @return bool 是否拥有指定角色
      */
     protected function checkUserRole(object $user, string $role): bool
     {
-        // 获取用户角色
-        $userRole = $user->role ?? null;
-
         // 管理员拥有所有权限
-        if ($userRole === 'admin') {
+        if ($user->is_admin ?? false) {
             return true;
         }
 
-        // 默认情况下进行字符串比较
-        return $userRole === $role;
+        // 由于系统已改为使用is_admin布尔字段，此方法保留向后兼容
+        return false;
     }
 }

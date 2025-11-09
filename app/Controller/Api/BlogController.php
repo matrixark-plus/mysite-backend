@@ -57,7 +57,8 @@ class BlogController extends AbstractController
     public function show(int $id, RequestInterface $request)
     {
         try {
-            $blog = $this->blogService->getBlogById($id);
+            // 获取博客详情并自动增加阅读量
+            $blog = $this->blogService->getBlogById($id, true);
             if (! $blog) {
                 return $this->fail(404, '博客不存在');
             }
@@ -92,6 +93,9 @@ class BlogController extends AbstractController
             // 获取当前用户ID
             $user = $this->request->getAttribute('user');
             $data['author_id'] = $user->id;
+            
+            // 添加标签支持
+            $data['tags'] = $request->input('tags', []);
 
             // 创建博客
             $blog = $this->blogService->createBlog($data);
@@ -118,6 +122,11 @@ class BlogController extends AbstractController
             }
 
             $data = $request->all();
+            
+            // 特别处理标签字段，确保是数组类型
+            if (isset($data['tags']) && !is_array($data['tags'])) {
+                $data['tags'] = [];
+            }
 
             // 更新博客
             $blog = $this->blogService->updateBlog($id, $data);

@@ -36,25 +36,25 @@ class PermissionService
     protected $userRepository;
 
     /**
-     * 获取所有角色列表.
+     * 获取权限相关信息.
      *
-     * @return array<array{value: string, label: string, description: string}> 角色列表
+     * @return array 权限信息列表
      */
     public function getAllRoles(): array
     {
-        // 基于角色的权限管理模型定义的角色列表
+        // 系统现在使用is_admin布尔字段而非角色系统
+        // 保留此方法以兼容旧代码
         return [
-            ['value' => 'admin', 'label' => '管理员', 'description' => '具有所有权限'],
-            ['value' => 'editor', 'label' => '编辑', 'description' => '具有内容编辑权限'],
-            ['value' => 'user', 'label' => '普通用户', 'description' => '基础用户权限'],
+            ['label' => '普通用户', 'value' => 'user'],
+            ['label' => '管理员', 'value' => 'admin'],
         ];
     }
 
     /**
-     * 获取用户角色信息.
+     * 获取用户权限信息.
      *
      * @param int $userId 用户ID
-     * @return array<string, mixed> 用户角色信息
+     * @return array<string, mixed> 用户权限信息
      * @throws Exception 当用户不存在时抛出异常
      */
     public function getUserRoleInfo(int $userId): array
@@ -64,22 +64,11 @@ class PermissionService
             throw new Exception('用户不存在');
         }
 
-        $roles = $this->getAllRoles();
-        $currentRole = null;
-
-        foreach ($roles as $role) {
-            if ($role['value'] === $user->role) {
-                $currentRole = $role;
-                break;
-            }
-        }
-
         return [
             'user_id' => $user->id,
             'username' => $user->username,
             'email' => $user->email,
-            'role' => $user->role,
-            'role_info' => $currentRole,
+            'is_admin' => $user->is_admin ?? false,
             'created_at' => $user->created_at,
         ];
     }
@@ -137,11 +126,11 @@ class PermissionService
     }
 
     /**
-     * 检查用户是否具有指定角色.
+     * 检查用户是否具有管理员权限.
      *
      * @param \App\Model\User|object $user 用户对象
-     * @param string $role 角色名称
-     * @return bool 是否具有指定角色
+     * @param string $role 角色名称（保留参数以兼容旧代码）
+     * @return bool 是否具有管理员权限
      */
     public function hasRole($user, string $role): bool
     {
@@ -150,7 +139,13 @@ class PermissionService
             $this->logger->error('Expected User object', ['actual_type' => gettype($user)]);
             return false;
         }
-        return $user->role === $role;
+        
+        // 如果请求的是管理员角色，检查is_admin字段
+        if ($role === 'admin') {
+            return $user->is_admin ?? false;
+        }
+        
+        return false;
     }
 
     /**

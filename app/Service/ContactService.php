@@ -12,16 +12,19 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Model\Contact;
+use App\Repository\ContactRepository;
 use Carbon\Carbon;
 use Exception;
-use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\RedisFactory;
+use Psr\Log\LoggerInterface;
 use Redis;
 
 class ContactService
 {
     /**
+     * @Inject
      * @var Redis
      */
     protected $redis;
@@ -37,6 +40,18 @@ class ContactService
      * @var MailService
      */
     protected $mailService;
+
+    /**
+     * @Inject
+     * @var ContactRepository
+     */
+    protected $contactRepository;
+
+    /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
 
     public function __construct()
     {
@@ -61,8 +76,28 @@ class ContactService
                 ];
             }
 
+            // 准备保存数据
+            $contactData = [
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'subject' => $data['subject'],
+                'message' => $data['message'],
+                'phone' => $data['phone'] ?? '',
+                'ip' => $data['ip'] ?? '',
+                'status' => Contact::STATUS_UNPROCESSED,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ];
+
             // 保存联系记录
-            $contactId = $this->saveContactRecord($data);
+            $contact = $this->contactRepository->create($contactData);
+            
+            if (! $contact) {
+                return [
+                    'success' => false,
+                    'message' => '保存联系记录失败，请稍后重试',
+                ];
+            }
 
             // 发送通知邮件给管理员
             $adminEmail = env('CONTACT_EMAIL', 'admin@example.com');
@@ -75,13 +110,13 @@ class ContactService
                 ];
             }
             // 邮件发送失败，记录日志但仍然返回成功，不影响用户体验
-            logger()->warning('联系表单邮件通知发送失败，联系ID: ' . $contactId);
+            $this->logger->warning('联系表单邮件通知发送失败，联系ID: ' . $contact->id);
             return [
                 'success' => true,
                 'message' => '感谢您的留言，我们会尽快回复您！',
             ];
         } catch (Exception $e) {
-            logger()->error('提交联系表单异常: ' . $e->getMessage());
+            $this->logger->error('提交联系表单异常: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => '提交失败，请稍后重试',
@@ -99,48 +134,7 @@ class ContactService
      */
     public function getContactList($page = 1, $pageSize = 20, $filters = [])
     {
-        $query = Db::table('contacts');
-
-        // 应用筛选条件
-        if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (isset($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('subject', 'like', "%{$search}%")
-                    ->orWhere('message', 'like', "%{$search}%");
-            });
-        }
-
-        if (isset($filters['date_range'])) {
-            $dateRange = $filters['date_range'];
-            if (isset($dateRange['start']) && $dateRange['start']) {
-                $query->where('created_at', '>=', $dateRange['start']);
-            }
-            if (isset($dateRange['end']) && $dateRange['end']) {
-                $query->where('created_at', '<=', $dateRange['end']);
-            }
-        }
-
-        // 获取总数
-        $total = $query->count();
-
-        // 获取列表
-        $list = $query
-            ->orderBy('created_at', 'desc')
-            ->forPage($page, $pageSize)
-            ->get();
-
-        return [
-            'total' => $total,
-            'page' => $page,
-            'pageSize' => $pageSize,
-            'list' => $list,
-        ];
+        return $this->contactRepository->getContactList($page, $pageSize, $filters);
     }
 
     /**
@@ -151,13 +145,7 @@ class ContactService
      */
     public function markAsProcessed($id)
     {
-        return Db::table('contacts')
-            ->where('id', $id)
-            ->update([
-                'status' => 1,
-                'processed_at' => Carbon::now()->toDateTimeString(),
-                'updated_at' => Carbon::now()->toDateTimeString(),
-            ]) > 0;
+        return $this->contactRepository->markAsProcessed($id);
     }
 
     /**
@@ -199,23 +187,12 @@ class ContactService
     }
 
     /**
-     * 保存联系记录.
+     * 获取未处理的联系记录数量.
      *
-     * @param array $data
      * @return int
      */
-    protected function saveContactRecord($data)
+    public function getUnprocessedCount()
     {
-        return Db::table('contacts')->insertGetId([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'subject' => $data['subject'],
-            'message' => $data['message'],
-            'phone' => $data['phone'] ?? '',
-            'ip' => $data['ip'] ?? '',
-            'status' => 0, // 0: 未处理, 1: 已处理
-            'created_at' => Carbon::now()->toDateTimeString(),
-            'updated_at' => Carbon::now()->toDateTimeString(),
-        ]);
+        return $this->contactRepository->getUnprocessedCount();
     }
 }

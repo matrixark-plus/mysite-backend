@@ -20,16 +20,18 @@ use Qbhy\HyperfAuth\Authenticatable;
  * 实现hyperf-auth的认证接口.
  * 
  * @property int $id
- * @property string $username
  * @property string $email
  * @property string $password_hash
  * @property string $real_name
  * @property string $avatar
  * @property string $bio
- * @property string $role
- * @property int $status
+ * @property bool $is_active
+ * @property bool $is_admin
+ * @property string $last_login_at
  * @property string $created_at
- * @property string $updated_at
+ * @property int $login_attempts
+ * @property bool $is_locked
+ * @property string $lock_expire_time
  * 
  * @method static static|\Hyperf\Database\Query\Builder where($column, $operator = null, $value = null, $boolean = 'and')
  * @method static static|\Hyperf\Database\Query\Builder orderBy($column, $direction = 'asc')
@@ -48,9 +50,9 @@ class User extends Model implements Authenticatable
     public bool $incrementing = true;
 
     /**
-     * 时间戳.
+     * 时间戳. 设为false因为我们不需要updated_at字段
      */
-    public bool $timestamps = true;
+    public bool $timestamps = false;
 
     /**
      * 表名.
@@ -72,14 +74,18 @@ class User extends Model implements Authenticatable
      * @var string[]
      */
     protected array $fillable = [
-        'username',
         'email',
         'password_hash',
         'real_name',
         'avatar',
         'bio',
-        'role',
-        'status',
+        'is_active',
+        'is_admin',
+        'last_login_at',
+        'last_login_ip',
+        'login_attempts',
+        'is_locked',
+        'lock_expire_time',
     ];
 
     /**

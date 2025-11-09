@@ -69,18 +69,17 @@ class AuthController extends AbstractController
             $realName = (string) $this->request->input('real_name', '');
 
             // 参数验证
-            if (empty($username) || empty($email) || empty($password)) {
+            if (empty($email) || empty($password)) {
                 return $this->fail(StatusCode::VALIDATION_ERROR, ResponseMessage::PARAM_REQUIRED);
             }
 
-            // 检查用户名或邮箱是否已存在
-            if ($this->userService->getUserByUsername($username) || $this->userService->getUserByEmail($email)) {
+            // 检查邮箱是否已存在
+            if ($this->userService->getUserByEmail($email)) {
                 return $this->fail(StatusCode::DATA_EXISTS, ResponseMessage::DATA_EXISTS);
             }
 
             // 创建用户
             $userData = [
-                'username' => $username,
                 'email' => $email,
                 'real_name' => $realName,
                 'status' => 1, // 默认激活状态
@@ -94,9 +93,9 @@ class AuthController extends AbstractController
             $userId = $user->getId();
 
             // 记录日志
-            $this->logAction('用户注册成功', ['user_id' => $userId, 'username' => $username]);
+            $this->logAction('用户注册成功', ['user_id' => $userId, 'email' => $email]);
 
-            return $this->success(['user_id' => $userId, 'username' => $username], ResponseMessage::CREATE_SUCCESS);
+            return $this->success(['user_id' => $userId, 'email' => $email], ResponseMessage::CREATE_SUCCESS);
         } catch (\Throwable $exception) {
             $this->logError('用户注册失败', ['error' => $exception->getMessage()], $exception);
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '注册失败');
@@ -114,32 +113,26 @@ class AuthController extends AbstractController
     {
         try {
             // 获取登录凭证
-            $username = (string) $this->request->input('username', '');
+            $email = (string) $this->request->input('email', '');
             $password = (string) $this->request->input('password', '');
+            // 获取用户IP地址
+            $loginIp = $this->request->getServerParams()['REMOTE_ADDR'] ?? '';
 
             // 参数验证
-            if (empty($username) || empty($password)) {
+            if (empty($email) || empty($password)) {
                 return $this->fail(StatusCode::VALIDATION_ERROR, ResponseMessage::PARAM_REQUIRED);
             }
 
-            // 查找用户
-            $userData = $this->userService->getUserByUsername($username);
-            if (! $userData) {
-                return $this->fail(StatusCode::NOT_FOUND, ResponseMessage::RESOURCE_NOT_FOUND);
+            // 验证邮箱格式
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $this->fail(StatusCode::VALIDATION_ERROR, '邮箱格式不正确');
             }
+
+            // 使用userService处理登录逻辑，传入IP信息
+            $userData = $this->userService->login($email, $password, $loginIp);
+            
             // 将数组转换为User对象
             $user = User::find($userData['id']);
-
-            // 检查用户状态
-            if (! $user || $user->status !== 1) {
-                return $this->fail(StatusCode::FORBIDDEN, '用户账号已被禁用');
-            }
-
-            // 验证密码
-            if (! $user->validatePassword($password)) {
-                $this->logWarning('密码验证失败', ['username' => $username]);
-                return $this->fail(StatusCode::UNAUTHORIZED, '密码错误');
-            }
 
             // 使用auth组件登录并生成token
             $token = (string) $this->auth->login($user);
@@ -151,7 +144,7 @@ class AuthController extends AbstractController
             $userId = $user->getId();
 
             // 记录登录日志
-            $this->logAction('用户登录成功', ['user_id' => $userId, 'username' => $username]);
+            $this->logAction('用户登录成功', ['user_id' => $userId, 'email' => $email, 'ip' => $loginIp]);
 
             // 返回登录成功响应
             return $this->success([
@@ -161,6 +154,11 @@ class AuthController extends AbstractController
                 'user' => $this->formatUserInfo($user)
             ], ResponseMessage::LOGIN_SUCCESS);
         } catch (\Throwable $exception) {
+            // 处理账号锁定异常
+            if (strpos($exception->getMessage(), '账号已被锁定') !== false) {
+                $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
+                return $this->fail(StatusCode::FORBIDDEN, $exception->getMessage());
+            }
             $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '登录失败');
         }

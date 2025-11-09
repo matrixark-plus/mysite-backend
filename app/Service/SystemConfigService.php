@@ -12,11 +12,12 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\SystemConfig;
 use Exception;
 use Hyperf\Cache\CacheManager;
+use Hyperf\Di\Annotation\Inject;
 use Hyperf\Context\ApplicationContext;
-use Hyperf\DbConnection\Db;
+use Psr\Log\LoggerInterface;
+use App\Service\EnvironmentFileService;
 
 /**
  * 系统配置服务
@@ -40,6 +41,18 @@ class SystemConfigService
     protected $cache;
 
     /**
+     * @Inject
+     * @var EnvironmentFileService
+     */
+    protected $environmentFileService;
+
+    /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
+
+    /**
      * 构造函数.
      */
     public function __construct()
@@ -55,30 +68,30 @@ class SystemConfigService
      */
     public function getConfig(string $key, $default = null)
     {
-        $cacheKey = self::CACHE_PREFIX . $key;
+        try {
+            $cacheKey = self::CACHE_PREFIX . $key;
 
-        // 尝试从缓存获取
-        $cachedValue = $this->cache->get($cacheKey);
-        if ($cachedValue !== null) {
-            return $cachedValue;
-        }
+            // 尝试从缓存获取
+            $cachedValue = $this->cache->get($cacheKey);
+            if ($cachedValue !== null) {
+                return $cachedValue;
+            }
 
-        // 从数据库获取
-        $config = SystemConfig::query()
-            ->where('key', $key)
-            ->where('status', SystemConfig::STATUS_ENABLED)
-            ->first();
+            // 从环境变量文件获取
+            $value = $this->environmentFileService->getEnvVar($key);
 
-        if (! $config) {
+            if ($value === null) {
+                return $default;
+            }
+
+            // 缓存配置值
+            $this->cache->set($cacheKey, $value, self::CACHE_TTL);
+
+            return $value;
+        } catch (Exception $e) {
+            $this->logger->error('获取配置值失败: ' . $e->getMessage(), ['key' => $key]);
             return $default;
         }
-
-        $value = $config->getValue();
-
-        // 缓存配置值
-        $this->cache->set($cacheKey, $value, self::CACHE_TTL);
-
-        return $value;
     }
 
     /**
@@ -87,30 +100,26 @@ class SystemConfigService
      */
     public function getAllConfigs()
     {
-        $cacheKey = self::CACHE_PREFIX . 'all';
+        try {
+            $cacheKey = self::CACHE_PREFIX . 'all';
 
-        // 尝试从缓存获取
-        $cachedConfigs = $this->cache->get($cacheKey);
-        if ($cachedConfigs !== null) {
-            return $cachedConfigs;
+            // 尝试从缓存获取
+            $cachedConfigs = $this->cache->get($cacheKey);
+            if ($cachedConfigs !== null) {
+                return $cachedConfigs;
+            }
+
+            // 从环境变量文件获取所有配置
+            $result = $this->environmentFileService->readEnvFile();
+
+            // 缓存所有配置
+            $this->cache->set($cacheKey, $result, self::CACHE_TTL);
+
+            return $result;
+        } catch (Exception $e) {
+            $this->logger->error('获取所有系统配置失败: ' . $e->getMessage());
+            return [];
         }
-
-        // 从数据库获取所有启用的配置
-        $configs = SystemConfig::query()
-            ->where('status', SystemConfig::STATUS_ENABLED)
-            ->orderBy('sort', 'asc')
-            ->get();
-
-        // 转换为键值对数组
-        $result = [];
-        foreach ($configs as $config) {
-            $result[$config->key] = $config->getValue();
-        }
-
-        // 缓存所有配置
-        $this->cache->set($cacheKey, $result, self::CACHE_TTL);
-
-        return $result;
     }
 
     /**
@@ -120,33 +129,20 @@ class SystemConfigService
      */
     public function setConfig(string $key, $value): bool
     {
-        // 查找配置
-        $config = SystemConfig::query()
-            ->where('key', $key)
-            ->first();
+        try {
+            // 通过环境变量文件服务更新或创建配置
+            $result = $this->environmentFileService->updateEnvVar($key, $value);
 
-        if (! $config) {
-            // 配置不存在，创建新配置
-            $config = new SystemConfig();
-            $config->key = $key;
-            $config->type = is_array($value) ? SystemConfig::TYPE_JSON
-                           : (is_bool($value) ? SystemConfig::TYPE_BOOLEAN
-                           : (is_numeric($value) ? SystemConfig::TYPE_NUMBER
-                           : SystemConfig::TYPE_STRING));
+            if ($result) {
+                // 清除缓存
+                $this->clearConfigCache($key);
+            }
+
+            return $result;
+        } catch (Exception $e) {
+            $this->logger->error('设置配置值失败: ' . $e->getMessage(), ['key' => $key]);
+            return false;
         }
-
-        // 设置配置值
-        $config->setValue($value);
-
-        // 保存配置
-        $result = $config->save();
-
-        if ($result) {
-            // 清除缓存
-            $this->clearConfigCache($key);
-        }
-
-        return $result;
     }
 
     /**
@@ -155,19 +151,18 @@ class SystemConfigService
      */
     public function setConfigs(array $configs): bool
     {
-        Db::beginTransaction();
-
         try {
-            foreach ($configs as $key => $value) {
-                $this->setConfig($key, $value);
+            // 批量更新环境变量
+            $result = $this->environmentFileService->batchUpdateEnvVars($configs);
+
+            if ($result) {
+                // 清除所有缓存
+                $this->clearAllCache();
             }
 
-            Db::commit();
-            // 清除所有缓存
-            $this->clearAllCache();
-            return true;
+            return $result;
         } catch (Exception $e) {
-            Db::rollBack();
+            $this->logger->error('批量设置配置失败: ' . $e->getMessage());
             return false;
         }
     }

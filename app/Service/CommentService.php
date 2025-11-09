@@ -44,9 +44,10 @@ class CommentService
      * 获取评论列表.
      *
      * @param array $params 查询参数
+     * @param int|null $userId 当前用户ID（可选，用于判断是否点赞）
      * @return array{total:int, data:array, page:int, page_size:int} 评论列表和总数
      */
-    public function getComments(array $params = []): array
+    public function getComments(array $params = [], ?int $userId = null): array
     {
         $this->logger->info('获取评论列表', ['params' => $params]);
         
@@ -75,9 +76,15 @@ class CommentService
 
             $total = $query->count();
             $comments = $query->offset($offset)->limit($pageSize)->get();
+            
+            // 转换为数组
+            $commentData = $comments->toArray();
+            
+            // 添加点赞信息
+            $this->enrichCommentsWithLikeData($commentData, $userId);
 
             $result = [
-                'data' => $comments,
+                'data' => $commentData,
                 'total' => $total,
                 'page' => $page,
                 'page_size' => $pageSize,
@@ -98,6 +105,135 @@ class CommentService
                 'page_size' => $params['page_size'] ?? 10,
             ];
         }
+    }
+    
+    /**
+     * 为评论列表添加点赞数据
+     *
+     * @param array<string, mixed> $comments 评论列表
+     * @param int|null $userId 当前用户ID
+     */
+    protected function enrichCommentsWithLikeData(array &$comments, ?int $userId = null): void
+    {
+        if (empty($comments)) {
+            return;
+        }
+
+        // 获取评论ID列表
+        $commentIds = array_column($comments, 'id');
+
+        // 查询点赞数量
+        $likeCounts = Db::table('comment_likes')
+            ->select('comment_id', Db::raw('count(*) as count'))
+            ->whereIn('comment_id', $commentIds)
+            ->groupBy('comment_id')
+            ->get()
+            ->toArray();
+
+        // 转换为关联数组
+        $likeCountMap = [];
+        foreach ($likeCounts as $likeCount) {
+            $likeCountMap[$likeCount['comment_id']] = $likeCount['count'];
+        }
+
+        // 查询当前用户的点赞记录
+        $userLikes = [];
+        if ($userId) {
+            $userLikeRecords = Db::table('comment_likes')
+                ->select('comment_id')
+                ->whereIn('comment_id', $commentIds)
+                ->where('user_id', $userId)
+                ->get()
+                ->toArray();
+
+            foreach ($userLikeRecords as $likeRecord) {
+                $userLikes[$likeRecord['comment_id']] = true;
+            }
+        }
+
+        // 为评论添加点赞信息
+        foreach ($comments as &$comment) {
+            $commentId = $comment['id'];
+            $comment['likes'] = $likeCountMap[$commentId] ?? 0;
+            $comment['user_liked'] = isset($userLikes[$commentId]) ? true : false;
+        }
+    }
+
+    /**
+     * 点赞评论
+     *
+     * @param int $commentId 评论ID
+     * @param int $userId 用户ID
+     * @return bool 是否点赞成功
+     * @throws Exception
+     */
+    public function likeComment(int $commentId, int $userId): bool
+    {
+        // 检查评论是否存在
+        $comment = Comment::find($commentId);
+        if (! $comment) {
+            throw new Exception('评论不存在');
+        }
+
+        // 检查是否已经点赞
+        $existingLike = Db::table('comment_likes')
+            ->where('comment_id', $commentId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($existingLike) {
+            return true; // 已经点赞过了
+        }
+
+        // 添加点赞记录
+        Db::table('comment_likes')->insert([
+            'comment_id' => $commentId,
+            'user_id' => $userId,
+            'created_at' => time(),
+        ]);
+
+        // 更新评论点赞数（可选，可以在查询时实时计算）
+        try {
+            Db::table('comments')
+                ->where('id', $commentId)
+                ->increment('like_count');
+        } catch (\Exception $e) {
+            $this->logger->error('更新评论点赞数失败', ['comment_id' => $commentId, 'error' => $e->getMessage()]);
+        }
+
+        $this->logger->info('评论点赞成功', ['comment_id' => $commentId, 'user_id' => $userId]);
+        return true;
+    }
+
+    /**
+     * 取消点赞评论
+     *
+     * @param int $commentId 评论ID
+     * @param int $userId 用户ID
+     * @return bool 是否取消成功
+     */
+    public function unlikeComment(int $commentId, int $userId): bool
+    {
+        // 删除点赞记录
+        $result = Db::table('comment_likes')
+            ->where('comment_id', $commentId)
+            ->where('user_id', $userId)
+            ->delete();
+
+        if ($result) {
+            // 更新评论点赞数（可选）
+            try {
+                Db::table('comments')
+                    ->where('id', $commentId)
+                    ->decrement('like_count', 1, 0); // 确保不会小于0
+            } catch (\Exception $e) {
+                $this->logger->error('更新评论点赞数失败', ['comment_id' => $commentId, 'error' => $e->getMessage()]);
+            }
+
+            $this->logger->info('取消评论点赞成功', ['comment_id' => $commentId, 'user_id' => $userId]);
+        }
+
+        return $result > 0;
     }
 
     /**
@@ -335,9 +471,10 @@ class CommentService
      *
      * @param int $parentId 父评论ID
      * @param array{include_pending?:bool, page?:int, page_size?:int} $params 查询参数
+     * @param int|null $userId 当前用户ID（可选，用于判断是否点赞）
      * @return array{data:array, total:int, page:int, page_size:int} 回复列表
      */
-    public function getReplies(int $parentId, array $params = []): array
+    public function getReplies(int $parentId, array $params = [], ?int $userId = null): array
     {
         $query = Db::table('comments')
             ->select('comments.*', 'users.username', 'users.avatar')
@@ -359,9 +496,15 @@ class CommentService
 
         $total = $query->count();
         $replies = $query->offset($offset)->limit($pageSize)->get();
+        
+        // 转换为数组
+        $replyData = $replies->toArray();
+        
+        // 添加点赞信息
+        $this->enrichCommentsWithLikeData($replyData, $userId);
 
         return [
-            'data' => $replies,
+            'data' => $replyData,
             'total' => $total,
             'page' => $page,
             'page_size' => $pageSize,

@@ -36,7 +36,7 @@ class UserService
      * @var UserRepository
      */
     protected $userRepository;
-
+    
     /**
      * 创建新用户.
      *
@@ -49,11 +49,6 @@ class UserService
         // 验证数据
         $this->validateUserData($data);
 
-        // 检查用户名是否已存在
-        if ($this->getUserByUsername($data['username'])) {
-            throw new InvalidArgumentException('用户名已存在');
-        }
-
         // 检查邮箱是否已存在
         if ($this->getUserByEmail($data['email'])) {
             throw new InvalidArgumentException('邮箱已被注册');
@@ -61,10 +56,10 @@ class UserService
 
         // 准备数据
         $userData = [
-            'username' => $data['username'],
             'email' => $data['email'],
             'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
-            'status' => $data['status'] ?? 1,
+            'is_active' => $data['is_active'] ?? false,
+            'is_admin' => $data['is_admin'] ?? false,
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
@@ -78,9 +73,6 @@ class UserService
         }
         if (isset($data['bio'])) {
             $userData['bio'] = $data['bio'];
-        }
-        if (isset($data['role'])) {
-            $userData['role'] = $data['role'];
         }
 
         try {
@@ -127,20 +119,16 @@ class UserService
      * @param string $username 用户名
      * @return array<string, mixed>|null 用户信息数组或null
      */
-    public function getUserByUsername(string $username): ?array
-    {
-        $user = $this->userRepository->findBy(['username' => $username]);
-        return $user ? $this->userToArray($user) : null;
-    }
-
     /**
      * 验证用户凭证
      *
      * @param string $email 邮箱
      * @param string $password 密码
+     * @param string $loginIp 登录IP地址
      * @return array<string, mixed>|null 验证通过的用户信息数组或null
+     * @throws \Exception 当用户账号被锁定时抛出异常
      */
-    public function validateCredentials(string $email, string $password): ?array
+    public function validateCredentials(string $email, string $password, string $loginIp = ''): ?array
     {
         $userData = $this->getUserByEmail($email);
 
@@ -148,17 +136,124 @@ class UserService
             return null;
         }
 
+        // 检查用户账号是否被锁定
+        if (isset($userData['is_locked']) && $userData['is_locked']) {
+            $lockExpireTime = $userData['lock_expire_time'] ?? 0;
+            if ($lockExpireTime > time()) {
+                $lockTime = ceil(($lockExpireTime - time()) / 60);
+                throw new \Exception("账号已被锁定，请{$lockTime}分钟后再试");
+            } else {
+                // 锁定时间已过期，解锁账号
+                $this->unlockUser($userData['id']);
+                $userData['is_locked'] = false;
+                $userData['login_attempts'] = 0;
+            }
+        }
+
         // 检查密码是否正确
         if (! password_verify($password, $userData['password_hash'] ?? '')) {
+            // 记录登录失败次数，包含IP信息
+            $this->recordLoginFailure($userData['id'], $loginIp);
             return null;
         }
 
         // 检查用户状态
-        if ($userData['status'] !== 1) {
+        if (! $userData['is_active']) {
             return null;
         }
 
+        // 登录成功，重置失败次数并更新登录信息
+        $this->resetLoginAttempts($userData['id']);
+        $this->updateLoginInfo($userData['id'], $loginIp);
+
         return $userData;
+    }
+
+    /**
+     * 记录登录失败
+     *
+     * @param int $userId 用户ID
+     * @param string $loginIp 登录IP地址
+     */
+    protected function recordLoginFailure(int $userId, string $loginIp): void
+    {
+        try {
+            // 获取当前登录失败次数
+            $userData = $this->userRepository->findById($userId);
+            if (! $userData) {
+                return;
+            }
+
+            $loginAttempts = ($userData['login_attempts'] ?? 0) + 1;
+            $updateData = ['login_attempts' => $loginAttempts];
+
+            // 如果失败次数达到5次，锁定账号30分钟
+            if ($loginAttempts >= 5) {
+                $updateData['is_locked'] = true;
+                $updateData['lock_expire_time'] = time() + 30 * 60; // 30分钟后解锁
+                $this->logger->warning('用户账号被锁定', ['user_id' => $userId, 'attempts' => $loginAttempts, 'ip' => $loginIp]);
+            }
+
+            // 更新用户信息
+            $this->userRepository->update($userId, $updateData);
+            $this->logger->info('记录登录失败', ['user_id' => $userId, 'attempts' => $loginAttempts, 'ip' => $loginIp]);
+        } catch (\Exception $e) {
+            $this->logger->error('记录登录失败异常', ['user_id' => $userId, 'ip' => $loginIp, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 更新用户登录信息
+     *
+     * @param int $userId 用户ID
+     * @param string $loginIp 登录IP地址
+     */
+    protected function updateLoginInfo(int $userId, string $loginIp): void
+    {
+        try {
+            $updateData = [
+                'last_login_at' => date('Y-m-d H:i:s'),
+                'last_login_ip' => $loginIp
+            ];
+            $this->userRepository->update($userId, $updateData);
+            $this->logger->info('更新登录信息成功', ['user_id' => $userId, 'ip' => $loginIp]);
+        } catch (\Exception $e) {
+            $this->logger->error('更新登录信息异常', ['user_id' => $userId, 'ip' => $loginIp, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 重置登录失败次数
+     *
+     * @param int $userId 用户ID
+     */
+    protected function resetLoginAttempts(int $userId): void
+    {
+        try {
+            $this->userRepository->update($userId, ['login_attempts' => 0]);
+        } catch (\Exception $e) {
+            $this->logger->error('重置登录失败次数异常', ['user_id' => $userId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 解锁用户账号
+     *
+     * @param int $userId 用户ID
+     */
+    public function unlockUser(int $userId): void
+    {
+        try {
+            $this->userRepository->update($userId, [
+                'is_locked' => false,
+                'lock_expire_time' => null,
+                'login_attempts' => 0
+            ]);
+            $this->logger->info('用户账号已解锁', ['user_id' => $userId]);
+        } catch (\Exception $e) {
+            $this->logger->error('解锁用户账号异常', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     /**
@@ -166,10 +261,11 @@ class UserService
      *
      * @param string $email 邮箱
      * @param string $password 密码
+     * @param string $loginIp 登录IP地址
      * @return array<string, mixed> 登录成功的用户信息数组
      * @throws InvalidArgumentException
      */
-    public function login(string $email, string $password): array
+    public function login(string $email, string $password, string $loginIp = ''): array
     {
         // 参数验证
         if (empty($email) || empty($password)) {
@@ -181,8 +277,8 @@ class UserService
             throw new InvalidArgumentException('邮箱格式不正确');
         }
 
-        // 验证用户凭据
-        $userData = $this->validateCredentials($email, $password);
+        // 验证用户凭据，传入IP信息
+        $userData = $this->validateCredentials($email, $password, $loginIp);
 
         if (! $userData) {
             throw new InvalidArgumentException('邮箱或密码错误');
@@ -207,20 +303,8 @@ class UserService
             throw new InvalidArgumentException('用户不存在');
         }
 
-        // 检查用户名是否被其他用户使用
-        if (isset($data['username']) && $data['username'] !== $userData['username']) {
-            $existingUser = $this->userRepository->findBy(['username' => $data['username'], 'id' => ['!=' => $id]]);
-
-            if ($existingUser) {
-                throw new InvalidArgumentException('用户名已被使用');
-            }
-        }
-
         // 准备更新数据
         $updateData = [];
-        if (isset($data['username'])) {
-            $updateData['username'] = $data['username'];
-        }
         if (isset($data['real_name'])) {
             $updateData['real_name'] = $data['real_name'];
         }
@@ -230,11 +314,11 @@ class UserService
         if (isset($data['bio'])) {
             $updateData['bio'] = $data['bio'];
         }
-        if (isset($data['status'])) {
-            $updateData['status'] = $data['status'];
+        if (isset($data['is_active'])) {
+            $updateData['is_active'] = $data['is_active'];
         }
-        if (isset($data['role'])) {
-            $updateData['role'] = $data['role'];
+        if (isset($data['is_admin'])) {
+            $updateData['is_admin'] = $data['is_admin'];
         }
 
         // 如果没有需要更新的数据，直接返回原用户数据
@@ -242,8 +326,7 @@ class UserService
             return $userData;
         }
 
-        // 确保更新时间戳
-        $updateData['updated_at'] = date('Y-m-d H:i:s');
+        // 不再需要updated_at字段
 
         try {
             $result = $this->userRepository->update($id, $updateData);
@@ -323,23 +406,20 @@ class UserService
         // 搜索条件
         if (isset($params['keyword']) && $params['keyword']) {
             $keyword = $params['keyword'];
-            // 将模糊查询条件整合到主条件中
-            // 注意：这里假设Repository的findAllBy方法可以处理嵌套条件
             $conditions['OR'] = [
-                ['username', 'LIKE', '%' . $keyword . '%'],
                 ['email', 'LIKE', '%' . $keyword . '%'],
                 ['real_name', 'LIKE', '%' . $keyword . '%'],
             ];
         }
 
-        // 状态筛选
-        if (isset($params['status'])) {
-            $conditions['status'] = $params['status'];
+        // 活跃状态筛选
+        if (isset($params['is_active'])) {
+            $conditions['is_active'] = $params['is_active'];
         }
 
-        // 角色筛选
-        if (isset($params['role'])) {
-            $conditions['role'] = $params['role'];
+        // 管理员状态筛选
+        if (isset($params['is_admin'])) {
+            $conditions['is_admin'] = $params['is_admin'];
         }
 
         // 排序
@@ -375,17 +455,17 @@ class UserService
      */
     public function isAdmin(array $userData): bool
     {
-        return ($userData['role'] ?? '') === 'admin';
+        return (bool)($userData['is_admin'] ?? false);
     }
 
     /**
-     * 切换用户状态
+     * 切换用户活跃状态
      *
      * @param int $id 用户ID
      * @return bool 切换是否成功
      * @throws InvalidArgumentException
      */
-    public function toggleUserStatus(int $id): bool
+    public function toggleUserActiveStatus(int $id): bool
     {
         $userData = $this->getUserById($id);
 
@@ -393,15 +473,15 @@ class UserService
             throw new InvalidArgumentException('用户不存在');
         }
 
-        $newStatus = $userData['status'] === 1 ? 0 : 1;
+        $newActiveStatus = !($userData['is_active'] ?? false);
 
         try {
             return $this->userRepository->update($id, [
-                'status' => $newStatus,
+                'is_active' => $newActiveStatus,
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
         } catch (Exception $e) {
-            $this->logger->error('切换用户状态失败: ' . $e->getMessage(), ['user_id' => $id]);
+            $this->logger->error('切换用户活跃状态失败: ' . $e->getMessage(), ['user_id' => $id]);
             throw $e;
         }
     }
@@ -415,7 +495,7 @@ class UserService
     protected function validateUserData(array $data): void
     {
         // 检查必填字段
-        $requiredFields = ['username', 'email', 'password'];
+        $requiredFields = ['email', 'password'];
         foreach ($requiredFields as $field) {
             if (empty($data[$field])) {
                 throw new InvalidArgumentException(ucfirst($field) . '不能为空');
@@ -444,13 +524,12 @@ class UserService
         // 获取所有可访问的属性
         return [
             'id' => $user->id ?? null,
-            'username' => $user->username ?? null,
             'email' => $user->email ?? null,
             'real_name' => $user->real_name ?? null,
             'avatar' => $user->avatar ?? null,
             'bio' => $user->bio ?? null,
-            'role' => $user->role ?? null,
-            'status' => $user->status ?? null,
+            'is_active' => $user->is_active ?? null,
+            'is_admin' => $user->is_admin ?? null,
             'created_at' => $user->created_at ?? null,
             'updated_at' => $user->updated_at ?? null
         ];

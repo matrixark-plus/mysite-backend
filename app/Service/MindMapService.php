@@ -12,23 +12,35 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Repository\MindmapNodeRepository;
 use Exception;
-use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\RedisFactory;
-use Hyperf\Utils\ApplicationContext;
+use Psr\Log\LoggerInterface;
 use Redis;
 
 class MindMapService
 {
     /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * @Inject
+     * @var MindmapNodeRepository
+     */
+    protected $mindmapNodeRepository;
+
+    /**
      * @var Redis
      */
     protected $redis;
 
-    public function __construct()
+    public function __construct(RedisFactory $redisFactory)
     {
-        $container = ApplicationContext::getContainer();
-        $this->redis = $container->get(RedisFactory::class)->get('default');
+        $this->redis = $redisFactory->get('default');
     }
 
     /**
@@ -37,7 +49,7 @@ class MindMapService
      * @param array $params 查询参数
      * @return array 根节点列表
      */
-    public function getRootNodes($params = [])
+    public function getRootNodes(array $params = []): array
     {
         try {
             // 构建缓存键
@@ -49,51 +61,15 @@ class MindMapService
                 return json_decode($cached, true);
             }
 
-            // 构建查询
-            $query = Db::table('mind_map_nodes')
-                ->where('parent_id', 0) // 根节点的父ID为0
-                ->where('status', 1);   // 只获取已发布的
-
-            // 应用筛选条件
-            if (isset($params['keyword']) && $params['keyword']) {
-                $query->where('title', 'like', "%{$params['keyword']}%");
-            }
-
-            // 应用排序
-            $sortBy = $params['sort_by'] ?? 'created_at';
-            $sortOrder = $params['sort_order'] ?? 'desc';
-            $query->orderBy($sortBy, $sortOrder);
-
-            // 分页
-            $page = $params['page'] ?? 1;
-            $pageSize = $params['page_size'] ?? 20;
-
-            // 获取总数
-            $total = $query->count();
-
-            // 获取列表
-            $list = $query
-                ->forPage($page, $pageSize)
-                ->select([
-                    'id', 'title', 'description', 'cover_image',
-                    'created_at', 'updated_at', 'view_count',
-                ])
-                ->get();
-
-            // 格式化结果
-            $result = [
-                'total' => $total,
-                'page' => $page,
-                'page_size' => $pageSize,
-                'list' => $list,
-            ];
+            // 通过Repository获取数据
+            $result = $this->mindmapNodeRepository->getRootNodes($params);
 
             // 设置缓存，10分钟过期
             $this->redis->set($cacheKey, json_encode($result), 600);
 
             return $result;
         } catch (Exception $e) {
-            logger()->error('获取脑图根节点列表异常: ' . $e->getMessage());
+            $this->logger->error('获取脑图根节点列表异常: ' . $e->getMessage(), ['params' => $params]);
             throw $e;
         }
     }
@@ -105,7 +81,7 @@ class MindMapService
      * @param bool $includeContent 是否包含节点内容
      * @return array 脑图数据结构
      */
-    public function getMindMapData($rootId, $includeContent = false)
+    public function getMindMapData(int $rootId, bool $includeContent = false): array
     {
         try {
             // 构建缓存键
@@ -120,12 +96,9 @@ class MindMapService
             }
 
             // 检查根节点是否存在且已发布
-            $rootNode = Db::table('mind_map_nodes')
-                ->where('id', $rootId)
-                ->where('status', 1)
-                ->first();
+            $rootNode = $this->mindmapNodeRepository->getById($rootId);
 
-            if (! $rootNode) {
+            if (! $rootNode || $rootNode['status'] != 1) {
                 throw new Exception('脑图不存在或未发布');
             }
 
@@ -133,7 +106,7 @@ class MindMapService
             $mindMapData = [
                 'root' => $this->formatNode($rootNode, $includeContent),
                 'nodes' => $this->getAllNodes($rootId, $includeContent),
-                'edges' => $this->getEdges($rootId),
+                'edges' => $this->mindmapNodeRepository->getEdges($rootId),
             ];
 
             // 设置缓存，30分钟过期
@@ -144,7 +117,7 @@ class MindMapService
 
             return $mindMapData;
         } catch (Exception $e) {
-            logger()->error('获取脑图数据异常: ' . $e->getMessage());
+            $this->logger->error('获取脑图数据异常: ' . $e->getMessage(), ['rootId' => $rootId]);
             throw $e;
         }
     }
@@ -156,76 +129,49 @@ class MindMapService
      * @param bool $includeContent 是否包含内容
      * @return array
      */
-    protected function getAllNodes($rootId, $includeContent = false)
+    protected function getAllNodes(int $rootId, bool $includeContent = false): array
     {
-        $nodes = Db::table('mind_map_nodes')
-            ->where(function ($query) use ($rootId) {
-                $query->where('id', $rootId) // 包含根节点
-                    ->orWhere('root_id', $rootId); // 以及其所有子节点
-            })
-            ->where('status', 1)
-            ->get();
+        // 通过Repository获取所有节点
+        $nodes = $this->mindmapNodeRepository->getAllNodes($rootId);
 
         $result = [];
         foreach ($nodes as $node) {
-            $result[$node->id] = $this->formatNode($node, $includeContent);
+            $result[$node['id']] = $this->formatNode($node, $includeContent);
         }
 
         return $result;
     }
 
     /**
-     * 获取节点间的关系.
-     *
-     * @param int $rootId 根节点ID
-     * @return array
+     * 注意：getEdges方法已移至Repository层，这里不再需要保留
      */
-    protected function getEdges($rootId)
-    {
-        $edges = Db::table('mind_map_edges')
-            ->where('root_id', $rootId)
-            ->get();
-
-        $result = [];
-        foreach ($edges as $edge) {
-            $result[] = [
-                'id' => $edge->id,
-                'source' => $edge->source_id,
-                'target' => $edge->target_id,
-                'label' => $edge->label,
-                'direction' => $edge->direction,
-            ];
-        }
-
-        return $result;
-    }
 
     /**
      * 格式化节点数据.
      *
-     * @param mixed $node 节点数据
+     * @param array $node 节点数据
      * @param bool $includeContent 是否包含内容
      * @return array
      */
-    protected function formatNode($node, $includeContent = false)
+    protected function formatNode(array $node, bool $includeContent = false): array
     {
         $formatted = [
-            'id' => $node->id,
-            'parent_id' => $node->parent_id,
-            'root_id' => $node->root_id,
-            'title' => $node->title,
-            'description' => $node->description,
-            'type' => $node->type,
-            'level' => $node->level,
-            'sort' => $node->sort,
-            'color' => $node->color,
-            'created_at' => $node->created_at,
-            'updated_at' => $node->updated_at,
+            'id' => $node['id'],
+            'parent_id' => $node['parent_id'],
+            'root_id' => $node['root_id'],
+            'title' => $node['title'],
+            'description' => $node['description'],
+            'type' => $node['type'] ?? '',
+            'level' => $node['level'] ?? 0,
+            'sort' => $node['sort'] ?? 0,
+            'color' => $node['color'] ?? '',
+            'created_at' => $node['created_at'],
+            'updated_at' => $node['updated_at'],
         ];
 
         // 是否包含内容
-        if ($includeContent) {
-            $formatted['content'] = $node->content;
+        if ($includeContent && isset($node['content'])) {
+            $formatted['content'] = $node['content'];
         }
 
         return $formatted;
@@ -236,17 +182,19 @@ class MindMapService
      *
      * @param int $nodeId 节点ID
      */
-    protected function incrementViewCount($nodeId)
+    protected function incrementViewCount(int $nodeId): void
     {
-        // 使用异步任务增加浏览次数
-        // 这里简化处理，直接更新数据库
-        Db::table('mind_map_nodes')
-            ->where('id', $nodeId)
-            ->increment('view_count');
+        try {
+            // 通过Repository增加浏览次数
+            $this->mindmapNodeRepository->incrementViewCount($nodeId);
 
-        // 清除缓存
-        $this->redis->del('mind_map:root_nodes:*');
-        $this->redis->del('mind_map:data:' . $nodeId . ':with_content');
-        $this->redis->del('mind_map:data:' . $nodeId . ':no_content');
+            // 清除缓存
+            $this->redis->del('mind_map:root_nodes:*');
+            $this->redis->del('mind_map:data:' . $nodeId . ':with_content');
+            $this->redis->del('mind_map:data:' . $nodeId . ':no_content');
+        } catch (Exception $e) {
+            // 记录错误但不影响主流程
+            $this->logger->error('增加浏览次数失败: ' . $e->getMessage(), ['nodeId' => $nodeId]);
+        }
     }
 }

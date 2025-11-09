@@ -14,10 +14,31 @@ namespace App\Service;
 
 use App\Model\Blog;
 use App\Model\BlogCategory;
-use Hyperf\DbConnection\Db;
+use App\Repository\BlogTagRepository;
+use App\Repository\BlogTagRelationRepository;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Logger\LoggerFactory;
+use Psr\Log\LoggerInterface;
 
 class BlogService
 {
+    /**
+     * @Inject
+     * @var BlogTagRepository
+     */
+    protected $blogTagRepository;
+
+    /**
+     * @Inject
+     * @var BlogTagRelationRepository
+     */
+    protected $blogTagRelationRepository;
+
+    /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
     /**
      * 获取博客列表.
      * @param array $params 查询参数
@@ -25,7 +46,7 @@ class BlogService
     public function getBlogs(array $params): array
     {
         $query = Blog::query()
-            ->with(['author', 'category'])
+            ->with(['author', 'category', 'tags'])
             ->where('status', Blog::STATUS_PUBLISHED);
 
         // 分类筛选
@@ -64,17 +85,22 @@ class BlogService
     /**
      * 根据ID获取博客详情.
      * @param int $id 博客ID
+     * @param bool $incrementViews 是否增加阅读量
      */
-    public function getBlogById(int $id): ?Blog
+    public function getBlogById(int $id, bool $incrementViews = true): ?Blog
     {
-        $blog = Blog::with(['author', 'category'])
+        $blog = Blog::with(['author', 'category', 'tags'])
             ->where('id', $id)
             ->where('status', Blog::STATUS_PUBLISHED)
             ->first();
 
-        if ($blog) {
+        if ($blog && $incrementViews) {
             // 增加浏览量
-            $blog->increment('view_count');
+            try {
+                $blog->increment('view_count');
+            } catch (\Exception $e) {
+                $this->logger->error('增加博客阅读量失败', ['blog_id' => $id, 'error' => $e->getMessage()]);
+            }
         }
 
         return $blog;
@@ -103,10 +129,43 @@ class BlogService
             ]);
 
             // 记录日志
-            logger()->info('创建博客成功: ' . $blog->id . ' - ' . $blog->title);
+            $this->logger->info('创建博客成功: ' . $blog->id . ' - ' . $blog->title);
+            
+            // 处理标签关联
+            $tags = $data['tags'] ?? [];
+            if (!empty($tags)) {
+                $this->saveBlogTags($blog->id, $tags);
+            }
 
             return $blog;
         });
+    }
+    
+    /**
+     * 保存博客标签关联
+     *
+     * @param int $blogId 博客ID
+     * @param array $tags 标签数组
+     */
+    protected function saveBlogTags(int $blogId, array $tags): void
+    {
+        $tagPivotData = [];
+        $order = 0;
+
+        foreach ($tags as $tag) {
+            // 获取或创建标签
+            $tagId = $this->blogTagRepository->getOrCreateTag($tag['name'], $tag['slug'] ?? null);
+            
+            $tagPivotData[] = [
+                'blog_id' => $blogId,
+                'tag_id' => $tagId,
+                'order' => $order++
+            ];
+        }
+
+        if (!empty($tagPivotData)) {
+            $this->blogTagRelationRepository->batchCreate($tagPivotData);
+        }
     }
 
     /**
@@ -150,12 +209,26 @@ class BlogService
             if (isset($data['cover_image'])) {
                 $updateData['cover_image'] = $data['cover_image'];
             }
+            if (isset($data['published_at'])) {
+                $updateData['published_at'] = $data['published_at'];
+            }
             $updateData['updated_at'] = time();
 
             $blog->update($updateData);
+            
+            // 处理标签关联
+            if (array_key_exists('tags', $data)) {
+                // 删除旧的标签关联
+                $this->blogTagRelationRepository->deleteByBlogId($blog->id);
+
+                // 添加新的标签关联
+                if (!empty($data['tags'])) {
+                    $this->saveBlogTags($blog->id, $data['tags']);
+                }
+            }
 
             // 记录日志
-            logger()->info('更新博客成功: ' . $blog->id . ' - ' . $blog->title);
+            $this->logger->info('更新博客成功: ' . $blog->id . ' - ' . $blog->title);
 
             return $blog;
         });
@@ -177,7 +250,7 @@ class BlogService
             $blog->delete();
 
             // 记录日志
-            logger()->info('删除博客成功: ' . $blog->id . ' - ' . $blog->title);
+            $this->logger->info('删除博客成功: ' . $blog->id . ' - ' . $blog->title);
 
             return true;
         });
@@ -194,17 +267,67 @@ class BlogService
     }
 
     /**
+     * 记录博客阅读量
+     * @param int $blogId 博客ID
+     * @param string $clientIp 客户端IP
+     * @return int|false 更新后的阅读量或false(博客不存在)
+     */
+    public function recordView(int $blogId, string $clientIp): int|false
+    {
+        $blog = Blog::where('id', $blogId)
+            ->where('status', Blog::STATUS_PUBLISHED)
+            ->first();
+
+        if (! $blog) {
+            return false;
+        }
+
+        // 增加阅读量
+        $blog->increment('view_count');
+        
+        // 重新获取更新后的阅读量
+        $blog->refresh();
+        
+        // 记录阅读日志（可选）
+            $this->logger->info('博客阅读记录', [
+                'blog_id' => $blogId,
+                'client_ip' => $clientIp,
+                'view_count' => $blog->view_count
+            ]);
+
+        return $blog->view_count;
+    }
+
+    /**
      * 获取热门博客.
      * @param int $limit 数量限制
      */
     public function getHotBlogs(int $limit = 10): array
     {
-        return Blog::with(['author', 'category'])
+        $blogs = Blog::with(['author', 'category'])
             ->where('status', Blog::STATUS_PUBLISHED)
             ->orderBy('view_count', 'desc')
             ->limit($limit)
             ->get()
             ->toArray();
+        
+        // 为每个热门博客获取标签信息
+        foreach ($blogs as &$blog) {
+            $blog['tags'] = $this->getBlogTags($blog['id']);
+        }
+        
+        return $blogs;
+    }
+    
+    /**
+     * 获取博客标签
+     *
+     * @param int $blogId 博客ID
+     * @return array 标签数组
+     */
+    protected function getBlogTags(int $blogId): array
+    {
+        return $this->blogTagRepository->getBlogTags($blogId);
     }
 
     /**
@@ -237,7 +360,15 @@ class BlogService
         $query->where(function ($q) use ($keyword) {
             $q->where('title', 'like', '%' . $keyword . '%')
                 ->orWhere('content', 'like', '%' . $keyword . '%')
-                ->orWhere('summary', 'like', '%' . $keyword . '%');
+                ->orWhere('summary', 'like', '%' . $keyword . '%')
+                // 也可以搜索标签名称
+                ->orWhereExists(function ($tagQuery) use ($keyword) {
+                    $tagQuery->select(Db::raw(1))
+                        ->from('blog_tag_pivot')
+                        ->join('blog_tags', 'blog_tag_pivot.tag_id', '=', 'blog_tags.id')
+                        ->whereRaw('blog_tag_pivot.blog_id = blogs.id')
+                        ->where('blog_tags.name', 'like', '%' . $keyword . '%');
+                });
         });
 
         // 排序
@@ -250,12 +381,20 @@ class BlogService
         $pageSize = $params['page_size'] ?? 10;
 
         $blogs = $query->paginate($pageSize, ['*'], 'page', $page);
+        
+        // 获取博客数据
+        $blogItems = $blogs->items();
+        
+        // 为每个博客获取标签信息
+        foreach ($blogItems as &$blog) {
+            $blog['tags'] = $this->getBlogTags($blog['id']);
+        }
 
         return [
             'total' => $blogs->total(),
             'page' => $blogs->currentPage(),
             'page_size' => $blogs->perPage(),
-            'data' => $blogs->items(),
+            'data' => $blogItems,
         ];
     }
 

@@ -48,7 +48,18 @@ class CommentController extends AbstractController
     {
         try {
             $params = $request->all();
-            $result = $this->commentService->getComments($params);
+            $page = $request->input('page', 1);
+            $pageSize = $request->input('page_size', 10);
+
+            // 获取当前用户ID（如果已登录）
+            $userId = null;
+            $user = $this->request->getAttribute('user');
+            if ($user) {
+                $userId = $user->id;
+            }
+
+            // 获取评论列表
+            $result = $this->commentService->getComments($params, $page, $pageSize, $userId);
             return $this->success($result, ResponseMessage::COMMENT_LIST_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_LIST_FAILED . ': ' . $e->getMessage());
@@ -92,7 +103,7 @@ class CommentController extends AbstractController
      * 获取评论详情.
      * @RequestMapping(path="/{id}", methods={"GET"})
      */
-    public function show(int $id, ResponseInterface $response)
+    public function show(int $id, RequestInterface $request, ResponseInterface $response)
     {
         try {
             $comment = $this->commentService->getCommentById($id);
@@ -105,6 +116,16 @@ class CommentController extends AbstractController
             if (! $isAdmin && $comment['status'] != 1) {
                 return $this->fail(StatusCode::FORBIDDEN, '无权查看该评论');
             }
+
+            // 添加点赞信息
+            $userId = null;
+            $user = $this->request->getAttribute('user');
+            if ($user) {
+                $userId = $user->id;
+            }
+
+            // 查询点赞数和用户点赞状态
+            $comment = $this->commentService->enhanceCommentWithLikes($comment, $userId);
 
             return $this->success($comment, '获取评论详情成功', StatusCode::SUCCESS);
         } catch (Exception $e) {
@@ -265,6 +286,8 @@ class CommentController extends AbstractController
     {
         try {
             $params = $request->all();
+            $page = $request->input('page', 1);
+            $pageSize = $request->input('page_size', 10);
 
             // 管理员可以查看所有回复（包括待审核的）
             $isAdmin = $this->request->getAttribute('is_admin') ?? false;
@@ -272,10 +295,65 @@ class CommentController extends AbstractController
                 $params['include_pending'] = true;
             }
 
-            $result = $this->commentService->getReplies($id, $params);
+            // 获取当前用户ID（如果已登录）
+            $userId = null;
+            $user = $this->request->getAttribute('user');
+            if ($user) {
+                $userId = $user->id;
+            }
+
+            $result = $this->commentService->getReplies($id, $params, $page, $pageSize, $userId);
             return $this->success($result, ResponseMessage::COMMENT_REPLIES_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_REPLIES_FAILED . ': ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 点赞评论.
+     * @RequestMapping(path="/{id}/like", methods={"POST"})
+     * @Middleware(JwtAuthMiddleware::class)
+     */
+    public function likeComment(int $id, ResponseInterface $response)
+    {
+        try {
+            // 获取当前用户ID
+            $user = $this->request->getAttribute('user');
+            if (! $user) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
+            $userId = $user->id;
+
+            // 点赞评论
+            $this->commentService->likeComment($id, $userId);
+
+            return $this->success(null, '点赞成功', StatusCode::SUCCESS);
+        } catch (Exception $e) {
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '点赞失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 取消点赞评论.
+     * @RequestMapping(path="/{id}/like", methods={"DELETE"})
+     * @Middleware(JwtAuthMiddleware::class)
+     */
+    public function unlikeComment(int $id, ResponseInterface $response)
+    {
+        try {
+            // 获取当前用户ID
+            $user = $this->request->getAttribute('user');
+            if (! $user) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
+            $userId = $user->id;
+
+            // 取消点赞
+            $this->commentService->unlikeComment($id, $userId);
+
+            return $this->success(null, '取消点赞成功', StatusCode::SUCCESS);
+        } catch (Exception $e) {
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '取消点赞失败: ' . $e->getMessage());
         }
     }
 

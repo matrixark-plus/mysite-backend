@@ -51,13 +51,15 @@ class Work extends Model
         'cover_image',
         'thumbnail',
         'link',
+        'github_link',
+        'images',
         'type',
         'author_id',
+        'category_id',
         'status',
         'is_recommended',
         'view_count',
         'like_count',
-        'download_count',
         'created_at',
         'updated_at',
         'published_at',
@@ -79,7 +81,8 @@ class Work extends Model
         'is_recommended' => 'boolean',
         'view_count' => 'integer',
         'like_count' => 'integer',
-        'download_count' => 'integer',
+        'category_id' => 'integer',
+        'images' => 'array',
     ];
 
     /**
@@ -126,5 +129,14 @@ class Work extends Model
     public function files()
     {
         return $this->hasMany(WorkFile::class, 'work_id', 'id');
+    }
+
+    /**
+     * 获取作品分类.
+     * @return \Hyperf\Model\Relations\BelongsTo
+     */
+    public function category()
+    {
+        return $this->belongsTo(WorkCategory::class, 'category_id', 'id');
     }
 }

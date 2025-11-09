@@ -176,14 +176,9 @@ class OAuthService
                 $existingUser = $this->userService->getUserByEmail($userInfo['email']);
             }
 
-            if (! $existingUser) {
-                $existingUser = $this->userService->getUserByUsername($userInfo['username']);
-            }
-
             // 如果用户不存在，则创建新用户
             if (! $existingUser) {
                 $userData = [
-                    'username' => $userInfo['username'],
                     'email' => $userInfo['email'] ?? '',
                     'password' => 'oauth_' . md5(uniqid('', true)), // 生成随机密码
                     'real_name' => $userInfo['name'] ?? '',
@@ -193,7 +188,7 @@ class OAuthService
                 ];
 
                 $existingUser = $this->userService->createUser($userData);
-                $this->logger->info('OAuth用户创建成功', ['username' => $userInfo['username']]);
+                $this->logger->info('OAuth用户创建成功', ['email' => $userInfo['email']]);
             }
 
             // 创建一个简单的认证对象供JWT使用

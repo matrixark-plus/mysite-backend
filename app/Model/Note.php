@@ -15,6 +15,7 @@ namespace App\Model;
 use Hyperf\Database\Model\Collection;
 use Hyperf\Model\Relations\BelongsTo;
 use Hyperf\Model\Relations\HasMany;
+use App\Model\NoteVersion;
 
 /**
  * 笔记模型.
@@ -64,7 +65,7 @@ class Note extends Model
         'creator_id',
         'status',
         'is_public',
-        'tags',
+        'user_id',
     ];
 
     /**
@@ -87,11 +88,11 @@ class Note extends Model
      */
     public function getVersions()
     {
-        return $this->versions;
+        return $this->versions()->get();
     }
 
     /**
-     * 笔记版本历史关联.
+     * 笔记版本历史关联（一对多）.
      * @return HasMany
      */
     public function versions()
@@ -100,24 +101,5 @@ class Note extends Model
             ->orderBy('version_number', 'desc');
     }
 
-    /**
-     * 获取笔记的标签列表.
-     * @return array
-     */
-    public function getTags()
-    {
-        if (empty($this->tags)) {
-            return [];
-        }
-        return json_decode($this->tags, true) ?: [];
-    }
 
-    /**
-     * 设置笔记的标签列表.
-     * @param array $tags 标签数组
-     */
-    public function setTags(array $tags)
-    {
-        $this->tags = json_encode($tags, JSON_UNESCAPED_UNICODE);
-    }
 }

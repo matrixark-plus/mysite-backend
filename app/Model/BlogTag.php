@@ -63,7 +63,7 @@ class BlogTag extends Model
     {
         return $this->belongsToMany(
             Blog::class,
-            'blog_tag_pivot',
+            'blog_tag_relations',
             'tag_id',
             'blog_id'
         );

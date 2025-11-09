@@ -39,10 +39,10 @@ class NoteVersion extends Model
      */
     protected array $fillable = [
         'note_id',
+        'title',
+        'content',
         'content_snapshot',
-        'title_snapshot',
         'version_number',
-        'created_by',
     ];
 
     /**
@@ -59,12 +59,5 @@ class NoteVersion extends Model
         return $this->belongsTo(Note::class, 'note_id', 'id');
     }
 
-    /**
-     * 获取版本创建者.
-     * @return BelongsTo
-     */
-    public function creator()
-    {
-        return $this->belongsTo(User::class, 'created_by', 'id');
-    }
+
 }

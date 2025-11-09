@@ -15,12 +15,13 @@ namespace App\Service;
 use Carbon\Carbon;
 use Exception;
 use Hyperf\Config\ConfigInterface;
-use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 use Hyperf\Redis\RedisFactory;
 use Redis;
 
 // 注意：权限管理相关功能已移至PermissionService
+// 系统配置现在通过环境变量文件管理，不再使用数据库
 
 class SystemService
 {
@@ -44,6 +45,12 @@ class SystemService
      * @var LoggerInterface
      */
     protected $logger;
+    
+    /**
+     * @Inject
+     * @var EnvironmentFileService
+     */
+    protected $environmentFileService;
 
     /**
      * 构造函数. 注入依赖
@@ -137,7 +144,7 @@ class SystemService
     }
 
     /**
-     * 获取系统配置（从数据库和缓存）.
+     * 获取系统配置（从环境变量文件和缓存）.
      *
      * @param string $key 配置键
      * @return array<string, mixed>|mixed
@@ -153,31 +160,11 @@ class SystemService
                 return json_decode($cached, true);
             }
 
-            // 从数据库获取配置
-            $query = Db::table('system_configs');
-
+            // 从环境变量文件获取配置
             if ($key) {
-                $config = $query->where('key', $key)->first();
-                // 使用简洁的方式处理配置值
-                $result = null;
-                if ($config) {
-                    // 将结果转换为数组以避免类型问题
-                    $configArray = (array) $config;
-                    $value = isset($configArray['value']) ? $configArray['value'] : 'null';
-                    $result = json_decode($value, true);
-                }
+                $result = $this->environmentFileService->getEnvVar($key);
             } else {
-                $configs = $query->get();
-                $result = [];
-                foreach ($configs as $config) {
-                    // 将结果转换为数组以避免类型问题
-                    $configArray = (array) $config;
-                    if (isset($configArray['key']) && !empty($configArray['key'])) {
-                        $key = $configArray['key'];
-                        $value = isset($configArray['value']) ? $configArray['value'] : 'null';
-                        $result[$key] = json_decode($value, true);
-                    }
-                }
+                $result = $this->environmentFileService->readEnvFile();
             }
 
             // 设置缓存，1小时过期
@@ -205,15 +192,8 @@ class SystemService
                 throw new Exception('配置键格式不合法');
             }
 
-            // 序列化配置值
-            $valueStr = json_encode($value);
-
-            // 更新数据库
-            $result = Db::table('system_configs')
-                ->updateOrInsert(
-                    ['key' => $key],
-                    ['value' => $valueStr, 'updated_at' => Carbon::now()->toDateTimeString()]
-                );
+            // 通过环境变量文件服务更新配置
+            $result = $this->environmentFileService->updateEnvVar($key, $value);
 
             // 清除缓存
             $this->redis->del('system:config');
@@ -235,17 +215,14 @@ class SystemService
     public function batchUpdateConfig(array $configs): bool
     {
         try {
-            Db::beginTransaction();
-
-            foreach ($configs as $key => $value) {
-                $this->updateConfig($key, $value);
-            }
-
-            Db::commit();
-
-            return true;
+            // 通过环境变量文件服务批量更新配置
+            $result = $this->environmentFileService->batchUpdateEnvVars($configs);
+            
+            // 清除缓存
+            $this->redis->del('system:config');
+            
+            return $result;
         } catch (Exception $e) {
-            Db::rollBack();
             $this->logger->error('批量更新系统配置异常: ' . $e->getMessage());
             throw $e;
         }
@@ -259,16 +236,22 @@ class SystemService
      */
     protected function getUserCount(array $timeRange): int
     {
-        $query = Db::table('users');
+        try {
+            // 这里暂时保留直接查询，后续可以考虑创建UserStatsRepository
+            $query = Db::table('users');
 
-        if (isset($timeRange['start'])) {
-            $query->where('created_at', '>=', $timeRange['start']);
-        }
-        if (isset($timeRange['end'])) {
-            $query->where('created_at', '<=', $timeRange['end']);
-        }
+            if (isset($timeRange['start'])) {
+                $query->where('created_at', '>=', $timeRange['start']);
+            }
+            if (isset($timeRange['end'])) {
+                $query->where('created_at', '<=', $timeRange['end']);
+            }
 
-        return $query->count();
+            return $query->count();
+        } catch (Exception $e) {
+            $this->logger->error('获取用户统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
+            return 0;
+        }
     }
 
     /**
@@ -279,17 +262,23 @@ class SystemService
      */
     protected function getArticleCount(array $timeRange): int
     {
-        $query = Db::table('articles')
-            ->where('status', 1); // 只统计已发布的
+        try {
+            // 这里暂时保留直接查询，后续可以考虑创建ArticleStatsRepository
+            $query = Db::table('articles')
+                ->where('status', 1); // 只统计已发布的
 
-        if (isset($timeRange['start'])) {
-            $query->where('created_at', '>=', $timeRange['start']);
-        }
-        if (isset($timeRange['end'])) {
-            $query->where('created_at', '<=', $timeRange['end']);
-        }
+            if (isset($timeRange['start'])) {
+                $query->where('created_at', '>=', $timeRange['start']);
+            }
+            if (isset($timeRange['end'])) {
+                $query->where('created_at', '<=', $timeRange['end']);
+            }
 
-        return $query->count();
+            return $query->count();
+        } catch (Exception $e) {
+            $this->logger->error('获取文章统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
+            return 0;
+        }
     }
 
     /**
@@ -300,17 +289,23 @@ class SystemService
      */
     protected function getCommentCount(array $timeRange): int
     {
-        $query = Db::table('comments')
-            ->where('status', 1); // 只统计已审核通过的
+        try {
+            // 这里暂时保留直接查询，后续可以考虑创建CommentStatsRepository
+            $query = Db::table('comments')
+                ->where('status', 1); // 只统计已审核通过的
 
-        if (isset($timeRange['start'])) {
-            $query->where('created_at', '>=', $timeRange['start']);
-        }
-        if (isset($timeRange['end'])) {
-            $query->where('created_at', '<=', $timeRange['end']);
-        }
+            if (isset($timeRange['start'])) {
+                $query->where('created_at', '>=', $timeRange['start']);
+            }
+            if (isset($timeRange['end'])) {
+                $query->where('created_at', '<=', $timeRange['end']);
+            }
 
-        return $query->count();
+            return $query->count();
+        } catch (Exception $e) {
+            $this->logger->error('获取评论统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
+            return 0;
+        }
     }
 
     /**
@@ -336,21 +331,26 @@ class SystemService
      */
     protected function getRecentActivities(array $params): array
     {
-        $limit = $params['limit'] ?? 10;
+        try {
+            $limit = $params['limit'] ?? 10;
 
-        // 从活动日志表获取最近活动并转换为数组
-        $activities = Db::table('activity_logs')
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get();
-        
-        // 确保返回数组格式
-        $result = [];
-        foreach ($activities as $activity) {
-            $result[] = (array) $activity;
+            // 这里暂时保留直接查询，后续可以考虑创建ActivityLogRepository
+            $activities = Db::table('activity_logs')
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+            
+            // 确保返回数组格式
+            $result = [];
+            foreach ($activities as $activity) {
+                $result[] = (array) $activity;
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            $this->logger->error('获取最近活动失败: ' . $e->getMessage(), ['params' => $params]);
+            return [];
         }
-        
-        return $result;
     }
 
     /**

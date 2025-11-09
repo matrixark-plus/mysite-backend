@@ -78,6 +78,7 @@ class UserRepository
         try {
             $query = User::query();
 
+            // 处理查询条件
             if (! empty($conditions)) {
                 $query = $query->where($conditions);
             }
@@ -133,12 +134,9 @@ class UserRepository
                     }
                 }
 
-                // 确保时间戳
+                // 确保注册时间戳
                 if (! isset($data['created_at'])) {
                     $user->created_at = date('Y-m-d H:i:s');
-                }
-                if (! isset($data['updated_at'])) {
-                    $user->updated_at = date('Y-m-d H:i:s');
                 }
 
                 $user->save();
@@ -161,10 +159,7 @@ class UserRepository
     {
         try {
             return Db::transaction(function () use ($id, $data) {
-                // 确保更新时间戳
-                if (! isset($data['updated_at'])) {
-                    $data['updated_at'] = date('Y-m-d H:i:s');
-                }
+                // 不再需要updated_at字段
 
                 return (bool) User::where('id', $id)->update($data);
             });
@@ -178,37 +173,12 @@ class UserRepository
     }
 
     /**
-     * 更新用户角色.
-     *
-     * @param int $userId 用户ID
-     * @param string $role 新角色
-     * @return bool 是否更新成功
-     */
-    public function updateRole(int $userId, string $role): bool
-    {
-        try {
-            return Db::transaction(function () use ($userId, $role) {
-                return User::where('id', $userId)->update([
-                    'role' => $role,
-                    'updated_at' => date('Y-m-d H:i:s'),
-                ]);
-            });
-        } catch (Exception $e) {
-            $this->logger->error('更新用户角色失败: ' . $e->getMessage(), [
-                'user_id' => $userId,
-                'role' => $role,
-            ]);
-            return false;
-        }
-    }
-
-    /**
      * 获取管理员用户数量.
      *
      * @return int 管理员数量
      */
     public function getAdminCount(): int
     {
-        return $this->count(['role' => 'admin']);
+        return $this->count(['is_admin' => true]);
     }
 }
