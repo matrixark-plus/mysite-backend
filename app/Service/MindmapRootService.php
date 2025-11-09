@@ -52,11 +52,10 @@ class MindmapRootService
     private function countMindmaps(array $conditions = []): int
     {
         try {
-            $query = MindmapRoot::query();
-            if (! empty($conditions)) {
-                $query = $query->where($conditions);
-            }
-            return $query->count();
+            // 使用repository进行统计，而不是直接调用模型类
+            // 由于repository没有直接的count方法，我们使用查询构建器获取总数
+            $mindmaps = $this->mindmapRootRepository->findAllBy($conditions, ['page' => 1, 'limit' => 1]);
+            return $mindmaps['total'] ?? 0;
         } catch (Exception $e) {
             $this->logger->error('统计思维导图数量异常: ' . $e->getMessage(), ['conditions' => $conditions]);
             return 0;
