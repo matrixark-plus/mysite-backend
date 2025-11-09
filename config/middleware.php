@@ -14,7 +14,7 @@ use App\Middleware\JwtAuthMiddleware;
 use App\Middleware\RateLimiterMiddleware;
 use App\Middleware\RequestLogMiddleware;
 use Hyperf\HttpServer\Contract\RequestInterface;
-use Hyperf\HttpServer\Middleware\BodyParserMiddleware as HyperfBodyParserMiddleware;
+// 移除可能有问题的导入，使用Hyperf框架的正确实现方式
 
 /**
  * This file is part of Hyperf.
@@ -27,7 +27,8 @@ use Hyperf\HttpServer\Middleware\BodyParserMiddleware as HyperfBodyParserMiddlew
 return [
     'http' => [
         // 必须的请求体解析中间件，用于处理JSON和表单请求
-        HyperfBodyParserMiddleware::class,
+        // 使用Hyperf框架的内置中间件
+        \Hyperf\HttpServer\Middleware\BodyParserMiddleware::class,
         RequestLogMiddleware::class,
         // API访问频率限制中间件
         RateLimiterMiddleware::class,
