@@ -15,6 +15,7 @@ namespace App\Service;
 use App\Repository\MindmapRootRepository;
 use App\Repository\MindmapNodeRepository;
 use Exception;
+use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
