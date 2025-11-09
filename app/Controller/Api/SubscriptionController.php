@@ -41,7 +41,7 @@ class SubscriptionController extends AbstractController
     /**
      * 创建订阅
      * @return ResponseInterface
-     * @RequestMapping(path="/", methods={"POST"})
+     * @RequestMapping(path="/subscribe", methods={"POST"})
      */
     public function create(RequestInterface $request)
     {
