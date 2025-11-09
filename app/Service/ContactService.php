@@ -195,4 +195,45 @@ class ContactService
     {
         return $this->contactRepository->getUnprocessedCount();
     }
+
+    /**
+     * 删除联系表单.
+     *
+     * @param int $id 联系记录ID
+     * @return array 删除结果
+     */
+    public function deleteContactForm(int $id)
+    {
+        try {
+            // 先检查记录是否存在
+            $contact = $this->contactRepository->findById($id);
+            if (! $contact) {
+                return [
+                    'success' => false,
+                    'message' => '联系记录不存在'
+                ];
+            }
+
+            // 执行删除操作
+            $success = $this->contactRepository->delete($id);
+            
+            if ($success) {
+                return [
+                    'success' => true,
+                    'message' => '联系记录删除成功'
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => '联系记录删除失败'
+            ];
+        } catch (Exception $e) {
+            $this->logger->error('删除联系表单异常: ' . $e->getMessage(), ['id' => $id]);
+            return [
+                'success' => false,
+                'message' => '删除失败，请稍后重试'
+            ];
+        }
+    }
 }

@@ -194,4 +194,20 @@ class ContactRepository extends BaseRepository
             return 0;
         }
     }
+
+    /**
+     * 删除联系记录.
+     *
+     * @param int $id 联系记录ID
+     * @return bool 删除结果
+     */
+    public function delete(int $id): bool
+    {
+        try {
+            return $this-\u003emodel-\u003ewhere('id', $id)-\u003edelete() > 0;
+        } catch (\Throwable $e) {
+            $this-\u003elogger-\u003eerror('删除联系记录失败: ' . $e-\u003egetMessage(), ['id' =\u003e $id]);
+            return false;
+        }
+    }
 }

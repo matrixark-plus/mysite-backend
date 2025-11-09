@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Repository\WorkRepository;
+use Hyperf\Cache\Cache;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
@@ -28,6 +29,12 @@ class WorkService
      * @var LoggerInterface
      */
     protected $logger;
+    
+    /**
+     * @Inject
+     * @var Cache
+     */
+    protected $cache;
 
     public function __construct()
     {
@@ -43,6 +50,24 @@ class WorkService
     public function getWorks(array $params, ?int $userId = null): array
     {
         try {
+            // 如果用户已登录且是查看自己的非公开作品，则不使用缓存
+            $cacheKey = null;
+            if (!$userId) {
+                // 构建缓存键
+                $cacheKey = 'work:list:' . md5(json_encode([
+                    'page' => $params['page'] ?? 1,
+                    'per_page' => $params['per_page'] ?? 10,
+                    'category_id' => $params['category_id'] ?? '',
+                    'keyword' => $params['keyword'] ?? '',
+                ]));
+                
+                // 尝试从缓存获取
+                $cachedResult = $this->cache->get($cacheKey);
+                if ($cachedResult) {
+                    return $cachedResult;
+                }
+            }
+            
             $page = $params['page'] ?? 1;
             $perPage = $params['per_page'] ?? 10;
             $categoryId = $params['category_id'] ?? null;
@@ -65,6 +90,11 @@ class WorkService
                 }
             }
             
+            // 如果是公开访问，缓存结果，设置5分钟过期
+            if ($cacheKey) {
+                $this->cache->set($cacheKey, $works, 300);
+            }
+            
             return $works;
         } catch (\Exception $e) {
             $this->logger->error('获取作品列表失败: ' . $e->getMessage(), ['params' => $params, 'user_id' => $userId]);
@@ -81,11 +111,29 @@ class WorkService
     public function getWorkById(int $id, ?int $userId = null): ?array
     {
         try {
+            // 构建缓存键
+            $cacheKey = 'work:detail:' . $id;
+            
+            // 尝试从缓存获取（仅对公开作品使用缓存）
+            $cachedWork = $this->cache->get($cacheKey);
+            if ($cachedWork && $cachedWork['is_public']) {
+                // 处理图片数组
+                if (!empty($cachedWork['images'])) {
+                    $cachedWork['images'] = json_decode($cachedWork['images'], true);
+                }
+                return $cachedWork;
+            }
+            
             $work = $this->workRepository->findById($id, $userId);
             
             // 处理图片数组
             if ($work && !empty($work['images'])) {
                 $work['images'] = json_decode($work['images'], true);
+            }
+            
+            // 如果是公开作品，缓存结果，设置10分钟过期
+            if ($work && $work['is_public']) {
+                $this->cache->set($cacheKey, $work, 600);
             }
             
             return $work;
@@ -128,6 +176,9 @@ class WorkService
             }
             
             $this->logger->info('创建作品成功', ['id' => $work['id'], 'user_id' => $userId]);
+            
+            // 清除作品列表缓存
+            $this->clearWorkListCache();
             
             return $work;
         } catch (\Exception $e) {
@@ -172,6 +223,9 @@ class WorkService
             
             $this->logger->info('更新作品成功', ['id' => $id, 'user_id' => $userId]);
             
+            // 清除作品详情和列表缓存
+            $this->clearWorkCache($id);
+            
             return $work;
         } catch (\Exception $e) {
             $this->logger->error('更新作品失败: ' . $e->getMessage(), ['id' => $id, 'user_id' => $userId, 'data' => $data]);
@@ -192,6 +246,9 @@ class WorkService
             
             if ($result) {
                 $this->logger->info('删除作品成功', ['id' => $id, 'user_id' => $userId]);
+                
+                // 清除作品详情和列表缓存
+                $this->clearWorkCache($id);
             }
             
             return $result;
@@ -208,7 +265,21 @@ class WorkService
     public function getCategories(): array
     {
         try {
-            return $this->workRepository->findAllCategories();
+            // 构建缓存键
+            $cacheKey = 'work:categories';
+            
+            // 尝试从缓存获取
+            $cachedCategories = $this->cache->get($cacheKey);
+            if ($cachedCategories) {
+                return $cachedCategories;
+            }
+            
+            $categories = $this->workRepository->findAllCategories();
+            
+            // 缓存分类列表，设置30分钟过期
+            $this->cache->set($cacheKey, $categories, 1800);
+            
+            return $categories;
         } catch (\Exception $e) {
             $this->logger->error('获取作品分类列表失败: ' . $e->getMessage());
             throw $e;
@@ -231,6 +302,11 @@ class WorkService
             $category = $this->workRepository->createCategory($data);
             
             $this->logger->info('创建作品分类成功', ['id' => $category['id'], 'name' => $category['name']]);
+            
+            // 清除分类缓存
+            $this->clearWorkCategoryCache();
+            // 清除作品列表缓存
+            $this->clearWorkListCache();
             
             return $category;
         } catch (\Exception $e) {
@@ -255,6 +331,11 @@ class WorkService
             
             if ($category) {
                 $this->logger->info('更新作品分类成功', ['id' => $id, 'name' => $category['name']]);
+                
+                // 清除分类缓存
+                $this->clearWorkCategoryCache();
+                // 清除作品列表缓存
+                $this->clearWorkListCache();
             }
             
             return $category;
@@ -276,6 +357,11 @@ class WorkService
             
             if ($result) {
                 $this->logger->info('删除作品分类成功', ['id' => $id]);
+                
+                // 清除分类缓存
+                $this->clearWorkCategoryCache();
+                // 清除作品列表缓存
+                $this->clearWorkListCache();
             }
             
             return $result;
@@ -300,6 +386,54 @@ class WorkService
         }
     }
 
+    /**
+     * 清除作品相关缓存
+     * @param int|null $workId 作品ID（可选，为null时只清除列表缓存）
+     */
+    protected function clearWorkCache(?int $workId = null): void
+    {
+        try {
+            // 清除指定作品的详情缓存
+            if ($workId) {
+                $this->cache->delete('work:detail:' . $workId);
+            }
+            
+            // 清除作品列表缓存
+            $this->clearWorkListCache();
+            
+        } catch (\Exception $e) {
+            $this->logger->error('清除作品缓存失败', ['error' => $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * 清除作品列表缓存
+     */
+    protected function clearWorkListCache(): void
+    {
+        try {
+            // 使用模式匹配删除所有作品列表相关缓存
+            $keys = $this->cache->getRedis()->keys('work:list:*');
+            if (!empty($keys)) {
+                $this->cache->getRedis()->del($keys);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('清除作品列表缓存失败', ['error' => $e->getMessage()]);
+        }
+    }
+    
+    /**
+     * 清除作品分类缓存
+     */
+    protected function clearWorkCategoryCache(): void
+    {
+        try {
+            $this->cache->delete('work:categories');
+        } catch (\Exception $e) {
+            $this->logger->error('清除作品分类缓存失败', ['error' => $e->getMessage()]);
+        }
+    }
+    
     /**
      * 验证作品数据
      * @param array $data 作品数据

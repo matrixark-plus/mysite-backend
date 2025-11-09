@@ -22,7 +22,9 @@ use Hyperf\HttpServer\Contract\RequestInterface;
  * 思维导图节点控制器
  * 处理思维导图节点相关的HTTP请求.
  */
-#[Controller(prefix: '/api/mindmaps/{mindmapId}/nodes')]
+/**
+ * @Controller(prefix="/api/mindmaps/{mindmapId}/nodes")
+ */
 class MindmapNodeController extends AbstractController
 {
     /**
@@ -38,7 +40,9 @@ class MindmapNodeController extends AbstractController
      * @param RequestInterface $request
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/', methods: ['POST'])]
+    /**
+     * @RequestMapping(path="/", methods={"POST"})
+     */
     public function create(int $mindmapId, RequestInterface $request)
     {
         try {
@@ -73,7 +77,9 @@ class MindmapNodeController extends AbstractController
      * @param RequestInterface $request
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/batch', methods: ['POST'])]
+    /**
+     * @RequestMapping(path="/batch", methods={"POST"})
+     */
     public function batchCreate(int $mindmapId, RequestInterface $request)
     {
         try {
@@ -116,7 +122,9 @@ class MindmapNodeController extends AbstractController
      * @param int $mindmapId 思维导图ID
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/', methods: ['GET'])]
+    /**
+     * @RequestMapping(path="/", methods={"GET"})
+     */
     public function list(int $mindmapId)
     {
         try {
@@ -146,7 +154,9 @@ class MindmapNodeController extends AbstractController
      * @param RequestInterface $request
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/{nodeId}', methods: ['PUT'])]
+    /**
+     * @RequestMapping(path="/{nodeId}", methods={"PUT"})
+     */
     public function update(int $mindmapId, int $nodeId, RequestInterface $request)
     {
         try {
@@ -183,7 +193,9 @@ class MindmapNodeController extends AbstractController
      * @param int $nodeId 节点ID
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/{nodeId}', methods: ['DELETE'])]
+    /**
+     * @RequestMapping(path="/{nodeId}", methods={"DELETE"})
+     */
     public function delete(int $mindmapId, int $nodeId)
     {
         try {

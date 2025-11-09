@@ -126,7 +126,7 @@ class UserService
      * @param string $password 密码
      * @param string $loginIp 登录IP地址
      * @return array<string, mixed>|null 验证通过的用户信息数组或null
-     * @throws \Exception 当用户账号被锁定时抛出异常
+     * @throws \Exception 当用户账号被锁定或禁用时抛出异常
      */
     public function validateCredentials(string $email, string $password, string $loginIp = ''): ?array
     {
@@ -159,7 +159,7 @@ class UserService
 
         // 检查用户状态
         if (! $userData['is_active']) {
-            return null;
+            throw new \Exception('账号已被禁用');
         }
 
         // 登录成功，重置失败次数并更新登录信息

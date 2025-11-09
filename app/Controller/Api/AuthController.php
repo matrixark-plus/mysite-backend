@@ -82,7 +82,7 @@ class AuthController extends AbstractController
             $userData = [
                 'email' => $email,
                 'real_name' => $realName,
-                'status' => 1, // 默认激活状态
+                'is_active' => true, // 默认激活状态
                 'password' => $password
             ];
 
@@ -281,13 +281,12 @@ class AuthController extends AbstractController
     {
         return [
             'id' => $user->getId(),
-            'username' => $user->username,
             'email' => $user->email,
             'real_name' => $user->real_name,
             'avatar' => $user->avatar,
             'bio' => $user->bio,
-            'role' => $user->role,
-            'status' => $user->status,
+            'is_admin' => $user->is_admin,
+            'is_active' => $user->is_active,
             'created_at' => $user->created_at,
         ];
     }

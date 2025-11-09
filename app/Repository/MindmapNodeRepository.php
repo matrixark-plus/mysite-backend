@@ -35,12 +35,13 @@ class MindmapNodeRepository
      * 根据ID查找脑图节点.
      *
      * @param int $id 节点ID
-     * @return null|MindmapNode 模型对象或null
+     * @return array|null 节点数据数组或null
      */
-    public function findById(int $id): ?MindmapNode
+    public function findById(int $id): ?array
     {
         try {
-            return MindmapNode::find($id);
+            $node = MindmapNode::find($id);
+            return $node ? $node->toArray() : null;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找脑图节点失败: ' . $e->getMessage(), ['node_id' => $id]);
             return null;

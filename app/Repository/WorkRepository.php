@@ -289,13 +289,23 @@ class WorkRepository
      * 删除作品分类
      * @param int $id 分类ID
      * @return bool 删除结果
+     * @throws \InvalidArgumentException 当分类下有关联作品时抛出异常
      */
     public function deleteCategory(int $id): bool
     {
         try {
+            // 检查分类下是否有作品
+            $workCount = $this->countWorksByCategory($id);
+            if ($workCount > 0) {
+                throw new \InvalidArgumentException('该分类下有' . $workCount . '个作品，无法删除');
+            }
+            
             return Db::table('work_categories')
                 ->where('id', $id)
                 ->delete() > 0;
+        } catch (\InvalidArgumentException $e) {
+            // 直接抛出InvalidArgumentException，由上层处理用户友好的错误信息
+            throw $e;
         } catch (\Exception $e) {
             $this->logger->error('删除作品分类失败: ' . $e->getMessage(), ['id' => $id]);
             throw $e;

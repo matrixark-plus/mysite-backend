@@ -13,7 +13,9 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Repository\MindmapRootRepository;
+use App\Repository\MindmapNodeRepository;
 use Exception;
+use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
@@ -34,6 +36,12 @@ class MindmapRootService
      * @var MindmapRootRepository
      */
     protected $mindmapRootRepository;
+    
+    /**
+     * @Inject
+     * @var MindmapNodeRepository
+     */
+    protected $mindmapNodeRepository;
 
     /**
      * 创建思维导图
@@ -328,6 +336,61 @@ class MindmapRootService
             return [
                 'success' => false,
                 'message' => '状态切换失败',
+            ];
+        }
+    }
+    
+    /**
+     * 删除思维导图
+     *
+     * @param int $id 思维导图ID
+     * @param int|null $userId 用户ID（用于权限验证）
+     * @return array 操作结果
+     */
+    public function deleteMindmap(int $id, ?int $userId = null): array
+    {
+        try {
+            $mindmap = $this->mindmapRootRepository->findById($id);
+            if (! $mindmap) {
+                return [
+                    'success' => false,
+                    'message' => '思维导图不存在',
+                ];
+            }
+
+            // 权限验证：只有创建者可以删除
+            if (! $userId || $mindmap->creator_id !== $userId) {
+                return [
+                    'success' => false,
+                    'message' => '无权删除此思维导图',
+                ];
+            }
+
+            // 使用事务删除思维导图及相关节点
+            $success = Db::transaction(function () use ($id) {
+                // 先删除关联的思维导图节点
+                $this->mindmapNodeRepository->deleteByRootId($id);
+                // 再删除思维导图根节点
+                return $this->mindmapRootRepository->delete($id);
+            });
+
+            if ($success) {
+                $this->logger->info('删除思维导图成功', ['mindmap_id' => $id]);
+                return [
+                    'success' => true,
+                    'message' => '思维导图删除成功',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => '删除失败',
+            ];
+        } catch (Exception $e) {
+            $this->logger->error('删除思维导图异常: ' . $e->getMessage(), ['mindmap_id' => $id, 'user_id' => $userId]);
+            return [
+                'success' => false,
+                'message' => '删除失败',
             ];
         }
     }

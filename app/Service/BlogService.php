@@ -16,6 +16,9 @@ use App\Model\Blog;
 use App\Model\BlogCategory;
 use App\Repository\BlogTagRepository;
 use App\Repository\BlogTagRelationRepository;
+use Hyperf\Cache\Annotation\Cacheable;
+use Hyperf\Cache\Annotation\CacheEvict;
+use Hyperf\Cache\Cache;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
@@ -39,12 +42,34 @@ class BlogService
      * @var LoggerInterface
      */
     protected $logger;
+    
+    /**
+     * @Inject
+     * @var Cache
+     */
+    protected $cache;
     /**
      * 获取博客列表.
      * @param array $params 查询参数
      */
     public function getBlogs(array $params): array
     {
+        // 构建缓存键
+        $cacheKey = 'blog:list:' . md5(json_encode([
+            'category' => $params['category_id'] ?? 0,
+            'keyword' => $params['keyword'] ?? '',
+            'sort_by' => $params['sort_by'] ?? 'created_at',
+            'sort_order' => $params['sort_order'] ?? 'desc',
+            'page' => $params['page'] ?? 1,
+            'page_size' => $params['page_size'] ?? 10,
+        ]));
+        
+        // 尝试从缓存获取
+        $cachedResult = $this->cache->get($cacheKey);
+        if ($cachedResult) {
+            return $cachedResult;
+        }
+        
         $query = Blog::query()
             ->with(['author', 'category', 'tags'])
             ->where('status', Blog::STATUS_PUBLISHED);
@@ -74,12 +99,17 @@ class BlogService
 
         $blogs = $query->paginate($pageSize, ['*'], 'page', $page);
 
-        return [
+        $result = [
             'total' => $blogs->total(),
             'page' => $blogs->currentPage(),
             'page_size' => $blogs->perPage(),
             'data' => $blogs->items(),
         ];
+        
+        // 缓存结果，设置5分钟过期
+        $this->cache->set($cacheKey, $result, 300);
+        
+        return $result;
     }
 
     /**
@@ -89,21 +119,55 @@ class BlogService
      */
     public function getBlogById(int $id, bool $incrementViews = true): ?Blog
     {
+        // 构建缓存键
+        $cacheKey = 'blog:detail:' . $id;
+        
+        // 尝试从缓存获取
+        $cachedBlog = $this->cache->get($cacheKey);
+        if ($cachedBlog) {
+            // 如果需要增加阅读量，直接从数据库获取最新数据
+            if ($incrementViews) {
+                $this->incrementBlogViewCount($id);
+            }
+            return new Blog((array)$cachedBlog);
+        }
+        
         $blog = Blog::with(['author', 'category', 'tags'])
             ->where('id', $id)
             ->where('status', Blog::STATUS_PUBLISHED)
             ->first();
 
-        if ($blog && $incrementViews) {
-            // 增加浏览量
-            try {
-                $blog->increment('view_count');
-            } catch (\Exception $e) {
-                $this->logger->error('增加博客阅读量失败', ['blog_id' => $id, 'error' => $e->getMessage()]);
+        if ($blog) {
+            // 缓存博客详情，设置10分钟过期
+            $this->cache->set($cacheKey, $blog->toArray(), 600);
+            
+            if ($incrementViews) {
+                $this->incrementBlogViewCount($id);
             }
         }
 
         return $blog;
+    }
+    
+    /**
+     * 增加博客阅读量
+     * @param int $id 博客ID
+     */
+    protected function incrementBlogViewCount(int $id): void
+    {
+        try {
+            // 使用Redis原子操作增加阅读量，避免数据库锁竞争
+            $viewCountKey = 'blog:view_count:' . $id;
+            $newViewCount = $this->cache->incr($viewCountKey);
+            
+            // 设置过期时间，确保数据最终一致性
+            $this->cache->expire($viewCountKey, 86400); // 24小时过期
+            
+            // 异步更新数据库（简化处理，实际项目中可以使用队列）
+            Blog::where('id', $id)->increment('view_count');
+        } catch (\Exception $e) {
+            $this->logger->error('增加博客阅读量失败', ['blog_id' => $id, 'error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -112,7 +176,7 @@ class BlogService
      */
     public function createBlog(array $data): Blog
     {
-        return Db::transaction(function () use ($data) {
+        $blog = Db::transaction(function () use ($data) {
             // 创建博客
             $blog = Blog::create([
                 'title' => $data['title'],
@@ -139,6 +203,11 @@ class BlogService
 
             return $blog;
         });
+        
+        // 清除相关缓存
+        $this->clearBlogCache();
+        
+        return $blog;
     }
     
     /**
@@ -180,7 +249,7 @@ class BlogService
             return null;
         }
 
-        return Db::transaction(function () use ($blog, $data) {
+        $updatedBlog = Db::transaction(function () use ($blog, $data) {
             // 更新博客
             $updateData = [];
             if (isset($data['title'])) {
@@ -232,6 +301,11 @@ class BlogService
 
             return $blog;
         });
+        
+        // 清除相关缓存
+        $this->clearBlogCache($id);
+        
+        return $updatedBlog;
     }
 
     /**
@@ -245,7 +319,7 @@ class BlogService
             return false;
         }
 
-        return Db::transaction(function () use ($blog) {
+        $result = Db::transaction(function () use ($blog) {
             // 删除博客
             $blog->delete();
 
@@ -254,6 +328,11 @@ class BlogService
 
             return true;
         });
+        
+        // 清除相关缓存
+        $this->clearBlogCache($id);
+        
+        return $result;
     }
 
     /**
@@ -261,9 +340,23 @@ class BlogService
      */
     public function getCategories(): array
     {
-        return BlogCategory::orderBy('sort_order', 'asc')
+        // 构建缓存键
+        $cacheKey = 'blog:categories';
+        
+        // 尝试从缓存获取
+        $cachedCategories = $this->cache->get($cacheKey);
+        if ($cachedCategories) {
+            return $cachedCategories;
+        }
+        
+        $categories = BlogCategory::orderBy('sort_order', 'asc')
             ->get()
             ->toArray();
+        
+        // 缓存分类列表，设置30分钟过期
+        $this->cache->set($cacheKey, $categories, 1800);
+        
+        return $categories;
     }
 
     /**
@@ -304,6 +397,15 @@ class BlogService
      */
     public function getHotBlogs(int $limit = 10): array
     {
+        // 构建缓存键
+        $cacheKey = 'blog:hot:' . $limit;
+        
+        // 尝试从缓存获取
+        $cachedBlogs = $this->cache->get($cacheKey);
+        if ($cachedBlogs) {
+            return $cachedBlogs;
+        }
+        
         $blogs = Blog::with(['author', 'category'])
             ->where('status', Blog::STATUS_PUBLISHED)
             ->orderBy('view_count', 'desc')
@@ -315,6 +417,9 @@ class BlogService
         foreach ($blogs as &$blog) {
             $blog['tags'] = $this->getBlogTags($blog['id']);
         }
+        
+        // 缓存热门博客列表，设置15分钟过期
+        $this->cache->set($cacheKey, $blogs, 900);
         
         return $blogs;
     }
@@ -336,13 +441,32 @@ class BlogService
      */
     public function getRecommendedBlogs(int $limit = 10): array
     {
-        return Blog::with(['author', 'category'])
+        // 构建缓存键
+        $cacheKey = 'blog:recommended:' . $limit;
+        
+        // 尝试从缓存获取
+        $cachedBlogs = $this->cache->get($cacheKey);
+        if ($cachedBlogs) {
+            return $cachedBlogs;
+        }
+        
+        $blogs = Blog::with(['author', 'category'])
             ->where('status', Blog::STATUS_PUBLISHED)
             ->where('is_recommended', true)
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get()
             ->toArray();
+        
+        // 为每个推荐博客获取标签信息
+        foreach ($blogs as &$blog) {
+            $blog['tags'] = $this->getBlogTags($blog['id']);
+        }
+        
+        // 缓存推荐博客列表，设置15分钟过期
+        $this->cache->set($cacheKey, $blogs, 900);
+        
+        return $blogs;
     }
 
     /**
@@ -398,6 +522,36 @@ class BlogService
         ];
     }
 
+    /**
+     * 清除博客相关缓存
+     * @param int|null $blogId 博客ID（可选，为null时清除所有列表缓存）
+     */
+    protected function clearBlogCache(?int $blogId = null): void
+    {
+        try {
+            // 清除指定博客的详情缓存
+            if ($blogId) {
+                $this->cache->delete('blog:detail:' . $blogId);
+                $this->cache->delete('blog:view_count:' . $blogId);
+            }
+            
+            // 使用模式匹配删除所有博客列表相关缓存
+            $keys = $this->cache->getRedis()->keys('blog:list:*');
+            if (!empty($keys)) {
+                $this->cache->getRedis()->del($keys);
+            }
+            
+            // 清除热门和推荐博客缓存
+            $this->cache->getRedis()->del(
+                $this->cache->getRedis()->keys('blog:hot:*'),
+                $this->cache->getRedis()->keys('blog:recommended:*')
+            );
+            
+        } catch (\Exception $e) {
+            $this->logger->error('清除博客缓存失败', ['error' => $e->getMessage()]);
+        }
+    }
+    
     /**
      * 生成博客摘要
      * @param string $content 博客内容

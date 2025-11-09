@@ -26,7 +26,7 @@ class Contact extends Model
     /**
      * 表名.
      */
-    protected ?string $table = 'contacts';
+    protected ?string $table = 'contact_forms';
 
     /**
      * 主键.
