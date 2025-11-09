@@ -12,12 +12,15 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Controller\AbstractController;
+use App\Controller\Api\Validator\SubscriptionValidator;
 use App\Service\SubscriptionService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 订阅控制器
@@ -33,6 +36,12 @@ class SubscriptionController extends AbstractController
     protected $subscriptionService;
 
     /**
+     * @Inject
+     * @var SubscriptionValidator
+     */
+    protected $validator;
+
+    /**
      * 创建订阅
      *
      * @param RequestInterface $request
@@ -43,13 +52,18 @@ class SubscriptionController extends AbstractController
     public function create(RequestInterface $request, ResponseInterface $response)
     {
         try {
-            $data = $request->all();
+            // 验证参数
+            try {
+                $data = $this->validator->validateCreateSubscription($request->all());
+            } catch (ValidationException $e) {
+                return $this->validationError($e->validator->errors()->first());
+            }
             $result = $this->subscriptionService->createSubscription($data);
             
             if ($result['success']) {
-                return $this->success($result['message'], $result['data'] ?? []);
+                return $this->success($result['data'] ?? [], $result['message']);
             } else {
-                return $this->error($result['message'], [], 400);
+                return $this->validationError($result['message']);
             }
         } catch (\Exception $e) {
             return $this->serverError($e->getMessage());
@@ -98,6 +112,14 @@ class SubscriptionController extends AbstractController
     public function unsubscribe(string $token, ResponseInterface $response)
     {
         try {
+            // 验证参数
+            try {
+                $this->validator->validateUnsubscribeToken(compact('token'));
+            } catch (ValidationException $e) {
+                return $response->write(
+                    "<html><head><title>参数错误</title></head><body><h1>{$e->validator->errors()->first()}</h1></body></html>"
+                );
+            }
             $result = $this->subscriptionService->unsubscribe($token);
             
             // 返回页面
@@ -125,28 +147,36 @@ class SubscriptionController extends AbstractController
             // 这里应该添加管理员权限验证
             // $this->adminAuth();
             
+            // 验证参数
+            try {
+                $validatedData = $this->validator->validateSubscriptionList($request->all());
+                $status = $validatedData['status'] ?? null;
+                $email = $validatedData['email'] ?? null;
+                $order = $validatedData['order'] ?? 'created_at';
+                $sort = $validatedData['sort'] ?? 'desc';
+                $page = $validatedData['page'] ?? 1;
+                $limit = $validatedData['limit'] ?? 20;
+            } catch (ValidationException $e) {
+                return $this->validationError($e->validator->errors()->first());
+            }
+            
             $conditions = [];
             
             // 获取查询参数
-            if ($status = $request->input('status')) {
+            if ($status) {
                 $conditions['status'] = $status;
             }
             
-            if ($email = $request->input('email')) {
+            if ($email) {
                 $conditions['email'] = ['like', "%{$email}%"];
             }
-            
-            $order = $request->input('order', 'created_at') ?: 'created_at';
-            $sort = $request->input('sort', 'desc') ?: 'desc';
-            $page = (int)($request->input('page', 1) ?: 1);
-            $limit = (int)($request->input('limit', 20) ?: 20);
             
             $result = $this->subscriptionService->getSubscriptions($conditions, [$order => $sort], $page, $limit);
             
             if ($result['success']) {
-                return $this->success('获取成功', $result['data']);
+                return $this->success($result['data'], '获取成功');
             } else {
-                return $this->error($result['message'], [], 400);
+                return $this->validationError($result['message']);
             }
         } catch (\Exception $e) {
             return $this->serverError($e->getMessage());
@@ -169,9 +199,9 @@ class SubscriptionController extends AbstractController
             $result = $this->subscriptionService->resendConfirmation($id);
             
             if ($result['success']) {
-                return $this->success($result['message']);
+                return $this->success(null, $result['message']);
             } else {
-                return $this->error($result['message'], [], 400);
+                return $this->validationError($result['message']);
             }
         } catch (\Exception $e) {
             return $this->serverError($e->getMessage());

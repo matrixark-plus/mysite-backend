@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\User;
 use App\Repository\UserRepository;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
@@ -76,13 +75,12 @@ class UserService
         }
 
         try {
-            // 返回repository创建的用户模型
+            // 返回repository创建的用户数据（已为数组格式）
             $user = $this->userRepository->create($userData);
             if (! $user) {
                 throw new Exception('创建用户失败');
             }
-            // 将User对象转换为数组返回，符合Repository层返回数组的规范
-            return $this->userToArray($user);
+            return $user;
         } catch (Exception $e) {
             $this->logger->error('创建用户失败: ' . $e->getMessage(), ['data' => $data]);
             throw $e;
@@ -97,8 +95,7 @@ class UserService
      */
     public function getUserById(int $id): ?array
     {
-        $user = $this->userRepository->findById($id);
-        return $user ? $this->userToArray($user) : null;
+        return $this->userRepository->findById($id);
     }
 
     /**
@@ -109,8 +106,7 @@ class UserService
      */
     public function getUserByEmail(string $email): ?array
     {
-        $user = $this->userRepository->findBy(['email' => $email]);
-        return $user ? $this->userToArray($user) : null;
+        return $this->userRepository->findBy(['email' => $email]);
     }
 
     /**
@@ -434,13 +430,8 @@ class UserService
                 [$sortBy => $sortOrder]
             );
             
-            // 将Collection转换为数组格式
-            $result = [];
-            foreach ($userCollection as $user) {
-                $result[] = $this->userToArray($user);
-            }
-            
-            return $result;
+            // Repository已返回数组格式，直接返回
+            return $userCollection;
         } catch (Exception $e) {
             $this->logger->error('获取用户列表失败: ' . $e->getMessage(), ['params' => $params]);
             throw $e;
@@ -513,25 +504,5 @@ class UserService
         }
     }
 
-    /**
-     * 将User模型对象转换为数组
-     * 
-     * @param User $user User模型对象
-     * @return array<string, mixed> 用户信息数组
-     */
-    protected function userToArray(User $user): array
-    {
-        // 获取所有可访问的属性
-        return [
-            'id' => $user->id ?? null,
-            'email' => $user->email ?? null,
-            'real_name' => $user->real_name ?? null,
-            'avatar' => $user->avatar ?? null,
-            'bio' => $user->bio ?? null,
-            'is_active' => $user->is_active ?? null,
-            'is_admin' => $user->is_admin ?? null,
-            'created_at' => $user->created_at ?? null,
-            'updated_at' => $user->updated_at ?? null
-        ];
-    }
+
 }

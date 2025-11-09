@@ -12,10 +12,8 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Model\SystemConfig;
 use Carbon\Carbon;
 use Exception;
-use Hyperf\Database\Model\Collection;
 use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
@@ -41,9 +39,17 @@ class SystemConfigRepository
     public function findByKey(string $key): mixed
     {
         try {
-            $config = SystemConfig::where('key', $key)->first();
+            $config = Db::table('system_configs')->where('key', $key)->first();
             if ($config) {
-                return $config->getValue();
+                $value = $config->value ?? null;
+                // 尝试解析JSON值
+                if (is_string($value) && (($value[0] === '{' && substr($value, -1) === '}') || ($value[0] === '[' && substr($value, -1) === ']'))) {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        return $decoded;
+                    }
+                }
+                return $value;
             }
             return null;
         } catch (Exception $e) {
@@ -60,11 +66,26 @@ class SystemConfigRepository
     public function findAll(): array
     {
         try {
-            $configs = SystemConfig::all();
+            $configs = Db::table('system_configs')->get()->toArray();
             $result = [];
+            
             foreach ($configs as $config) {
-                $result[$config->key] = $config->getValue();
+                $key = $config->key ?? '';
+                $value = $config->value ?? null;
+                
+                // 尝试解析JSON值
+                if (is_string($value) && (($value[0] === '{' && substr($value, -1) === '}') || ($value[0] === '[' && substr($value, -1) === ']'))) {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $value = $decoded;
+                    }
+                }
+                
+                if ($key) {
+                    $result[$key] = $value;
+                }
             }
+            
             return $result;
         } catch (Exception $e) {
             $this->logger->error('获取所有系统配置失败: ' . $e->getMessage());
@@ -82,15 +103,33 @@ class SystemConfigRepository
     public function updateOrCreate(string $key, mixed $value): bool
     {
         try {
-            // 序列化配置值
-            $valueStr = json_encode($value);
-            
-            $result = SystemConfig::updateOrCreate(
-                ['key' => $key],
-                ['value' => $valueStr, 'updated_at' => Carbon::now()->toDateTimeString()]
-            );
-            
-            return !empty($result);
+            return Db::transaction(function () use ($key, $value) {
+                // 序列化配置值
+                $valueStr = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                
+                $now = Carbon::now()->toDateTimeString();
+                
+                // 检查是否存在
+                $exists = Db::table('system_configs')->where('key', $key)->first();
+                
+                if ($exists) {
+                    // 更新
+                    $result = Db::table('system_configs')->where('key', $key)->update([
+                        'value' => $valueStr,
+                        'updated_at' => $now
+                    ]);
+                    return $result > 0;
+                } else {
+                    // 插入
+                    $result = Db::table('system_configs')->insert([
+                        'key' => $key,
+                        'value' => $valueStr,
+                        'created_at' => $now,
+                        'updated_at' => $now
+                    ]);
+                    return $result;
+                }
+            });
         } catch (Exception $e) {
             $this->logger->error('更新或插入系统配置失败: ' . $e->getMessage(), ['key' => $key]);
             return false;

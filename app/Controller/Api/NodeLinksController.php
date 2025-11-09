@@ -42,7 +42,7 @@ class NodeLinksController extends AbstractController
                 'message' =u003e '创建节点链接成功'
             ]);
         } catch (\Exception $e) {
-            return $this-\u003efail($e-\u003egetMessage());
+            return $this-\u003eerror($e-\u003egetMessage(), []);
         }
     }
 

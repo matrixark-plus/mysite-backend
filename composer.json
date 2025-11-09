@@ -24,6 +24,7 @@
         "hyperf/event": "^3.0",
         "hyperf/framework": "~3.0.0",
         "hyperf/guzzle": "~3.0.0",
+        "hyperf/http-message": "^3.0",
         "hyperf/http-server": "~3.0.0",
         "hyperf/ide-helper": "^3.0",
         "hyperf/logger": "~3.0.0",

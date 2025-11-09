@@ -12,9 +12,8 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Model\Subscribe;
 use Exception;
-use Hyperf\Database\Model\Collection;
+use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
@@ -34,12 +33,15 @@ class SubscribeRepository
      * 根据ID查找订阅记录.
      *
      * @param int $id 订阅记录ID
-     * @return null|Subscribe 订阅模型对象或null
+     * @return null|array 订阅数据数组或null
      */
-    public function findById(int $id): ?Subscribe
+    public function findById(int $id): ?array
     {
         try {
-            return Subscribe::find($id);
+            $result = Db::table('subscribes')
+                ->where('id', $id)
+                ->first();
+            return $result ? (array) $result : null;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找订阅记录失败: ' . $e->getMessage(), ['subscribe_id' => $id]);
             return null;
@@ -51,14 +53,16 @@ class SubscribeRepository
      *
      * @param string $email 邮箱地址
      * @param string $type 订阅类型
-     * @return null|Subscribe 订阅模型对象或null
+     * @return null|array 订阅数据数组或null
      */
-    public function findByEmail(string $email, string $type = Subscribe::TYPE_BLOG): ?Subscribe
+    public function findByEmail(string $email, string $type = 'blog'): ?array
     {
         try {
-            return Subscribe::where('email', $email)
+            $result = Db::table('subscribes')
+                ->where('email', $email)
                 ->where('type', $type)
                 ->first();
+            return $result ? (array) $result : null;
         } catch (Exception $e) {
             $this->logger->error('根据邮箱查找订阅记录失败: ' . $e->getMessage(), ['email' => $email, 'type' => $type]);
             return null;
@@ -69,14 +73,16 @@ class SubscribeRepository
      * 根据token查找订阅记录.
      *
      * @param string $token 验证token
-     * @return null|Subscribe 订阅模型对象或null
+     * @return null|array 订阅数据数组或null
      */
-    public function findByToken(string $token): ?Subscribe
+    public function findByToken(string $token): ?array
     {
         try {
-            return Subscribe::where('token', $token)
-                ->where('status', Subscribe::STATUS_PENDING)
+            $result = Db::table('subscribes')
+                ->where('token', $token)
+                ->where('status', 'pending')
                 ->first();
+            return $result ? (array) $result : null;
         } catch (Exception $e) {
             $this->logger->error('根据token查找订阅记录失败: ' . $e->getMessage(), ['token' => $token]);
             return null;
@@ -107,12 +113,13 @@ class SubscribeRepository
      * 创建订阅记录.
      *
      * @param array<string, mixed> $data 订阅数据
-     * @return null|Subscribe 创建的订阅模型对象或null
+     * @return null|array 创建的订阅数据数组或null
      */
-    public function create(array $data): ?Subscribe
+    public function create(array $data): ?array
     {
         try {
-            return Subscribe::create($data);
+            $id = Db::table('subscribes')->insertGetId($data);
+            return $this->findById($id);
         } catch (Exception $e) {
             $this->logger->error('创建订阅记录失败: ' . $e->getMessage(), ['data' => $data]);
             return null;
@@ -129,7 +136,9 @@ class SubscribeRepository
     public function update(int $id, array $data): bool
     {
         try {
-            $result = Subscribe::where('id', $id)->update($data);
+            $result = Db::table('subscribes')
+                ->where('id', $id)
+                ->update($data);
             return $result > 0;
         } catch (Exception $e) {
             $this->logger->error('更新订阅记录失败: ' . $e->getMessage(), ['subscribe_id' => $id, 'data' => $data]);
@@ -146,7 +155,9 @@ class SubscribeRepository
     public function delete(int $id): bool
     {
         try {
-            $result = Subscribe::destroy($id);
+            $result = Db::table('subscribes')
+                ->where('id', $id)
+                ->delete();
             return $result > 0;
         } catch (Exception $e) {
             $this->logger->error('删除订阅记录失败: ' . $e->getMessage(), ['subscribe_id' => $id]);

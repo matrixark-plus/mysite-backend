@@ -111,4 +111,54 @@ trait ResponseTrait
 
         return $this->success($responseData, $message, $code);
     }
+    
+    /**
+     * 错误响应的简化版本，默认为500错误
+     * @param string $message 错误消息
+     * @param mixed $data 响应数据
+     */
+    protected function error(string $message = '', $data = null): ResponseInterface
+    {
+        return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $message, $data);
+    }
+    
+    /**
+     * 验证错误响应
+     * @param string $message 错误消息
+     * @param mixed $data 响应数据
+     */
+    protected function validationError(string $message = '', $data = null): ResponseInterface
+    {
+        return $this->fail(StatusCode::VALIDATION_ERROR, $message, $data);
+    }
+    
+    /**
+     * 未授权响应
+     * @param string $message 错误消息
+     * @param mixed $data 响应数据
+     */
+    protected function unauthorized(string $message = '', $data = null): ResponseInterface
+    {
+        return $this->fail(StatusCode::UNAUTHORIZED, $message, $data);
+    }
+    
+    /**
+     * 资源不存在响应
+     * @param string $message 错误消息
+     * @param mixed $data 响应数据
+     */
+    protected function notFound(string $message = '', $data = null): ResponseInterface
+    {
+        return $this->fail(StatusCode::NOT_FOUND, $message, $data);
+    }
+    
+    /**
+     * 服务器错误响应
+     * @param string $message 错误消息
+     * @param mixed $data 响应数据
+     */
+    protected function serverError(string $message = '', $data = null): ResponseInterface
+    {
+        return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $message, $data);
+    }
 }

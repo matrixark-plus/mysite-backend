@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace App\Controller\Api;
 
 use App\Controller\AbstractController;
+use App\Controller\Api\Validator\EmailValidator;
 use App\Middleware\JwtAuthMiddleware;
 use App\Service\MailService;
 use App\Service\VerifyCodeService;
@@ -23,6 +24,7 @@ use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * @Controller(prefix="/api/email")
@@ -40,6 +42,12 @@ class EmailController extends AbstractController
      * @var VerifyCodeService
      */
     protected $verifyCodeService;
+
+    /**
+     * @Inject
+     * @var EmailValidator
+     */
+    protected $validator;
 
     /**
      * 发送邮件（管理员）.
@@ -84,11 +92,12 @@ class EmailController extends AbstractController
     public function verifyCode(RequestInterface $request, ResponseInterface $response)
     {
         try {
-            $email = $request->input('email');
-
-            // 验证邮箱格式
-            if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return $this->fail(400, '邮箱格式不正确');
+            // 验证参数
+            try {
+                $validatedData = $this->validator->validateVerifyCode($request->all());
+                $email = $validatedData['email'];
+            } catch (ValidationException $e) {
+                return $this->fail(400, $e->validator->errors()->first());
             }
 
             // 发送验证码

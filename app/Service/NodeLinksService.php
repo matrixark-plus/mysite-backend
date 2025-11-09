@@ -75,16 +75,39 @@ class NodeLinksService
     public function batchCreateLinks(array $linksData, int $creatorId): array
     {
         try {
+            // 限制批量操作数量，防止性能问题
+            if (count($linksData) > 100) {
+                throw new \Exception('批量创建节点链接数量不能超过100个');
+            }
+            
             $results = [];
+            $failedCount = 0;
+            
             foreach ($linksData as $linkData) {
                 try {
+                    // 验证单个链接数据格式
+                    if (!isset($linkData['source_node_id'], $linkData['target_node_id'])) {
+                        $failedCount++;
+                        $this-\u003elogger-\u003ewarning('链接数据缺少必要字段', ['linkData' =u003e $linkData]);
+                        continue;
+                    }
+                    
                     $link = $this-\u003ecreateLink($linkData, $creatorId);
                     $results[] = $link;
                 } catch (\Exception $e) {
                     // 单个链接创建失败不影响其他链接
+                    $failedCount++;
                     $this-\u003elogger-\u003ewarning('单个链接创建失败: ' . $e-\u003egetMessage(), ['linkData' =u003e $linkData]);
                 }
             }
+            
+            // 记录批量操作结果
+            $this-\u003elogger-\u003einfo('批量创建节点链接完成', [
+                'total' =u003e count($linksData),
+                'success' =u003e count($results),
+                'failed' =u003e $failedCount
+            ]);
+            
             return $results;
         } catch (\Exception $e) {
             $this-\u003elogger-\u003eerror('批量创建节点链接失败: ' . $e-\u003egetMessage());

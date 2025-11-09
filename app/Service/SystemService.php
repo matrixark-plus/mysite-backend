@@ -19,6 +19,10 @@ use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 use Hyperf\Redis\RedisFactory;
 use Redis;
+use App\Repository\UserRepository;
+use App\Repository\BlogRepository;
+use App\Repository\CommentRepository;
+use App\Repository\ActivityLogRepository;
 
 // 注意：权限管理相关功能已移至PermissionService
 // 系统配置现在通过环境变量文件管理，不再使用数据库
@@ -52,6 +56,30 @@ class SystemService
      */
     protected $environmentFileService;
 
+    /**
+     * @Inject
+     * @var UserRepository
+     */
+    protected $userRepository;
+    
+    /**
+     * @Inject
+     * @var BlogRepository
+     */
+    protected $blogRepository;
+    
+    /**
+     * @Inject
+     * @var CommentRepository
+     */
+    protected $commentRepository;
+    
+    /**
+     * @Inject
+     * @var ActivityLogRepository
+     */
+    protected $activityLogRepository;
+    
     /**
      * 构造函数. 注入依赖
      *
@@ -99,8 +127,8 @@ class SystemService
             // 构建统计数据
             $statistics = [
                 'user_count' => $this->getUserCount($timeRange),
-                'article_count' => $this->getArticleCount($timeRange),
-                'comment_count' => $this->getCommentCount($timeRange),
+                'article_count' => $this->blogRepository->count($timeRange),
+                'comment_count' => $this->commentRepository->count($timeRange),
                 'view_count' => $this->getViewCount($timeRange),
                 'recent_activities' => $this->getRecentActivities($params),
                 'daily_stats' => $this->getDailyStats($timeRange),
@@ -178,6 +206,26 @@ class SystemService
     }
 
     /**
+     * 允许修改的配置键白名单
+     * 仅允许修改应用相关的非敏感配置
+     */
+    private const ALLOWED_CONFIG_KEYS = [
+        'APP_NAME',
+        'APP_DEBUG',
+        'APP_TIMEZONE',
+        'CACHE_DRIVER',
+        'LOG_CHANNEL',
+        'LOG_LEVEL',
+        'DB_CONNECTION',
+        'DB_HOST',
+        'DB_PORT',
+        'DB_DATABASE',
+        'REDIS_HOST',
+        'REDIS_PORT',
+        'REDIS_PASSWORD',
+    ];
+
+    /**
      * 更新系统配置.
      *
      * @param string $key 配置键
@@ -192,6 +240,15 @@ class SystemService
                 throw new Exception('配置键格式不合法');
             }
 
+            // 验证配置键是否在白名单中
+            if (!in_array($key, self::ALLOWED_CONFIG_KEYS)) {
+                $this->logger->warning('尝试修改非授权的配置项: ' . $key);
+                throw new Exception('无权修改此配置项');
+            }
+
+            // 安全验证配置值
+            $this->validateConfigValue($key, $value);
+
             // 通过环境变量文件服务更新配置
             $result = $this->environmentFileService->updateEnvVar($key, $value);
 
@@ -199,10 +256,42 @@ class SystemService
             $this->redis->del('system:config');
             $this->redis->del('system:config:' . $key);
 
+            // 记录配置修改日志
+            $this->logger->info('系统配置已更新', ['key' => $key]);
+            
             return $result;
         } catch (Exception $e) {
-            $this->logger->error('更新系统配置异常: ' . $e->getMessage());
+            $this->logger->error('更新系统配置异常: ' . $e->getMessage(), ['key' => $key]);
             throw $e;
+        }
+    }
+
+    /**
+     * 验证配置值的安全性
+     * @param string $key 配置键
+     * @param mixed $value 配置值
+     * @throws Exception
+     */
+    private function validateConfigValue(string $key, mixed $value): void
+    {
+        $valueStr = (string) $value;
+        
+        // 防止路径遍历攻击
+        if (strpos($valueStr, '../') !== false || strpos($valueStr, '..\\') !== false) {
+            throw new Exception('配置值包含非法字符');
+        }
+        
+        // 验证数据库配置
+        if (strpos($key, 'DB_') === 0 && $key !== 'DB_CONNECTION') {
+            // 数据库连接字符串不能包含危险字符
+            if (preg_match('/[;&|`\\$]/', $valueStr)) {
+                throw new Exception('数据库配置包含非法字符');
+            }
+        }
+        
+        // 限制配置值长度，防止过大的输入
+        if (mb_strlen($valueStr) > 500) {
+            throw new Exception('配置值长度不能超过500字符');
         }
     }
 
@@ -215,11 +304,39 @@ class SystemService
     public function batchUpdateConfig(array $configs): bool
     {
         try {
+            // 验证批量更新数量限制
+            if (count($configs) > 20) {
+                throw new Exception('批量更新数量不能超过20个');
+            }
+            
+            // 过滤和验证所有配置项
+            $validatedConfigs = [];
+            foreach ($configs as $key => $value) {
+                // 验证配置键是否合法
+                if (!preg_match('/^[a-zA-Z0-9_\.]+$/', $key)) {
+                    throw new Exception('配置键格式不合法: ' . $key);
+                }
+                
+                // 验证配置键是否在白名单中
+                if (!in_array($key, self::ALLOWED_CONFIG_KEYS)) {
+                    $this->logger->warning('尝试修改非授权的配置项: ' . $key);
+                    throw new Exception('无权修改此配置项: ' . $key);
+                }
+                
+                // 安全验证配置值
+                $this->validateConfigValue($key, $value);
+                
+                $validatedConfigs[$key] = $value;
+            }
+            
             // 通过环境变量文件服务批量更新配置
-            $result = $this->environmentFileService->batchUpdateEnvVars($configs);
+            $result = $this->environmentFileService->batchUpdateEnvVars($validatedConfigs);
             
             // 清除缓存
             $this->redis->del('system:config');
+            
+            // 记录批量配置修改日志
+            $this->logger->info('系统配置批量已更新', ['keys' => array_keys($validatedConfigs)]);
             
             return $result;
         } catch (Exception $e) {
@@ -237,17 +354,16 @@ class SystemService
     protected function getUserCount(array $timeRange): int
     {
         try {
-            // 这里暂时保留直接查询，后续可以考虑创建UserStatsRepository
-            $query = Db::table('users');
-
+            $conditions = [];
+            
             if (isset($timeRange['start'])) {
-                $query->where('created_at', '>=', $timeRange['start']);
+                $conditions['created_at >='] = $timeRange['start'];
             }
             if (isset($timeRange['end'])) {
-                $query->where('created_at', '<=', $timeRange['end']);
+                $conditions['created_at <='] = $timeRange['end'];
             }
-
-            return $query->count();
+            
+            return $this->userRepository->count($conditions);
         } catch (Exception $e) {
             $this->logger->error('获取用户统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
             return 0;
@@ -263,18 +379,17 @@ class SystemService
     protected function getArticleCount(array $timeRange): int
     {
         try {
-            // 这里暂时保留直接查询，后续可以考虑创建ArticleStatsRepository
-            $query = Db::table('articles')
-                ->where('status', 1); // 只统计已发布的
-
+            // 通过注入的BlogRepository获取统计数据
+            $conditions = [
+                'status' => 1, // 只统计已发布的
+            ];
             if (isset($timeRange['start'])) {
-                $query->where('created_at', '>=', $timeRange['start']);
+                $conditions['created_at_min'] = $timeRange['start'];
             }
             if (isset($timeRange['end'])) {
-                $query->where('created_at', '<=', $timeRange['end']);
+                $conditions['created_at_max'] = $timeRange['end'];
             }
-
-            return $query->count();
+            return $this->blogRepository->count($conditions);
         } catch (Exception $e) {
             $this->logger->error('获取文章统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
             return 0;
@@ -290,18 +405,17 @@ class SystemService
     protected function getCommentCount(array $timeRange): int
     {
         try {
-            // 这里暂时保留直接查询，后续可以考虑创建CommentStatsRepository
-            $query = Db::table('comments')
-                ->where('status', 1); // 只统计已审核通过的
-
+            // 通过注入的CommentRepository获取统计数据
+            $conditions = [
+                'status' => 1, // 只统计已审核通过的
+            ];
             if (isset($timeRange['start'])) {
-                $query->where('created_at', '>=', $timeRange['start']);
+                $conditions['created_at_min'] = $timeRange['start'];
             }
             if (isset($timeRange['end'])) {
-                $query->where('created_at', '<=', $timeRange['end']);
+                $conditions['created_at_max'] = $timeRange['end'];
             }
-
-            return $query->count();
+            return $this->commentRepository->count($conditions);
         } catch (Exception $e) {
             $this->logger->error('获取评论统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
             return 0;
@@ -333,20 +447,9 @@ class SystemService
     {
         try {
             $limit = $params['limit'] ?? 10;
-
-            // 这里暂时保留直接查询，后续可以考虑创建ActivityLogRepository
-            $activities = Db::table('activity_logs')
-                ->orderBy('created_at', 'desc')
-                ->limit($limit)
-                ->get();
             
-            // 确保返回数组格式
-            $result = [];
-            foreach ($activities as $activity) {
-                $result[] = (array) $activity;
-            }
-            
-            return $result;
+            // 通过ActivityLogRepository获取最近活动
+            return $this->activityLogRepository->getRecentActivities($limit);
         } catch (Exception $e) {
             $this->logger->error('获取最近活动失败: ' . $e->getMessage(), ['params' => $params]);
             return [];

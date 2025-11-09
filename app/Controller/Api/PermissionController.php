@@ -60,7 +60,7 @@ class PermissionController extends AbstractController
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取角色列表失败');
+            return $this->serverError('获取角色列表失败');
         }
     }
 
@@ -87,20 +87,20 @@ class PermissionController extends AbstractController
             $currentUserId = $currentUser->id ?? null;
             $currentUserRole = $currentUser->role ?? '';
             if ($currentUserRole !== 'admin' && $currentUserId != $userId) {
-                return $this->fail(StatusCode::FORBIDDEN, '无权查看其他用户的角色信息');
+                return $this->forbidden('无权查看其他用户的角色信息');
             }
 
             $userRoleInfo = $this->permissionService->getUserRoleInfo($userId);
             return $this->success($userRoleInfo);
         } catch (ValidationException $e) {
             // 参数验证失败
-            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
+            return $this->validationError($e->validator->errors()->first());
         } catch (Exception $e) {
             $this->logError('获取用户角色异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取用户角色失败');
+            return $this->serverError('获取用户角色失败');
         }
     }
 
@@ -121,10 +121,10 @@ class PermissionController extends AbstractController
             if ($result) {
                 return $this->success(['updated' => true], '用户角色更新成功');
             }
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '用户角色更新失败');
+            return $this->serverError('用户角色更新失败');
         } catch (ValidationException $e) {
             // 参数验证失败
-            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
+            return $this->validationError($e->validator->errors()->first());
         } catch (Exception $e) {
             $this->logError('更新用户角色异常', [
                 'message' => $e->getMessage(),
@@ -132,7 +132,7 @@ class PermissionController extends AbstractController
                 'user_id' => $request->input('user_id'),
                 'role' => $request->input('role'),
             ], $e, 'permission');
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $e->getMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -153,7 +153,7 @@ class PermissionController extends AbstractController
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取权限列表失败');
+            return $this->serverError('获取权限列表失败');
         }
     }
 
@@ -178,17 +178,17 @@ class PermissionController extends AbstractController
             if ($result) {
                 return $this->success(['assigned' => true], '权限分配成功');
             }
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '权限分配失败');
+            return $this->serverError('权限分配失败');
         } catch (ValidationException $e) {
             // 参数验证失败
-            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
+            return $this->validationError($e->validator->errors()->first());
         } catch (Exception $e) {
             $this->logError('分配权限异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
                 'user_id' => $request->input('user_id'),
             ], $e, 'permission');
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $e->getMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -220,13 +220,13 @@ class PermissionController extends AbstractController
             return $this->success(['has_permission' => $hasPermission]);
         } catch (ValidationException $e) {
             // 参数验证失败
-            return $this->fail(StatusCode::VALIDATION_ERROR, $e->validator->errors()->first());
+            return $this->validationError($e->validator->errors()->first());
         } catch (Exception $e) {
             $this->logError('检查权限异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '检查权限失败');
+            return $this->serverError('检查权限失败');
         }
     }
 }

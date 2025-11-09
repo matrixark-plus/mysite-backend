@@ -12,6 +12,9 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Traits\ResponseTrait;
+use App\Constants\ResponseMessage;
+use App\Constants\StatusCode;
 use Hyperf\Context\Context;
 use Hyperf\Contract\ContainerInterface;
 use Hyperf\HttpServer\Contract\RequestInterface;
@@ -24,6 +27,8 @@ use Hyperf\Di\Annotation\Inject;
  */
 abstract class AbstractController
 {
+    use ResponseTrait;
+    
     /**
      * @Inject
      * @var ContainerInterface
@@ -61,41 +66,7 @@ abstract class AbstractController
     {
         return $this->response;
     }
-
-    /**
-     * 成功响应
-     *
-     * @param string $message 成功消息
-     * @param array $data 响应数据
-     * @param int $statusCode HTTP状态码
-     * @return ResponseInterface
-     */
-    protected function success(string $message = 'success', array $data = [], int $statusCode = 200): ResponseInterface
-    {
-        return $this->response->json([
-            'code' => $statusCode,
-            'message' => $message,
-            'data' => $data,
-        ])->withStatus($statusCode);
-    }
-
-    /**
-     * 错误响应
-     *
-     * @param string $message 错误消息
-     * @param array $data 响应数据
-     * @param int $statusCode HTTP状态码
-     * @return ResponseInterface
-     */
-    protected function error(string $message = 'error', array $data = [], int $statusCode = 400): ResponseInterface
-    {
-        return $this->response->json([
-            'code' => $statusCode,
-            'message' => $message,
-            'data' => $data,
-        ])->withStatus($statusCode);
-    }
-
+    
     /**
      * 服务器错误响应
      *
@@ -104,11 +75,7 @@ abstract class AbstractController
      */
     protected function serverError(string $message = 'Internal Server Error'): ResponseInterface
     {
-        return $this->response->json([
-            'code' => 500,
-            'message' => $message,
-            'data' => [],
-        ])->withStatus(500);
+        return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $message);
     }
 
     /**
@@ -119,11 +86,7 @@ abstract class AbstractController
      */
     protected function unauthorized(string $message = 'Unauthorized'): ResponseInterface
     {
-        return $this->response->json([
-            'code' => 401,
-            'message' => $message,
-            'data' => [],
-        ])->withStatus(401);
+        return $this->fail(StatusCode::UNAUTHORIZED, $message);
     }
 
     /**
@@ -134,11 +97,7 @@ abstract class AbstractController
      */
     protected function forbidden(string $message = 'Forbidden'): ResponseInterface
     {
-        return $this->response->json([
-            'code' => 403,
-            'message' => $message,
-            'data' => [],
-        ])->withStatus(403);
+        return $this->fail(StatusCode::FORBIDDEN, $message);
     }
 
     /**
@@ -149,11 +108,7 @@ abstract class AbstractController
      */
     protected function notFound(string $message = 'Resource Not Found'): ResponseInterface
     {
-        return $this->response->json([
-            'code' => 404,
-            'message' => $message,
-            'data' => [],
-        ])->withStatus(404);
+        return $this->fail(StatusCode::NOT_FOUND, $message);
     }
 
     /**
@@ -165,11 +120,7 @@ abstract class AbstractController
      */
     protected function validationError(string $message = 'Validation Failed', array $errors = []): ResponseInterface
     {
-        return $this->response->json([
-            'code' => 422,
-            'message' => $message,
-            'data' => $errors,
-        ])->withStatus(422);
+        return $this->fail(StatusCode::VALIDATION_ERROR, $message, $errors);
     }
 
     /**

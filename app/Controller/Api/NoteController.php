@@ -1,24 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller\Api;
 
+use App\Controller\AbstractController;
+use App\Controller\Api\Validator\NoteValidator;
 use App\Service\NoteService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Utils\Context;
 use App\Middleware\JwtAuthMiddleware;
 use Hyperf\HttpServer\Annotation\Middleware;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 笔记控制器
  * @Controller(prefix="/api/notes")
  * @Middleware(JwtAuthMiddleware::class)
  */
-class NoteController
+class NoteController extends AbstractController
 {
     /**
      * @Inject
@@ -28,9 +32,9 @@ class NoteController
 
     /**
      * @Inject
-     * @var ValidatorFactoryInterface
+     * @var NoteValidator
      */
-    protected $validatorFactory;
+    protected $validator;
 
     /**
      * 获取笔记列表
@@ -43,18 +47,10 @@ class NoteController
             $userId = Context::get('user_id');
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'page' => 'sometimes|integer|min:1',
-                'per_page' => 'sometimes|integer|min:1|max:100',
-                'keyword' => 'sometimes|string|max:255',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateNoteList($params);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
 
             // 设置默认值
@@ -162,18 +158,10 @@ class NoteController
             $userId = Context::get('user_id');
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'title' => 'sometimes|string|max:255',
-                'content' => 'sometimes|string',
-                'is_public' => 'sometimes|boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateUpdateNote($params);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
             
             // 检查笔记是否存在且属于当前用户
@@ -303,8 +291,8 @@ class NoteController
             
             return $response->json([
                 'code' => 200,
-                'message' => '恢复成功',
-                'data' => $note,
+                'message' => '获取成功',
+                'data' => $version,
             ]);
         } catch (\Exception $e) {
             return $response->json([

@@ -62,7 +62,7 @@ class CommentController extends AbstractController
             $result = $this->commentService->getComments($params, $page, $pageSize, $userId);
             return $this->success($result, ResponseMessage::COMMENT_LIST_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_LIST_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_LIST_FAILED . ': ' . $e->message);
         }
     }
 
@@ -77,14 +77,14 @@ class CommentController extends AbstractController
             $data = $request->all();
             // 验证必要字段
             if (empty($data['post_id']) || empty($data['post_type']) || empty($data['content'])) {
-                return $this->fail(StatusCode::BAD_REQUEST, ResponseMessage::COMMENT_PARAM_REQUIRED);
+                return $this->validationError(ResponseMessage::COMMENT_PARAM_REQUIRED);
             }
 
             // 添加当前用户ID
             $user = $this->request->getAttribute('user');
             $data['user_id'] = $user->id;
             if (! $data['user_id']) {
-                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+                return $this->unauthorized('用户未登录');
             }
 
             // 创建评论
@@ -95,7 +95,7 @@ class CommentController extends AbstractController
 
             return $this->success($comment, ResponseMessage::COMMENT_CREATE_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_CREATE_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_CREATE_FAILED . ': ' . $e->getMessage());
         }
     }
 
@@ -108,7 +108,7 @@ class CommentController extends AbstractController
         try {
             $comment = $this->commentService->getCommentById($id);
             if (! $comment) {
-                return $this->fail(StatusCode::NOT_FOUND, '评论不存在');
+                return $this->notFound('评论不存在');
             }
 
             // 普通用户只能查看已审核通过的评论
@@ -129,7 +129,7 @@ class CommentController extends AbstractController
 
             return $this->success($comment, '获取评论详情成功', StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_SHOW_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_SHOW_FAILED . ': ' . $e->getMessage());
         }
     }
 
@@ -143,7 +143,7 @@ class CommentController extends AbstractController
         try {
             $comment = $this->commentService->getCommentById($id);
             if (! $comment) {
-                return $this->fail(StatusCode::NOT_FOUND, '评论不存在');
+                return $this->notFound('评论不存在');
             }
 
             // 检查权限：只有评论作者或管理员可以更新评论
@@ -160,9 +160,9 @@ class CommentController extends AbstractController
             if ($result) {
                 return $this->success(null, ResponseMessage::COMMENT_UPDATE_SUCCESS, StatusCode::SUCCESS);
             }
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '评论更新失败');
+            return $this->serverError('评论更新失败');
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '更新评论失败: ' . $e->getMessage());
+            return $this->serverError('更新评论失败: ' . $e->getMessage());
         }
     }
 
@@ -176,7 +176,7 @@ class CommentController extends AbstractController
         try {
             $comment = $this->commentService->getCommentById($id);
             if (! $comment) {
-                return $this->fail(StatusCode::NOT_FOUND, '评论不存在');
+                return $this->notFound('评论不存在');
             }
 
             // 检查权限：只有评论作者或管理员可以删除评论
@@ -192,9 +192,9 @@ class CommentController extends AbstractController
             if ($result) {
                 return $this->success(null, '评论删除成功', StatusCode::SUCCESS);
             }
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_DELETE_FAILED);
+            return $this->serverError(ResponseMessage::COMMENT_DELETE_FAILED);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_DELETE_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_DELETE_FAILED . ': ' . $e->getMessage());
         }
     }
 
@@ -210,7 +210,7 @@ class CommentController extends AbstractController
             $result = $this->commentService->getPendingComments($params);
             return $this->success($result, ResponseMessage::PENDING_COMMENTS_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取待审核评论列表失败: ' . $e->getMessage());
+            return $this->serverError('获取待审核评论列表失败: ' . $e->getMessage());
         }
     }
 
@@ -226,9 +226,9 @@ class CommentController extends AbstractController
             if ($result) {
                 return $this->success(null, ResponseMessage::COMMENT_APPROVE_SUCCESS, StatusCode::SUCCESS);
             }
-            return $this->fail(StatusCode::NOT_FOUND, ResponseMessage::COMMENT_APPROVE_FAILED);
+            return $this->notFound(ResponseMessage::COMMENT_APPROVE_FAILED);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_APPROVE_ERROR . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_APPROVE_ERROR . ': ' . $e->getMessage());
         }
     }
 
@@ -244,9 +244,9 @@ class CommentController extends AbstractController
             if ($result) {
                 return $this->success(null, ResponseMessage::COMMENT_REJECT_SUCCESS, StatusCode::SUCCESS);
             }
-            return $this->fail(StatusCode::NOT_FOUND, ResponseMessage::COMMENT_REJECT_FAILED);
+            return $this->notFound(ResponseMessage::COMMENT_REJECT_FAILED);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_REJECT_ERROR . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_REJECT_ERROR . ': ' . $e->getMessage());
         }
     }
 
@@ -262,19 +262,19 @@ class CommentController extends AbstractController
 
             // 验证参数
             if (empty($data['ids']) || ! is_array($data['ids']) || ! isset($data['status'])) {
-                return $this->fail(StatusCode::BAD_REQUEST, ResponseMessage::COMMENT_BATCH_PARAM_REQUIRED);
+                return $this->validationError(ResponseMessage::COMMENT_BATCH_PARAM_REQUIRED);
             }
 
             // 验证状态值
             if (! in_array($data['status'], [1, 2])) {
-                return $this->fail(StatusCode::BAD_REQUEST, ResponseMessage::COMMENT_STATUS_INVALID);
+                return $this->validationError(ResponseMessage::COMMENT_STATUS_INVALID);
             }
 
             $result = $this->commentService->batchReviewComments($data['ids'], $data['status']);
 
             return $this->success($result, ResponseMessage::COMMENT_BATCH_REVIEW_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_BATCH_REVIEW_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_BATCH_REVIEW_FAILED . ': ' . $e->getMessage());
         }
     }
 
@@ -305,7 +305,7 @@ class CommentController extends AbstractController
             $result = $this->commentService->getReplies($id, $params, $page, $pageSize, $userId);
             return $this->success($result, ResponseMessage::COMMENT_REPLIES_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_REPLIES_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_REPLIES_FAILED . ': ' . $e->getMessage());
         }
     }
 
@@ -320,7 +320,7 @@ class CommentController extends AbstractController
             // 获取当前用户ID
             $user = $this->request->getAttribute('user');
             if (! $user) {
-                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+                return $this->unauthorized('用户未登录');
             }
             $userId = $user->id;
 
@@ -329,7 +329,7 @@ class CommentController extends AbstractController
 
             return $this->success(null, '点赞成功', StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '点赞失败: ' . $e->getMessage());
+            return $this->serverError('点赞失败: ' . $e->getMessage());
         }
     }
 
@@ -344,7 +344,7 @@ class CommentController extends AbstractController
             // 获取当前用户ID
             $user = $this->request->getAttribute('user');
             if (! $user) {
-                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+                return $this->unauthorized('用户未登录');
             }
             $userId = $user->id;
 
@@ -353,7 +353,7 @@ class CommentController extends AbstractController
 
             return $this->success(null, '取消点赞成功', StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '取消点赞失败: ' . $e->getMessage());
+            return $this->serverError('取消点赞失败: ' . $e->getMessage());
         }
     }
 
@@ -369,14 +369,14 @@ class CommentController extends AbstractController
 
             // 验证内容
             if (empty($data['content'])) {
-                return $this->fail(StatusCode::BAD_REQUEST, ResponseMessage::COMMENT_REPLY_CONTENT_REQUIRED);
+                return $this->validationError(ResponseMessage::COMMENT_REPLY_CONTENT_REQUIRED);
             }
 
             // 添加当前用户ID
             $user = $this->request->getAttribute('user');
             $data['user_id'] = $user->id;
             if (! $data['user_id']) {
-                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+                return $this->unauthorized('用户未登录');
             }
 
             // 创建回复
@@ -387,7 +387,7 @@ class CommentController extends AbstractController
 
             return $this->success($reply, ResponseMessage::COMMENT_REPLY_CREATE_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, ResponseMessage::COMMENT_REPLY_CREATE_FAILED . ': ' . $e->getMessage());
+            return $this->serverError(ResponseMessage::COMMENT_REPLY_CREATE_FAILED . ': ' . $e->getMessage());
         }
     }
 }

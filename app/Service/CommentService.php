@@ -17,7 +17,9 @@ use App\Event\NewCommentEvent;
 use App\Model\Comment;
 use Exception;
 use Hyperf\Context\ApplicationContext;
-use Hyperf\DbConnection\Db;
+use App\Repository\CommentRepository;
+use App\Repository\BlogRepository;
+use App\Repository\CommentLikeRepository;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
@@ -40,6 +42,24 @@ class CommentService
      * @var EventDispatcherInterface
      */
     protected $dispatcher;
+    
+    /**
+     * @Inject
+     * @var CommentLikeRepository
+     */
+    protected $commentLikeRepository;
+
+    /**
+     * @Inject
+     * @var CommentRepository
+     */
+    protected $commentRepository;
+
+    /**
+     * @Inject
+     * @var BlogRepository
+     */
+    protected $blogRepository;
     /**
      * 获取评论列表.
      *
@@ -123,33 +143,10 @@ class CommentService
         $commentIds = array_column($comments, 'id');
 
         // 查询点赞数量
-        $likeCounts = Db::table('comment_likes')
-            ->select('comment_id', Db::raw('count(*) as count'))
-            ->whereIn('comment_id', $commentIds)
-            ->groupBy('comment_id')
-            ->get()
-            ->toArray();
-
-        // 转换为关联数组
-        $likeCountMap = [];
-        foreach ($likeCounts as $likeCount) {
-            $likeCountMap[$likeCount['comment_id']] = $likeCount['count'];
-        }
+        $likeCountMap = $this->commentLikeRepository->getLikeCountsByCommentIds($commentIds);
 
         // 查询当前用户的点赞记录
-        $userLikes = [];
-        if ($userId) {
-            $userLikeRecords = Db::table('comment_likes')
-                ->select('comment_id')
-                ->whereIn('comment_id', $commentIds)
-                ->where('user_id', $userId)
-                ->get()
-                ->toArray();
-
-            foreach ($userLikeRecords as $likeRecord) {
-                $userLikes[$likeRecord['comment_id']] = true;
-            }
-        }
+        $userLikes = $userId ? $this->commentLikeRepository->getUserLikesByCommentIds($commentIds, $userId) : [];
 
         // 为评论添加点赞信息
         foreach ($comments as &$comment) {
@@ -622,19 +619,21 @@ class CommentService
      */
     private function updateCommentCount(int $postId, string $postType): void
     {
-        $table = $postType === 'blog' ? 'blogs' : 'works';
+        try {
+            // 计算该内容的已审核评论数
+            $commentCount = $this->commentRepository->countApprovedByPost($postId, $postType);
 
-        // 计算该内容的已审核评论数
-        $commentCount = Db::table('comments')
-            ->where('post_id', '=', $postId)
-            ->where('post_type', '=', $postType)
-            ->where('status', '=', 1)
-            ->count();
-
-        // 更新内容的评论计数
-        Db::table($table)
-            ->where('id', '=', $postId)
-            ->update(['comment_count' => $commentCount]);
+            // 根据内容类型更新对应表的评论计数
+            if ($postType === 'blog') {
+                $this->blogRepository->updateCommentCount($postId, $commentCount);
+            } else if ($postType === 'works') {
+                // 如果有WorkRepository，使用它更新评论计数
+                // $this->workRepository->updateCommentCount($postId, $commentCount);
+                $this->logger->info('更新作品评论计数', ['post_id' => $postId, 'count' => $commentCount]);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('更新评论计数失败', ['post_id' => $postId, 'post_type' => $postType, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

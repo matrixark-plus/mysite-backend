@@ -14,6 +14,7 @@ namespace App\Controller\Api;
 
 use App\Constants\StatusCode;
 use App\Controller\AbstractController;
+use App\Controller\Api\Validator\ContactValidator;
 use App\Service\ContactService;
 use App\Traits\LogTrait;
 use Exception;
@@ -21,6 +22,7 @@ use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * @Controller(prefix="/api/contact")
@@ -36,6 +38,12 @@ class ContactController extends AbstractController
     protected $contactService;
 
     /**
+     * @Inject
+     * @var ContactValidator
+     */
+    protected $validator;
+
+    /**
      * 提交联系表单.
      *
      * @RequestMapping(path="/submit", methods={"POST"})
@@ -43,7 +51,12 @@ class ContactController extends AbstractController
     public function submitContact(RequestInterface $request)
     {
         try {
-            $data = $request->all();
+            // 验证参数
+            try {
+                $data = $this->validator->validateContactForm($request->all());
+            } catch (ValidationException $e) {
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
+            }
 
             // 获取客户端IP
             $data['ip'] = $request->getServerParams()['remote_addr'] ?? '';
@@ -83,17 +96,22 @@ class ContactFormAdminController extends AbstractController
         // 权限验证：仅管理员可访问
         $currentUser = $this->user ?? null;
         if (! $currentUser || ! $currentUser->is_admin) {
-            return $this->fail('无权访问', 403);
+            return $this->forbidden('无权访问');
         }
 
         try {
-            // 获取查询参数
-            $page = (int) $request->input('page', 1);
-            $limit = (int) $request->input('limit', 20);
-            $status = $request->input('status');
-            $search = $request->input('search');
-            $startDate = $request->input('start_date');
-            $endDate = $request->input('end_date');
+            // 验证参数
+            try {
+                $validatedData = $this->validator->validateContactList($request->all());
+                $page = $validatedData['page'] ?? 1;
+                $limit = $validatedData['limit'] ?? 20;
+                $status = $validatedData['status'] ?? null;
+                $search = $validatedData['search'] ?? '';
+                $startDate = $validatedData['start_date'] ?? null;
+                $endDate = $validatedData['end_date'] ?? null;
+            } catch (ValidationException $e) {
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
+            }
 
             // 构建筛选条件
             $filters = [];
@@ -144,7 +162,13 @@ class ContactFormAdminController extends AbstractController
         }
 
         try {
-            $data = $request->all();
+            // 验证参数
+            try {
+                $validatedData = $this->validator->validateUpdateStatus($request->all());
+                $data = $validatedData;
+            } catch (ValidationException $e) {
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
+            }
             if (!isset($data['status'])) {
                 return $this->fail(StatusCode::BAD_REQUEST, '状态参数不能为空');
             }

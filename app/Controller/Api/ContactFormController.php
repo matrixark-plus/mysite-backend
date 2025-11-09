@@ -59,10 +59,10 @@ class ContactFormController extends AbstractController
         $result = $this->contactFormService->createContactForm($formData);
         
         if ($result['success']) {
-            return $this->success($result['data'], $result['message']);
+            return $this->success($result['message'], $result['data'] ?? []);
         }
         
-        return $this->fail($result['message']);
+        return $this->error($result['message'], []);
     }
 
     /**
@@ -78,7 +78,7 @@ class ContactFormController extends AbstractController
         // 权限验证：仅管理员可访问
         $currentUser = $this->user ?? null;
         if (! $currentUser || ! $currentUser->is_admin) {
-            return $this->fail('无权访问', 403);
+            return $this->fail(403, '无权访问');
         }
 
         $conditions = [];
@@ -113,7 +113,7 @@ class ContactFormController extends AbstractController
             return $this->success($result['data']);
         }
         
-        return $this->fail($result['message']);
+        return $this->fail(400, $result['message']);
     }
 
     /**
@@ -129,7 +129,7 @@ class ContactFormController extends AbstractController
         // 权限验证：仅管理员可访问
         $currentUser = $this->user ?? null;
         if (! $currentUser || ! $currentUser->is_admin) {
-            return $this->fail('无权访问', 403);
+            return $this->fail(403, '无权访问');
         }
 
         $id = (int) $request->input('id');
@@ -140,7 +140,7 @@ class ContactFormController extends AbstractController
             return $this->success($result['data']);
         }
         
-        return $this->fail($result['message']);
+        return $this->fail(400, $result['message']);
     }
 
     /**
@@ -156,7 +156,7 @@ class ContactFormController extends AbstractController
         // 权限验证：仅管理员可访问
         $currentUser = $this->user ?? null;
         if (! $currentUser || ! $currentUser->is_admin) {
-            return $this->fail('无权访问', 403);
+            return $this->fail(403, '无权访问');
         }
 
         $id = (int) $request->input('id');
@@ -168,6 +168,6 @@ class ContactFormController extends AbstractController
             return $this->success([], $result['message']);
         }
         
-        return $this->fail($result['message']);
+        return $this->validationError($result['message']);
     }
 }

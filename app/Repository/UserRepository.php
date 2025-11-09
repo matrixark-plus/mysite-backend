@@ -35,12 +35,13 @@ class UserRepository
      * 根据ID查找用户.
      *
      * @param int $id 用户ID
-     * @return null|User 用户模型对象或null
+     * @return array|null 用户数据数组或null
      */
-    public function findById(int $id): ?User
+    public function findById(int $id): ?array
     {
         try {
-            return User::find($id);
+            $result = Db::table('users')->find($id);
+            return is_object($result) ? (array)$result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找用户失败: ' . $e->getMessage(), ['user_id' => $id]);
             return null;
@@ -52,13 +53,26 @@ class UserRepository
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
-     * @return null|User 用户模型对象或null
+     * @return array|null 用户数据数组或null
      */
-    public function findBy(array $conditions, array $columns = ['*']): ?User
+    public function findBy(array $conditions, array $columns = ['*']): ?array
     {
         try {
-            $result = User::where($conditions)->first($columns);
-            return $result instanceof User ? $result : null;
+            $query = Db::table('users');
+            foreach ($conditions as $key => $value) {
+                // 处理复杂条件如OR
+                if ($key === 'OR' && is_array($value)) {
+                    $query = $query->where(function ($q) use ($value) {
+                        foreach ($value as $orCondition) {
+                            $q->orWhere(...$orCondition);
+                        }
+                    });
+                } else {
+                    $query = $query->where($key, $value);
+                }
+            }
+            $result = $query->select($columns)->first();
+            return is_object($result) ? (array)$result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据条件查询用户失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
@@ -71,27 +85,37 @@ class UserRepository
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
      * @param array<string, string> $order 排序条件
-     * @return \Hyperf\Database\Model\Collection<int, \App\Model\User> 用户模型集合
+     * @return array 用户数据数组
      */
-    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): \Hyperf\Database\Model\Collection
+    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): array
     {
         try {
-            $query = User::query();
+            $query = Db::table('users');
 
             // 处理查询条件
             if (! empty($conditions)) {
-                $query = $query->where($conditions);
+                foreach ($conditions as $key => $value) {
+                    // 处理复杂条件如OR
+                    if ($key === 'OR' && is_array($value)) {
+                        $query = $query->where(function ($q) use ($value) {
+                            foreach ($value as $orCondition) {
+                                $q->orWhere(...$orCondition);
+                            }
+                        });
+                    } else {
+                        $query = $query->where($key, $value);
+                    }
+                }
             }
 
             foreach ($order as $field => $direction) {
                 $query = $query->orderBy($field, $direction);
             }
 
-            $result = $query->select($columns)->get();
-            return $result instanceof \Hyperf\Database\Model\Collection ? $result : new \Hyperf\Database\Model\Collection();
+            return $query->select($columns)->get()->toArray();
         } catch (Exception $e) {
             $this->logger->error('获取用户列表失败: ' . $e->getMessage(), ['conditions' => $conditions]);
-            return new \Hyperf\Database\Model\Collection();
+            return [];
         }
     }
 
@@ -104,13 +128,24 @@ class UserRepository
     public function count(array $conditions = []): int
     {
         try {
-            $query = User::query();
+            $query = Db::table('users');
 
             if (! empty($conditions)) {
-                $query = $query->where($conditions);
+                foreach ($conditions as $key => $value) {
+                    // 处理复杂条件如OR
+                    if ($key === 'OR' && is_array($value)) {
+                        $query = $query->where(function ($q) use ($value) {
+                            foreach ($value as $orCondition) {
+                                $q->orWhere(...$orCondition);
+                            }
+                        });
+                    } else {
+                        $query = $query->where($key, $value);
+                    }
+                }
             }
 
-            return $query->count();
+            return (int)$query->count();
         } catch (Exception $e) {
             $this->logger->error('统计用户数量失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return 0;
@@ -121,12 +156,12 @@ class UserRepository
      * 创建用户.
      *
      * @param array<string, mixed> $data 用户数据
-     * @return null|User 创建的用户模型对象或null
+     * @return array|null 创建的用户数据数组或null
      */
-    public function create(array $data): ?User
+    public function create(array $data): ?array
     {
         try {
-            return Db::transaction(function () use ($data) {
+            $result = Db::transaction(function () use ($data) {
                 $user = new User();
                 foreach ($data as $key => $value) {
                     if (property_exists($user, $key)) {
@@ -142,6 +177,9 @@ class UserRepository
                 $user->save();
                 return $user;
             });
+            
+            // 转换为数组返回
+            return $result instanceof User ? $result->toArray() : null;
         } catch (Exception $e) {
             $this->logger->error('创建用户失败: ' . $e->getMessage(), ['data' => $data]);
             return null;

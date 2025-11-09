@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\Contact;
 use App\Repository\ContactRepository;
 use Carbon\Carbon;
 use Exception;
@@ -84,7 +83,7 @@ class ContactService
                 'message' => $data['message'],
                 'phone' => $data['phone'] ?? '',
                 'ip' => $data['ip'] ?? '',
-                'status' => Contact::STATUS_UNPROCESSED,
+                'status' => 0, // 未处理状态
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ];
@@ -143,7 +142,7 @@ class ContactService
      * @param int $id 联系记录ID
      * @return bool
      */
-    public function markAsProcessed($id)
+    public function markAsProcessed(int $id)
     {
         return $this->contactRepository->markAsProcessed($id);
     }
@@ -154,7 +153,7 @@ class ContactService
      * @param array $data
      * @return array
      */
-    protected function validateContactData($data)
+    protected function validateContactData(array $data)
     {
         // 检查必填字段
         $requiredFields = ['name', 'email', 'subject', 'message'];

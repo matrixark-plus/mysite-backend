@@ -12,9 +12,8 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Model\ContactForm;
 use Exception;
-use Hyperf\Database\Model\Collection;
+use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
@@ -34,14 +33,48 @@ class ContactFormRepository
      * 根据ID查找联系表单记录.
      *
      * @param int $id 记录ID
-     * @return null|ContactForm 模型对象或null
+     * @return array|null 联系表单数据数组或null
      */
-    public function findById(int $id): ?ContactForm
+    public function findById(int $id): ?array
     {
         try {
-            return ContactForm::find($id);
+            $result = Db::table('contact_forms')->find($id);
+            return is_object($result) ? (array)$result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找联系表单记录失败: ' . $e->getMessage(), ['contact_form_id' => $id]);
+            return null;
+        }
+    }
+
+    /**
+     * 根据条件查询联系表单记录.
+     *
+     * @param array<string, mixed> $conditions 查询条件
+     * @param array<string> $columns 查询字段
+     * @return array|null 联系表单数据数组或null
+     */
+    public function findBy(array $conditions, array $columns = ['*']): ?array
+    {
+        try {
+            $query = Db::table('contact_forms');
+            
+            foreach ($conditions as $key => $value) {
+                // 处理复杂条件如OR
+                if ($key === 'OR' && is_array($value)) {
+                    $query = $query->where(function ($q) use ($value) {
+                        foreach ($value as $orCondition) {
+                            $q->orWhere(...$orCondition);
+                        }
+                    });
+                } else {
+                    $query = $query->where($key, $value);
+                }
+            }
+            
+            $result = $query->select($columns)->first();
+            return is_object($result) ? (array)$result : $result;
+        } catch (Exception $e) {
+            $this->logger->error('根据条件查询联系表单记录失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
         }
     }
@@ -51,22 +84,21 @@ class ContactFormRepository
      *
      * @param int $status 状态码
      * @param array<string, string> $order 排序条件
-     * @return Collection<int, ContactForm> 模型集合
+     * @return array 联系表单数据数组
      */
-    public function findByStatus(int $status, array $order = ['created_at' => 'desc']): Collection
+    public function findByStatus(int $status, array $order = ['created_at' => 'desc']): array
     {
         try {
-            $query = ContactForm::where('status', $status);
+            $query = Db::table('contact_forms')->where('status', $status);
 
             foreach ($order as $field => $direction) {
                 $query = $query->orderBy($field, $direction);
             }
 
-            $result = $query->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $query->get()->toArray();
         } catch (Exception $e) {
             $this->logger->error('根据状态获取联系表单记录失败: ' . $e->getMessage(), ['status' => $status]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -76,26 +108,36 @@ class ContactFormRepository
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
      * @param array<string, string> $order 排序条件
-     * @return Collection<int, ContactForm> 模型集合
+     * @return array 联系表单数据数组
      */
-    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): Collection
+    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): array
     {
         try {
-            $query = ContactForm::query();
+            $query = Db::table('contact_forms');
 
             if (! empty($conditions)) {
-                $query = $query->where($conditions);
+                foreach ($conditions as $key => $value) {
+                    // 处理复杂条件如OR
+                    if ($key === 'OR' && is_array($value)) {
+                        $query = $query->where(function ($q) use ($value) {
+                            foreach ($value as $orCondition) {
+                                $q->orWhere(...$orCondition);
+                            }
+                        });
+                    } else {
+                        $query = $query->where($key, $value);
+                    }
+                }
             }
 
             foreach ($order as $field => $direction) {
                 $query = $query->orderBy($field, $direction);
             }
 
-            $result = $query->select($columns)->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $query->select($columns)->get()->toArray();
         } catch (Exception $e) {
             $this->logger->error('获取联系表单记录列表失败: ' . $e->getMessage(), ['conditions' => $conditions]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -103,12 +145,15 @@ class ContactFormRepository
      * 创建联系表单记录.
      *
      * @param array<string, mixed> $data 表单数据
-     * @return null|ContactForm 创建的模型对象或null
+     * @return array|null 创建的联系表单数据数组或null
      */
-    public function create(array $data): ?ContactForm
+    public function create(array $data): ?array
     {
         try {
-            return ContactForm::create($data);
+            return Db::transaction(function () use ($data) {
+                $id = Db::table('contact_forms')->insertGetId($data);
+                return $this->findById($id);
+            });
         } catch (Exception $e) {
             $this->logger->error('创建联系表单记录失败: ' . $e->getMessage(), ['data' => $data]);
             return null;
@@ -125,8 +170,10 @@ class ContactFormRepository
     public function update(int $id, array $data): bool
     {
         try {
-            $result = ContactForm::where('id', $id)->update($data);
-            return $result > 0;
+            return Db::transaction(function () use ($id, $data) {
+                $result = Db::table('contact_forms')->where('id', $id)->update($data);
+                return $result > 0;
+            });
         } catch (Exception $e) {
             $this->logger->error('更新联系表单记录失败: ' . $e->getMessage(), ['contact_form_id' => $id, 'data' => $data]);
             return false;
@@ -144,11 +191,11 @@ class ContactFormRepository
     {
         try {
             $data = [
-                'status' => ContactForm::STATUS_PROCESSED,
+                'status' => 2, // 假设2代表已处理状态
                 'processed_by' => $processorId,
                 'processed_at' => date('Y-m-d H:i:s')
             ];
-            $result = ContactForm::where('id', $id)->update($data);
+            $result = Db::table('contact_forms')->where('id', $id)->update($data);
             return $result > 0;
         } catch (Exception $e) {
             $this->logger->error('标记联系表单为已处理失败: ' . $e->getMessage(), ['contact_form_id' => $id, 'processor_id' => $processorId]);
@@ -165,8 +212,10 @@ class ContactFormRepository
     public function delete(int $id): bool
     {
         try {
-            $result = ContactForm::destroy($id);
-            return $result > 0;
+            return Db::transaction(function () use ($id) {
+                $result = Db::table('contact_forms')->where('id', $id)->delete();
+                return $result > 0;
+            });
         } catch (Exception $e) {
             $this->logger->error('删除联系表单记录失败: ' . $e->getMessage(), ['contact_form_id' => $id]);
             return false;
@@ -182,10 +231,20 @@ class ContactFormRepository
     public function count(array $conditions = []): int
     {
         try {
-            $query = ContactForm::query();
+            $query = Db::table('contact_forms');
 
             if (! empty($conditions)) {
-                $query = $query->where($conditions);
+                foreach ($conditions as $key => $value) {
+                    if ($key === 'OR' && is_array($value)) {
+                        $query = $query->where(function ($q) use ($value) {
+                            foreach ($value as $orCondition) {
+                                $q->orWhere(...$orCondition);
+                            }
+                        });
+                    } else {
+                        $query = $query->where($key, $value);
+                    }
+                }
             }
 
             return $query->count();

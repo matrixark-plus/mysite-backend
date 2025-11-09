@@ -12,12 +12,10 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\Blog;
-use App\Model\BlogCategory;
+use App\Repository\BlogRepository;
+use App\Repository\BlogCategoryRepository;
 use App\Repository\BlogTagRepository;
 use App\Repository\BlogTagRelationRepository;
-use Hyperf\Cache\Annotation\Cacheable;
-use Hyperf\Cache\Annotation\CacheEvict;
 use Hyperf\Cache\Cache;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
@@ -25,6 +23,18 @@ use Psr\Log\LoggerInterface;
 
 class BlogService
 {
+    /**
+     * @Inject
+     * @var BlogRepository
+     */
+    protected $blogRepository;
+
+    /**
+     * @Inject
+     * @var BlogCategoryRepository
+     */
+    protected $blogCategoryRepository;
+
     /**
      * @Inject
      * @var BlogTagRepository
@@ -70,41 +80,8 @@ class BlogService
             return $cachedResult;
         }
         
-        $query = Blog::query()
-            ->with(['author', 'category', 'tags'])
-            ->where('status', Blog::STATUS_PUBLISHED);
-
-        // 分类筛选
-        if (isset($params['category_id']) && $params['category_id']) {
-            $query->where('category_id', $params['category_id']);
-        }
-
-        // 关键词搜索
-        if (isset($params['keyword']) && $params['keyword']) {
-            $keyword = $params['keyword'];
-            $query->where(function ($q) use ($keyword) {
-                $q->where('title', 'like', '%' . $keyword . '%')
-                    ->orWhere('content', 'like', '%' . $keyword . '%');
-            });
-        }
-
-        // 排序
-        $sortBy = $params['sort_by'] ?? 'created_at';
-        $sortOrder = $params['sort_order'] ?? 'desc';
-        $query->orderBy($sortBy, $sortOrder);
-
-        // 分页
-        $page = $params['page'] ?? 1;
-        $pageSize = $params['page_size'] ?? 10;
-
-        $blogs = $query->paginate($pageSize, ['*'], 'page', $page);
-
-        $result = [
-            'total' => $blogs->total(),
-            'page' => $blogs->currentPage(),
-            'page_size' => $blogs->perPage(),
-            'data' => $blogs->items(),
-        ];
+        // 使用Repository获取博客列表
+        $result = $this->blogRepository->findAll($params);
         
         // 缓存结果，设置5分钟过期
         $this->cache->set($cacheKey, $result, 300);
@@ -117,7 +94,7 @@ class BlogService
      * @param int $id 博客ID
      * @param bool $incrementViews 是否增加阅读量
      */
-    public function getBlogById(int $id, bool $incrementViews = true): ?Blog
+    public function getBlogById(int $id, bool $incrementViews = true): ?array
     {
         // 构建缓存键
         $cacheKey = 'blog:detail:' . $id;
@@ -125,21 +102,19 @@ class BlogService
         // 尝试从缓存获取
         $cachedBlog = $this->cache->get($cacheKey);
         if ($cachedBlog) {
-            // 如果需要增加阅读量，直接从数据库获取最新数据
+            // 如果需要增加阅读量
             if ($incrementViews) {
                 $this->incrementBlogViewCount($id);
             }
-            return new Blog((array)$cachedBlog);
+            return $cachedBlog;
         }
         
-        $blog = Blog::with(['author', 'category', 'tags'])
-            ->where('id', $id)
-            ->where('status', Blog::STATUS_PUBLISHED)
-            ->first();
+        // 使用Repository获取博客详情
+        $blog = $this->blogRepository->findById($id);
 
         if ($blog) {
             // 缓存博客详情，设置10分钟过期
-            $this->cache->set($cacheKey, $blog->toArray(), 600);
+            $this->cache->set($cacheKey, $blog, 600);
             
             if ($incrementViews) {
                 $this->incrementBlogViewCount($id);
@@ -163,8 +138,8 @@ class BlogService
             // 设置过期时间，确保数据最终一致性
             $this->cache->expire($viewCountKey, 86400); // 24小时过期
             
-            // 异步更新数据库（简化处理，实际项目中可以使用队列）
-            Blog::where('id', $id)->increment('view_count');
+            // 使用Repository更新数据库阅读量
+            $this->blogRepository->incrementViewCount($id);
         } catch (\Exception $e) {
             $this->logger->error('增加博客阅读量失败', ['blog_id' => $id, 'error' => $e->getMessage()]);
         }
@@ -174,35 +149,32 @@ class BlogService
      * 创建博客.
      * @param array $data 博客数据
      */
-    public function createBlog(array $data): Blog
+    public function createBlog(array $data): array
     {
-        $blog = Db::transaction(function () use ($data) {
-            // 创建博客
-            $blog = Blog::create([
-                'title' => $data['title'],
-                'slug' => $this->generateSlug($data['title']),
-                'content' => $data['content'],
-                'summary' => $data['summary'] ?? $this->generateSummary($data['content']),
-                'category_id' => $data['category_id'],
-                'author_id' => $data['author_id'],
-                'status' => $data['status'] ?? Blog::STATUS_PUBLISHED,
-                'is_recommended' => $data['is_recommended'] ?? false,
-                'cover_image' => $data['cover_image'] ?? '',
-                'created_at' => time(),
-                'updated_at' => time(),
-            ]);
+        // 准备创建数据
+        $createData = [
+            'title' => $data['title'],
+            'slug' => $this->generateSlug($data['title']),
+            'content' => $data['content'],
+            'summary' => $data['summary'] ?? $this->generateSummary($data['content']),
+            'category_id' => $data['category_id'],
+            'author_id' => $data['author_id'],
+            'status' => $data['status'] ?? Blog::STATUS_PUBLISHED,
+            'is_recommended' => $data['is_recommended'] ?? false,
+            'cover_image' => $data['cover_image'] ?? '',
+        ];
+        
+        // 使用Repository创建博客
+        $blog = $this->blogRepository->create($createData);
 
-            // 记录日志
-            $this->logger->info('创建博客成功: ' . $blog->id . ' - ' . $blog->title);
-            
-            // 处理标签关联
-            $tags = $data['tags'] ?? [];
-            if (!empty($tags)) {
-                $this->saveBlogTags($blog->id, $tags);
-            }
-
-            return $blog;
-        });
+        // 记录日志
+        $this->logger->info('创建博客成功: ' . $blog['id'] . ' - ' . $blog['title']);
+        
+        // 处理标签关联
+        $tags = $data['tags'] ?? [];
+        if (!empty($tags)) {
+            $this->saveBlogTags($blog['id'], $tags);
+        }
         
         // 清除相关缓存
         $this->clearBlogCache();
@@ -242,68 +214,62 @@ class BlogService
      * @param int $id 博客ID
      * @param array $data 更新数据
      */
-    public function updateBlog(int $id, array $data): ?Blog
+    public function updateBlog(int $id, array $data): ?array
     {
-        $blog = Blog::find($id);
-        if (! $blog) {
-            return null;
+        // 准备更新数据
+        $updateData = [];
+        if (isset($data['title'])) {
+            $updateData['title'] = $data['title'];
+            $updateData['slug'] = $this->generateSlug($data['title'], $id);
         }
+        if (isset($data['content'])) {
+            $updateData['content'] = $data['content'];
+            // 如果没有提供摘要，重新生成
+            if (! isset($data['summary'])) {
+                $updateData['summary'] = $this->generateSummary($data['content']);
+            }
+        }
+        if (isset($data['summary'])) {
+            $updateData['summary'] = $data['summary'];
+        }
+        if (isset($data['category_id'])) {
+            $updateData['category_id'] = $data['category_id'];
+        }
+        if (isset($data['status'])) {
+            $updateData['status'] = $data['status'];
+        }
+        if (isset($data['is_recommended'])) {
+            $updateData['is_recommended'] = $data['is_recommended'];
+        }
+        if (isset($data['cover_image'])) {
+            $updateData['cover_image'] = $data['cover_image'];
+        }
+        if (isset($data['published_at'])) {
+            $updateData['published_at'] = $data['published_at'];
+        }
+        $updateData['updated_at'] = time();
 
-        $updatedBlog = Db::transaction(function () use ($blog, $data) {
-            // 更新博客
-            $updateData = [];
-            if (isset($data['title'])) {
-                $updateData['title'] = $data['title'];
-                $updateData['slug'] = $this->generateSlug($data['title'], $blog->id);
-            }
-            if (isset($data['content'])) {
-                $updateData['content'] = $data['content'];
-                // 如果没有提供摘要，重新生成
-                if (! isset($data['summary'])) {
-                    $updateData['summary'] = $this->generateSummary($data['content']);
-                }
-            }
-            if (isset($data['summary'])) {
-                $updateData['summary'] = $data['summary'];
-            }
-            if (isset($data['category_id'])) {
-                $updateData['category_id'] = $data['category_id'];
-            }
-            if (isset($data['status'])) {
-                $updateData['status'] = $data['status'];
-            }
-            if (isset($data['is_recommended'])) {
-                $updateData['is_recommended'] = $data['is_recommended'];
-            }
-            if (isset($data['cover_image'])) {
-                $updateData['cover_image'] = $data['cover_image'];
-            }
-            if (isset($data['published_at'])) {
-                $updateData['published_at'] = $data['published_at'];
-            }
-            $updateData['updated_at'] = time();
-
-            $blog->update($updateData);
-            
+        // 使用Repository更新博客
+        $updatedBlog = $this->blogRepository->update($id, $updateData);
+        
+        if ($updatedBlog) {
             // 处理标签关联
             if (array_key_exists('tags', $data)) {
                 // 删除旧的标签关联
-                $this->blogTagRelationRepository->deleteByBlogId($blog->id);
+                $this->blogTagRelationRepository->deleteByBlogId($id);
 
                 // 添加新的标签关联
                 if (!empty($data['tags'])) {
-                    $this->saveBlogTags($blog->id, $data['tags']);
+                    $this->saveBlogTags($id, $data['tags']);
                 }
             }
 
             // 记录日志
-            $this->logger->info('更新博客成功: ' . $blog->id . ' - ' . $blog->title);
+            $this->logger->info('更新博客成功: ' . $id . ' - ' . $updatedBlog['title']);
 
-            return $blog;
-        });
-        
-        // 清除相关缓存
-        $this->clearBlogCache($id);
+            // 清除相关缓存
+            $this->clearBlogCache($id);
+        }
         
         return $updatedBlog;
     }
@@ -314,23 +280,16 @@ class BlogService
      */
     public function deleteBlog(int $id): bool
     {
-        $blog = Blog::find($id);
-        if (! $blog) {
-            return false;
-        }
-
-        $result = Db::transaction(function () use ($blog) {
-            // 删除博客
-            $blog->delete();
-
-            // 记录日志
-            $this->logger->info('删除博客成功: ' . $blog->id . ' - ' . $blog->title);
-
-            return true;
-        });
+        // 使用Repository删除博客
+        $result = $this->blogRepository->delete($id);
         
-        // 清除相关缓存
-        $this->clearBlogCache($id);
+        if ($result) {
+            // 记录日志
+            $this->logger->info('删除博客成功: ' . $id);
+            
+            // 清除相关缓存
+            $this->clearBlogCache($id);
+        }
         
         return $result;
     }
@@ -349,9 +308,8 @@ class BlogService
             return $cachedCategories;
         }
         
-        $categories = BlogCategory::orderBy('sort_order', 'asc')
-            ->get()
-            ->toArray();
+        // 使用Repository获取分类列表
+        $categories = $this->blogCategoryRepository->findAll();
         
         // 缓存分类列表，设置30分钟过期
         $this->cache->set($cacheKey, $categories, 1800);
@@ -367,28 +325,26 @@ class BlogService
      */
     public function recordView(int $blogId, string $clientIp): int|false
     {
-        $blog = Blog::where('id', $blogId)
-            ->where('status', Blog::STATUS_PUBLISHED)
-            ->first();
-
+        // 获取博客信息
+        $blog = $this->getBlogById($blogId, false);
         if (! $blog) {
             return false;
         }
 
         // 增加阅读量
-        $blog->increment('view_count');
+        $this->incrementBlogViewCount($blogId);
         
-        // 重新获取更新后的阅读量
-        $blog->refresh();
+        // 获取更新后的博客信息
+        $updatedBlog = $this->getBlogById($blogId, false);
         
-        // 记录阅读日志（可选）
-            $this->logger->info('博客阅读记录', [
-                'blog_id' => $blogId,
-                'client_ip' => $clientIp,
-                'view_count' => $blog->view_count
-            ]);
+        // 记录阅读日志
+        $this->logger->info('博客阅读记录', [
+            'blog_id' => $blogId,
+            'client_ip' => $clientIp,
+            'view_count' => $updatedBlog['view_count']
+        ]);
 
-        return $blog->view_count;
+        return $updatedBlog['view_count'];
     }
 
     /**
@@ -406,12 +362,8 @@ class BlogService
             return $cachedBlogs;
         }
         
-        $blogs = Blog::with(['author', 'category'])
-            ->where('status', Blog::STATUS_PUBLISHED)
-            ->orderBy('view_count', 'desc')
-            ->limit($limit)
-            ->get()
-            ->toArray();
+        // 使用Repository获取热门博客
+        $blogs = $this->blogRepository->getHotBlogs($limit);
         
         // 为每个热门博客获取标签信息
         foreach ($blogs as &$blog) {
@@ -450,13 +402,8 @@ class BlogService
             return $cachedBlogs;
         }
         
-        $blogs = Blog::with(['author', 'category'])
-            ->where('status', Blog::STATUS_PUBLISHED)
-            ->where('is_recommended', true)
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->get()
-            ->toArray();
+        // 使用Repository获取推荐博客
+        $blogs = $this->blogRepository->getRecommendedBlogs($limit);
         
         // 为每个推荐博客获取标签信息
         foreach ($blogs as &$blog) {
@@ -476,50 +423,15 @@ class BlogService
      */
     public function searchBlogs(string $keyword, array $params): array
     {
-        $query = Blog::query()
-            ->with(['author', 'category'])
-            ->where('status', Blog::STATUS_PUBLISHED);
-
-        // 关键词搜索
-        $query->where(function ($q) use ($keyword) {
-            $q->where('title', 'like', '%' . $keyword . '%')
-                ->orWhere('content', 'like', '%' . $keyword . '%')
-                ->orWhere('summary', 'like', '%' . $keyword . '%')
-                // 也可以搜索标签名称
-                ->orWhereExists(function ($tagQuery) use ($keyword) {
-                    $tagQuery->select(Db::raw(1))
-                        ->from('blog_tag_pivot')
-                        ->join('blog_tags', 'blog_tag_pivot.tag_id', '=', 'blog_tags.id')
-                        ->whereRaw('blog_tag_pivot.blog_id = blogs.id')
-                        ->where('blog_tags.name', 'like', '%' . $keyword . '%');
-                });
-        });
-
-        // 排序
-        $sortBy = $params['sort_by'] ?? 'created_at';
-        $sortOrder = $params['sort_order'] ?? 'desc';
-        $query->orderBy($sortBy, $sortOrder);
-
-        // 分页
-        $page = $params['page'] ?? 1;
-        $pageSize = $params['page_size'] ?? 10;
-
-        $blogs = $query->paginate($pageSize, ['*'], 'page', $page);
-        
-        // 获取博客数据
-        $blogItems = $blogs->items();
+        // 使用Repository搜索博客
+        $result = $this->blogRepository->search($keyword, $params);
         
         // 为每个博客获取标签信息
-        foreach ($blogItems as &$blog) {
+        foreach ($result['data'] as &$blog) {
             $blog['tags'] = $this->getBlogTags($blog['id']);
         }
 
-        return [
-            'total' => $blogs->total(),
-            'page' => $blogs->currentPage(),
-            'page_size' => $blogs->perPage(),
-            'data' => $blogItems,
-        ];
+        return $result;
     }
 
     /**
@@ -581,15 +493,12 @@ class BlogService
         // 去除首尾连字符
         $slug = trim($slug, '-');
 
-        // 检查slug是否已存在
-        $query = Blog::where('slug', $slug);
-        if ($excludeId > 0) {
-            $query->where('id', '!=', $excludeId);
-        }
-
-        $count = $query->count();
-        if ($count > 0) {
-            $slug .= '-' . $count;
+        // 使用Repository检查slug是否已存在
+        $count = 1;
+        $originalSlug = $slug;
+        
+        while ($this->blogRepository->checkSlugExists($slug, $excludeId)) {
+            $slug = $originalSlug . '-' . $count++;
         }
 
         return $slug;

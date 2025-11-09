@@ -128,21 +128,21 @@ class PermissionService
     /**
      * 检查用户是否具有管理员权限.
      *
-     * @param \App\Model\User|object $user 用户对象
+     * @param array|int $user 用户信息数组或用户ID
      * @param string $role 角色名称（保留参数以兼容旧代码）
      * @return bool 是否具有管理员权限
      */
     public function hasRole($user, string $role): bool
     {
-        // 确保是User对象
-        if (! $user instanceof \App\Model\User) {
-            $this->logger->error('Expected User object', ['actual_type' => gettype($user)]);
+        // 获取用户信息
+        $userInfo = $this->getUserInfo($user);
+        if (! $userInfo) {
             return false;
         }
         
         // 如果请求的是管理员角色，检查is_admin字段
         if ($role === 'admin') {
-            return $user->is_admin ?? false;
+            return $userInfo['is_admin'] ?? false;
         }
         
         return false;
@@ -162,16 +162,43 @@ class PermissionService
     /**
      * 检查用户是否为编辑或更高权限.
      *
-     * @param \App\Model\User|object $user 用户对象
+     * @param array|int $user 用户信息数组或用户ID
      * @return bool 是否为编辑或管理员
      */
     public function isEditorOrAbove($user): bool
     {
-        // 确保是User对象
-        if (! $user instanceof \App\Model\User) {
-            $this->logger->error('Expected User object', ['actual_type' => gettype($user)]);
+        // 获取用户信息
+        $userInfo = $this->getUserInfo($user);
+        if (! $userInfo) {
             return false;
         }
-        return in_array($user->role, ['admin', 'editor']);
+        return in_array($userInfo['role'] ?? '', ['admin', 'editor']);
+    }
+    
+    /**
+     * 获取用户信息
+     *
+     * @param array|int $user 用户信息数组或用户ID
+     * @return array|null 用户信息数组
+     */
+    protected function getUserInfo($user): ?array
+    {
+        // 如果是数组，直接返回
+        if (is_array($user)) {
+            return $user;
+        }
+        
+        // 如果是整数，通过Repository获取
+        if (is_int($user)) {
+            $userInfo = $this->userRepository->find($user);
+            if ($userInfo) {
+                return $userInfo;
+            }
+            $this->logger->error('User not found', ['user_id' => $user]);
+        } else {
+            $this->logger->error('Invalid user parameter type', ['actual_type' => gettype($user)]);
+        }
+        
+        return null;
     }
 }

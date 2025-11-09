@@ -8,11 +8,24 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\CommentLike;
-use Hyperf\DbConnection\Db;
+use App\Repository\CommentLikeRepository;
+use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
 
 class CommentLikeService
 {
+    /**
+     * @Inject
+     * @var LoggerInterface
+     */
+    protected $logger;
+    
+    /**
+     * @Inject
+     * @var CommentLikeRepository
+     */
+    protected $commentLikeRepository;
+    
     /**
      * 点赞/取消点赞评论
      * @param int $commentId 评论ID
@@ -22,20 +35,18 @@ class CommentLikeService
     public function likeComment(int $commentId, int $userId): array
     {
         // 检查是否已点赞
-        $existingLike = CommentLike::where('comment_id', $commentId)
-            ->where('user_id', $userId)
-            ->first();
+        $existingLike = $this->commentLikeRepository->findByCommentAndUser($commentId, $userId);
 
-        // 使用事务处理
-        return Db::transaction(function () use ($commentId, $userId, $existingLike) {
+        // 使用Repository的事务方法处理
+        return $this->commentLikeRepository->transaction(function () use ($commentId, $userId, $existingLike) {
             if ($existingLike) {
                 // 已点赞，取消点赞
-                $existingLike->delete();
+                $this->commentLikeRepository->deleteById($existingLike['id']);
                 $liked = false;
                 $message = '取消点赞';
             } else {
                 // 未点赞，添加点赞
-                CommentLike::create([
+                $this->commentLikeRepository->create([
                     'comment_id' => $commentId,
                     'user_id' => $userId,
                 ]);
@@ -44,10 +55,10 @@ class CommentLikeService
             }
 
             // 获取更新后的点赞数
-            $likeCount = CommentLike::where('comment_id', $commentId)->count();
+            $likeCount = $this->commentLikeRepository->countByComment($commentId);
 
             // 记录操作日志
-            logger()->info('评论点赞操作', [
+            $this->logger->info('评论点赞操作', [
                 'comment_id' => $commentId,
                 'user_id' => $userId,
                 'action' => $liked ? 'like' : 'unlike',
@@ -61,6 +72,7 @@ class CommentLikeService
             ];
         });
     }
+}
 
     /**
      * 批量获取评论的点赞状态

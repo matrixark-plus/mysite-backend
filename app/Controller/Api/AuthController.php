@@ -11,6 +11,7 @@ namespace App\Controller\Api;
 use App\Controller\AbstractController;
 use App\Constants\ResponseMessage;
 use App\Constants\StatusCode;
+use App\Controller\Api\Validator\AuthValidator;
 use App\Model\User;
 use App\Service\UserService;
 use App\Traits\LogTrait;
@@ -20,6 +21,7 @@ use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Annotation\RequestMethod;
 use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Validation\ValidationException;
 use Qbhy\HyperfAuth\AuthManager;
 use Qbhy\HyperfAuth\Authenticatable;
 
@@ -53,6 +55,12 @@ class AuthController extends AbstractController
     protected $config;
 
     /**
+     * @Inject
+     * @var AuthValidator
+     */
+    protected $validator;
+
+    /**
      * 用户注册
      * @return ResponseInterface
      */
@@ -68,14 +76,21 @@ class AuthController extends AbstractController
             $password = (string) $this->request->input('password', '');
             $realName = (string) $this->request->input('real_name', '');
 
-            // 参数验证
-            if (empty($email) || empty($password)) {
-                return $this->fail(StatusCode::VALIDATION_ERROR, ResponseMessage::PARAM_REQUIRED);
+            // 使用验证器验证参数
+            try {
+                $this->validator->validateRegister([
+                    'username' => $username,
+                    'email' => $email,
+                    'password' => $password,
+                    'real_name' => $realName
+                ]);
+            } catch (ValidationException $e) {
+                return $this->validationError($e->validator->errors()->first());
             }
 
             // 检查邮箱是否已存在
             if ($this->userService->getUserByEmail($email)) {
-                return $this->fail(StatusCode::DATA_EXISTS, ResponseMessage::DATA_EXISTS);
+                return $this->error(ResponseMessage::DATA_EXISTS, []);
             }
 
             // 创建用户
@@ -87,10 +102,8 @@ class AuthController extends AbstractController
             ];
 
             $userData = $this->userService->createUser($userData);
-            // 由于UserService返回的是数组，我们需要转换回User对象
-            $user = User::find($userData['id']);
-            // 使用getId()方法代替getAuthIdentifier()，符合Authenticatable接口定义
-            $userId = $user->getId();
+            // 直接从数组中获取用户ID
+            $userId = $userData['id'] ?? 0;
 
             // 记录日志
             $this->logAction('用户注册成功', ['user_id' => $userId, 'email' => $email]);
@@ -118,21 +131,23 @@ class AuthController extends AbstractController
             // 获取用户IP地址
             $loginIp = $this->request->getServerParams()['REMOTE_ADDR'] ?? '';
 
-            // 参数验证
-            if (empty($email) || empty($password)) {
-                return $this->fail(StatusCode::VALIDATION_ERROR, ResponseMessage::PARAM_REQUIRED);
-            }
-
-            // 验证邮箱格式
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return $this->fail(StatusCode::VALIDATION_ERROR, '邮箱格式不正确');
+            // 使用验证器验证参数
+            try {
+                $this->validator->validateLogin([
+                    'email' => $email,
+                    'password' => $password
+                ]);
+            } catch (ValidationException $e) {
+                return $this->validationError($e->validator->errors()->first());
             }
 
             // 使用userService处理登录逻辑，传入IP信息
             $userData = $this->userService->login($email, $password, $loginIp);
             
-            // 将数组转换为User对象
-            $user = User::find($userData['id']);
+            // 由于auth组件需要User对象进行登录，这里仍需创建User对象
+            // 但仅用于认证组件，不进行其他数据库操作
+            $user = new User();
+            $user->fill($userData);
 
             // 使用auth组件登录并生成token
             $token = (string) $this->auth->login($user);
@@ -140,8 +155,8 @@ class AuthController extends AbstractController
             // 获取token过期时间
             $tokenTtl = (int) $this->config->get('auth.guards.jwt.ttl', 60 * 60 * 24);
             $expiresIn = time() + $tokenTtl;
-            // 使用getId()方法代替getAuthIdentifier()，符合Authenticatable接口定义
-            $userId = $user->getId();
+            // 直接从数组中获取用户ID
+            $userId = $userData['id'] ?? 0;
 
             // 记录登录日志
             $this->logAction('用户登录成功', ['user_id' => $userId, 'email' => $email, 'ip' => $loginIp]);
@@ -178,7 +193,7 @@ class AuthController extends AbstractController
             // 获取当前用户
             $user = $this->auth->user();
             if (! $user instanceof Authenticatable) {
-                return $this->fail(StatusCode::UNAUTHORIZED, ResponseMessage::LOGIN_REQUIRED);
+                return $this->unauthorized(ResponseMessage::LOGIN_REQUIRED);
             }
 
             // 刷新token
@@ -247,59 +262,47 @@ class AuthController extends AbstractController
             // 获取当前用户
             $user = $this->auth->user();
             if (! $user instanceof Authenticatable) {
-                return $this->fail(StatusCode::UNAUTHORIZED, ResponseMessage::LOGIN_REQUIRED);
+                return $this->unauthorized(ResponseMessage::LOGIN_REQUIRED);
             }
 
-            // 确保是User实例
-            if (! $user instanceof User) {
-                $user = $this->getUserInfo($user);
-                if (! $user instanceof User) {
-                    return $this->fail(StatusCode::NOT_FOUND, ResponseMessage::RESOURCE_NOT_FOUND);
-                }
+            // 对于已认证用户，直接从认证组件获取ID
+            $userId = $user->getId();
+            
+            // 通过UserService获取完整用户信息
+            $userData = $this->userService->getUserById($userId);
+            if (! $userData) {
+                return $this->notFound(ResponseMessage::RESOURCE_NOT_FOUND);
             }
 
             // 记录日志
-            // 使用getId()方法代替getAuthIdentifier()，符合Authenticatable接口定义
-            $this->logAction('获取用户信息成功', ['user_id' => $user->getId()]);
+            $this->logAction('获取用户信息成功', ['user_id' => $userId]);
 
             return $this->success(
-                ['user' => $this->formatUserInfo($user)],
+                ['user' => $this->formatUserInfo($userData)],
                 ResponseMessage::QUERY_SUCCESS
             );
         } catch (\Throwable $exception) {
             $this->logError('获取用户信息失败', ['error' => $exception->getMessage()], $exception);
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取用户信息失败');
+            return $this->error('获取用户信息失败');
         }
     }
 
     /**
      * 格式化用户信息
-     * @param User $user 用户对象
+     * @param array $userData 用户数据数组
      * @return array 格式化后的用户信息数组
      */
-    protected function formatUserInfo(User $user): array
+    protected function formatUserInfo(array $userData): array
     {
         return [
-            'id' => $user->getId(),
-            'email' => $user->email,
-            'real_name' => $user->real_name,
-            'avatar' => $user->avatar,
-            'bio' => $user->bio,
-            'is_admin' => $user->is_admin,
-            'is_active' => $user->is_active,
-            'created_at' => $user->created_at,
+            'id' => $userData['id'] ?? null,
+            'email' => $userData['email'] ?? null,
+            'real_name' => $userData['real_name'] ?? null,
+            'avatar' => $userData['avatar'] ?? null,
+            'bio' => $userData['bio'] ?? null,
+            'is_admin' => $userData['is_admin'] ?? null,
+            'is_active' => $userData['is_active'] ?? null,
+            'created_at' => $userData['created_at'] ?? null,
         ];
-    }
-
-    /**
-     * 根据认证对象获取完整的用户信息
-     * @param Authenticatable $authUser 认证用户对象
-     * @return User|null 用户对象或null
-     */
-    protected function getUserInfo(Authenticatable $authUser): ?User
-    {
-        // 使用接口中实际定义的getId()方法，而不是getAuthIdentifier()
-        $userId = $authUser->getId();
-        return User::find($userId);
     }
 }

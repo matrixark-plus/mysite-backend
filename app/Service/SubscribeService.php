@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Model\Subscribe;
 use App\Repository\SubscribeRepository;
 use Carbon\Carbon;
 use Exception;
@@ -74,7 +73,7 @@ class SubscribeService
             // 检查是否已订阅
             $existing = $this->subscribeRepository->findByEmail($email);
             if ($existing) {
-                if ($existing->status == Subscribe::STATUS_CONFIRMED) {
+                if ($existing['status'] == 1) { // 已确认状态
                     return [
                         'success' => false,
                         'message' => '您已订阅过博客更新',
@@ -90,9 +89,9 @@ class SubscribeService
             // 创建订阅记录
             $subscribeData = [
                 'email' => $email,
-                'type' => Subscribe::TYPE_BLOG,
+                'type' => 'blog', // 博客订阅类型
                 'token' => $token,
-                'status' => Subscribe::STATUS_PENDING,
+                'status' => 0, // 待确认状态
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ];
@@ -118,7 +117,7 @@ class SubscribeService
             }
             
             // 发送失败，删除记录
-            $this->subscribeRepository->delete($subscribe->id);
+            $this->subscribeRepository->delete($subscribe['id']);
             return [
                 'success' => false,
                 'message' => '邮件发送失败，请稍后重试',

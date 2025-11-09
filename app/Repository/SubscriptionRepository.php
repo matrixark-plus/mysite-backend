@@ -12,9 +12,8 @@ declare(strict_types=1);
 
 namespace App\Repository;
 
-use App\Model\Subscription;
 use Exception;
-use Hyperf\Database\Model\Collection;
+use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
@@ -34,12 +33,13 @@ class SubscriptionRepository
      * 根据ID查找订阅记录.
      *
      * @param int $id 订阅记录ID
-     * @return null|Subscription 订阅模型对象或null
+     * @return array|null 订阅数据数组或null
      */
-    public function findById(int $id): ?Subscription
+    public function findById(int $id): ?array
     {
         try {
-            return Subscription::find($id);
+            $result = Db::table('subscriptions')->find($id);
+            return is_object($result) ? (array)$result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找订阅记录失败: ' . $e->getMessage(), ['subscription_id' => $id]);
             return null;
@@ -50,12 +50,13 @@ class SubscriptionRepository
      * 根据邮箱查找订阅记录.
      *
      * @param string $email 邮箱地址
-     * @return null|Subscription 订阅模型对象或null
+     * @return array|null 订阅数据数组或null
      */
-    public function findByEmail(string $email): ?Subscription
+    public function findByEmail(string $email): ?array
     {
         try {
-            return Subscription::where('email', $email)->first();
+            $result = Db::table('subscriptions')->where('email', $email)->first();
+            return is_object($result) ? (array)$result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据邮箱查找订阅记录失败: ' . $e->getMessage(), ['email' => $email]);
             return null;
@@ -67,13 +68,28 @@ class SubscriptionRepository
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
-     * @return null|Subscription 订阅模型对象或null
+     * @return array|null 订阅数据数组或null
      */
-    public function findBy(array $conditions, array $columns = ['*']): ?Subscription
+    public function findBy(array $conditions, array $columns = ['*']): ?array
     {
         try {
-            $result = Subscription::where($conditions)->first($columns);
-            return $result instanceof Subscription ? $result : null;
+            $query = Db::table('subscriptions');
+            
+            foreach ($conditions as $key => $value) {
+                // 处理复杂条件如OR
+                if ($key === 'OR' && is_array($value)) {
+                    $query = $query->where(function ($q) use ($value) {
+                        foreach ($value as $orCondition) {
+                            $q->orWhere(...$orCondition);
+                        }
+                    });
+                } else {
+                    $query = $query->where($key, $value);
+                }
+            }
+            
+            $result = $query->select($columns)->first();
+            return is_object($result) ? (array)$result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据条件查询订阅记录失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
@@ -86,26 +102,36 @@ class SubscriptionRepository
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
      * @param array<string, string> $order 排序条件
-     * @return Collection<int, Subscription> 订阅模型集合
+     * @return array 订阅数据数组
      */
-    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): Collection
+    public function findAllBy(array $conditions = [], array $columns = ['*'], array $order = ['created_at' => 'desc']): array
     {
         try {
-            $query = Subscription::query();
+            $query = Db::table('subscriptions');
 
             if (! empty($conditions)) {
-                $query = $query->where($conditions);
+                foreach ($conditions as $key => $value) {
+                    // 处理复杂条件如OR
+                    if ($key === 'OR' && is_array($value)) {
+                        $query = $query->where(function ($q) use ($value) {
+                            foreach ($value as $orCondition) {
+                                $q->orWhere(...$orCondition);
+                            }
+                        });
+                    } else {
+                        $query = $query->where($key, $value);
+                    }
+                }
             }
 
             foreach ($order as $field => $direction) {
                 $query = $query->orderBy($field, $direction);
             }
 
-            $result = $query->select($columns)->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $query->select($columns)->get()->toArray();
         } catch (Exception $e) {
             $this->logger->error('获取订阅记录列表失败: ' . $e->getMessage(), ['conditions' => $conditions]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -113,12 +139,13 @@ class SubscriptionRepository
      * 创建订阅记录.
      *
      * @param array<string, mixed> $data 订阅数据
-     * @return null|Subscription 创建的订阅模型对象或null
+     * @return array|null 创建的订阅数据数组或null
      */
-    public function create(array $data): ?Subscription
+    public function create(array $data): ?array
     {
         try {
-            return Subscription::create($data);
+            $id = Db::table('subscriptions')->insertGetId($data);
+            return $this->findById($id);
         } catch (Exception $e) {
             $this->logger->error('创建订阅记录失败: ' . $e->getMessage(), ['data' => $data]);
             return null;
@@ -135,8 +162,10 @@ class SubscriptionRepository
     public function update(int $id, array $data): bool
     {
         try {
-            $result = Subscription::where('id', $id)->update($data);
-            return $result > 0;
+            return Db::transaction(function () use ($id, $data) {
+                $result = Db::table('subscriptions')->where('id', $id)->update($data);
+                return $result > 0;
+            });
         } catch (Exception $e) {
             $this->logger->error('更新订阅记录失败: ' . $e->getMessage(), ['subscription_id' => $id, 'data' => $data]);
             return false;
@@ -152,8 +181,10 @@ class SubscriptionRepository
     public function delete(int $id): bool
     {
         try {
-            $result = Subscription::destroy($id);
-            return $result > 0;
+            return Db::transaction(function () use ($id) {
+                $result = Db::table('subscriptions')->where('id', $id)->delete();
+                return $result > 0;
+            });
         } catch (Exception $e) {
             $this->logger->error('删除订阅记录失败: ' . $e->getMessage(), ['subscription_id' => $id]);
             return false;

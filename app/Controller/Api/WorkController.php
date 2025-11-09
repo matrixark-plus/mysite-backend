@@ -1,23 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller\Api;
 
+use App\Controller\AbstractController;
+use App\Controller\Api\Validator\WorkValidator;
 use App\Service\WorkService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Utils\Context;
 use App\Middleware\JwtAuthMiddleware;
 use Hyperf\HttpServer\Annotation\Middleware;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 作品控制器
  * @Controller(prefix="/api/works")
  */
-class WorkController
+class WorkController extends AbstractController
 {
     /**
      * @Inject
@@ -27,9 +31,9 @@ class WorkController
 
     /**
      * @Inject
-     * @var ValidatorFactoryInterface
+     * @var WorkValidator
      */
-    protected $validatorFactory;
+    protected $validator;
 
     /**
      * 获取作品列表
@@ -42,19 +46,10 @@ class WorkController
             $userId = Context::has('user_id') ? Context::get('user_id') : null;
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'page' => 'sometimes|integer|min:1',
-                'per_page' => 'sometimes|integer|min:1|max:100',
-                'category_id' => 'sometimes|integer|min:1',
-                'keyword' => 'sometimes|string|max:255',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateWorkList($params);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
 
             // 设置默认值
@@ -174,23 +169,10 @@ class WorkController
             $userId = Context::get('user_id');
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'title' => 'sometimes|string|max:255',
-                'description' => 'sometimes|string',
-                'category_id' => 'sometimes|integer|min:1',
-                'cover_image' => 'sometimes|string|max:500',
-                'images' => 'sometimes|array',
-                'demo_url' => 'sometimes|url|max:500',
-                'source_url' => 'sometimes|url|max:500',
-                'is_public' => 'sometimes|boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateUpdateWork($params);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
             
             // 处理图片数组
@@ -295,18 +277,10 @@ class WorkController
             $userId = Context::get('user_id');
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'name' => 'required|string|max:100|unique:work_categories,name',
-                'description' => 'sometimes|string|max:500',
-                'sort_order' => 'sometimes|integer|min:0',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateCreateCategory($params);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
             
             $category = $this->workService->createCategory($params);
@@ -336,18 +310,10 @@ class WorkController
             $params = $request->all();
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'name' => 'sometimes|string|max:100|unique:work_categories,name,' . $id,
-                'description' => 'sometimes|string|max:500',
-                'sort_order' => 'sometimes|integer|min:0',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateUpdateCategory($params, (int)$id);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
             
             $category = $this->workService->updateCategory($id, $params);

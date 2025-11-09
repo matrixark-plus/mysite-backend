@@ -17,6 +17,7 @@ use Carbon\Carbon;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
+use Carbon\Carbon;
 
 /**
  * 用户分析服务层
@@ -57,7 +58,7 @@ class UserAnalyticsService
             }
 
             // 添加时间戳
-            $eventData['created_at'] = Carbon::now()-u003etoDateTimeString();
+            $eventData['created_at'] = Carbon::now()->toDateTimeString();
 
             // 记录事件
             $result = $this->userAnalyticsRepository->create($eventData);
@@ -66,7 +67,7 @@ class UserAnalyticsService
                     'success' => true,
                     'message' => '事件记录成功',
                     'data' => [
-                        'id' => $result->id,
+                        'id' => $result['id'] ?? null,
                     ],
                 ];
             }
