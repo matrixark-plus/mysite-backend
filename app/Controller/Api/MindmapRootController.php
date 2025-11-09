@@ -204,7 +204,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->updateMindmap($id, $userId, $data);
             
             if ($result['success']) {
-                return $this->success($result['data'], '更新成功');
+                return $this->success('更新成功', $result['data']);
             } else {
                 if ($result['message'] === '思维导图不存在') {
                     return $this->notFound($result['message']);

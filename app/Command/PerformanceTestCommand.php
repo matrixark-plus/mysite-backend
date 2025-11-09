@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use Hyperf\Utils\Coroutine\WaitGroup;
+use Hyperf\Utils\Coroutine;
 
 use App\Service\EventDemoService;
 use App\Service\RedisLockService;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
-use Hyperf\Utils\Context;
+use Hyperf\Context\Context;
 
 use App\Constants\StatusCode;
 use App\Controller\AbstractController;
