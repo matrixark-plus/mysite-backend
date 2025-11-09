@@ -71,7 +71,7 @@ class NodeLinkController extends AbstractController
             $result = $this->nodeLinkService->createNodeLink($userId, $data);
             
             if ($result['success']) {
-                return $this->success('创建成功', $result['data']);
+                return $this->success($result['data'], '创建成功');
             } else {
                 if ($result['message'] === '无权限操作此思维导图') {
                     return $this->error($result['message']);
@@ -122,7 +122,7 @@ class NodeLinkController extends AbstractController
             $result = $this->nodeLinkService->batchCreateNodeLinks($userId, $links);
             
             if ($result['success']) {
-                return $this->success('批量创建成功', $result['data']);
+                return $this->success($result['data'], '批量创建成功');
             } else {
                 if ($result['message'] === '无权限操作此思维导图') {
                     return $this->error($result['message']);
@@ -158,7 +158,7 @@ class NodeLinkController extends AbstractController
             $result = $this->nodeLinkService->getMindmapLinks($userId, $mindmapId);
             
             if ($result['success']) {
-                return $this->success('获取成功', $result['data']);
+                return $this->success($result['data'], '获取成功');
             } else {
                 if ($result['message'] === '无权限查看此思维导图') {
                     return $this->error($result['message']);
@@ -196,7 +196,7 @@ class NodeLinkController extends AbstractController
             $result = $this->nodeLinkService->deleteNodeLink($userId, $linkId);
             
             if ($result['success']) {
-                return $this->success('删除成功');
+                return $this->success([], '删除成功');
             } else {
                 if ($result['message'] === '链接不存在') {
                     return $this->notFound($result['message']);

@@ -65,7 +65,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->createMindmap($data);
             
             if ($result['success']) {
-                return $this->success('创建成功', $result['data']);
+                return $this->success($result['data'], '创建成功');
             } else {
                 return $this->fail(400, $result['message'], []);
             }
@@ -100,7 +100,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->getUserMindmaps($userId, $pagination['page'], $pagination['limit']);
             
             if ($result['success']) {
-                return $this->success('获取成功', $result['data']);
+                return $this->success($result['data'], '获取成功');
             } else {
                 return $this->fail(400, $result['message'], []);
             }
@@ -129,7 +129,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->getPublicMindmaps($pagination['page'], $pagination['limit']);
             
             if ($result['success']) {
-                return $this->success('获取成功', $result['data']);
+                return $this->success($result['data'], '获取成功');
             } else {
                 return $this->fail(400, $result['message'], []);
             }
@@ -159,7 +159,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->getMindmapDetail($id, $userId);
             
             if ($result['success']) {
-                return $this->success('获取成功', $result['data']);
+                return $this->success($result['data'], '获取成功');
             } else {
                 if ($result['message'] === '思维导图不存在') {
                     return $this->notFound($result['message']);
@@ -204,7 +204,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->updateMindmap($id, $userId, $data);
             
             if ($result['success']) {
-                return $this->success('更新成功', $result['data']);
+                return $this->success($result['data'], '更新成功');
             } else {
                 if ($result['message'] === '思维导图不存在') {
                     return $this->notFound($result['message']);
@@ -242,7 +242,7 @@ class MindmapRootController extends AbstractController
             
             // 这里应该调用删除思维导图的方法（需要级联删除节点和链接）
             // 暂时返回成功
-            return $this->success('删除成功');
+            return $this->success([], '删除成功');
         } catch (ValidationException $e) {
             return $this->error($e->getMessage(), [], 422);
         } catch (\Exception $e) {
@@ -272,7 +272,7 @@ class MindmapRootController extends AbstractController
             $result = $this->mindmapRootService->togglePublicStatus($id, $userId);
             
             if ($result['success']) {
-                return $this->success($result['message'], $result['data']);
+                return $this->success($result['data'], $result['message']);
             } else {
                 if ($result['message'] === '思维导图不存在') {
                     return $this->notFound($result['message']);

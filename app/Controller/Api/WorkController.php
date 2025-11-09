@@ -115,7 +115,7 @@ class WorkController extends AbstractController
             
             $work = $this->workService->createWork($userId, $params);
             
-            return $this->success('创建成功', $work, StatusCode::CREATED);
+            return $this->success($work, '创建成功', StatusCode::CREATED);
         } catch (\Exception $e) {
             $this->logError('创建作品失败', ['error' => $e->getMessage()], $e, 'work');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '创建作品失败');
@@ -153,7 +153,7 @@ class WorkController extends AbstractController
             
             $work = $this->workService->updateWork($id, $userId, $params);
             
-            return $this->success('更新成功', $work);
+            return $this->success($work, '更新成功');
         } catch (\Exception $e) {
             $this->logError('更新作品失败', ['error' => $e->getMessage()], $e, 'work');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '更新作品失败');
@@ -178,7 +178,7 @@ class WorkController extends AbstractController
             
             $this->workService->deleteWork($id, $userId);
             
-            return $this->success('删除成功', []);
+            return $this->success([], '删除成功');
         } catch (\Exception $e) {
             $this->logError('删除作品失败', ['error' => $e->getMessage()], $e, 'work');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '删除作品失败');
