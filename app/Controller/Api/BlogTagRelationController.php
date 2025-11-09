@@ -23,8 +23,8 @@ use Hyperf\Validation\ValidationException;
 /**
  * 博客标签关系控制器
  * 处理博客与标签之间的关联相关的HTTP请求.
+ * @Controller(prefix="/api/blogs")
  */
-#[Controller(prefix: '/api/blogs')]
 class BlogTagRelationController extends AbstractController
 {
     /**
@@ -146,8 +146,8 @@ class BlogTagRelationController extends AbstractController
      *
      * @param int $blogId 博客ID
      * @return ResponseInterface
+     * @RequestMapping(path="/{blogId}/tags", methods={"GET"})
      */
-    #[RequestMapping(path: '/{blogId}/tags', methods: ['GET'])]
     public function getBlogTags(int $blogId)
     {
         try {
@@ -170,8 +170,8 @@ class BlogTagRelationController extends AbstractController
      *
      * @param int $tagId 标签ID
      * @return ResponseInterface
+     * @RequestMapping(path="/tags/{tagId}/blogs", methods={"GET"})
      */
-    #[RequestMapping(path: '/tags/{tagId}/blogs', methods: ['GET'])]
     public function getTagBlogs(int $tagId)
     {
         try {

@@ -17,8 +17,8 @@ use Hyperf\Validation\ValidationException;
 /**
  * 节点链接控制器
  * 处理节点链接相关的API请求
+ * @Controller()
  */
-/** @Controller */
 class NodeLinksController extends AbstractController
 {
     /**
@@ -38,8 +38,8 @@ class NodeLinksController extends AbstractController
      * @param RequestInterface $request
      * @param ResponseInterface $response
      * @return \Psr\Http\Message\ResponseInterface
+     * @RequestMapping(path="/api/node-links", methods={"POST"})
      */
-    /** @RequestMapping(path="/api/node-links", methods={"POST"}) */
     public function create(RequestInterface $request, ResponseInterface $response)
     {
         try {
@@ -68,8 +68,8 @@ class NodeLinksController extends AbstractController
      * @param RequestInterface $request
      * @param ResponseInterface $response
      * @return \Psr\Http\Message\ResponseInterface
+     * @RequestMapping(path="/api/node-links/batch", methods={"POST"})
      */
-    /** @RequestMapping(path="/api/node-links/batch", methods={"POST"}) */
     public function batchCreate(RequestInterface $request, ResponseInterface $response)
     {
         try {
@@ -100,8 +100,8 @@ class NodeLinksController extends AbstractController
      * @param RequestInterface $request
      * @param ResponseInterface $response
      * @return \Psr\Http\Message\ResponseInterface
+     * @RequestMapping(path="/api/node-links/{id}", methods={"PUT"})
      */
-    /** @RequestMapping(path="/api/node-links/{id}", methods={"PUT"}) */
     public function update(RequestInterface $request, ResponseInterface $response, int $id)
     {
         try {
@@ -134,8 +134,8 @@ class NodeLinksController extends AbstractController
      * @param RequestInterface $request
      * @param ResponseInterface $response
      * @return \Psr\Http\Message\ResponseInterface
+     * @RequestMapping(path="/api/node-links/{id}", methods={"DELETE"})
      */
-    /** @RequestMapping(path="/api/node-links/{id}", methods={"DELETE"}) */
     public function delete(RequestInterface $request, ResponseInterface $response, int $id)
     {
         try {
@@ -166,8 +166,8 @@ class NodeLinksController extends AbstractController
      * @param RequestInterface $request
      * @param ResponseInterface $response
      * @return \Psr\Http\Message\ResponseInterface
+     * @RequestMapping(path="/api/mindmaps/{rootId}/node-links", methods={"GET"})
      */
-    /** @RequestMapping(path="/api/mindmaps/{rootId}/node-links", methods={"GET"}) */
     public function getLinksByRootId(RequestInterface $request, ResponseInterface $response, int $rootId)
     {
         try {

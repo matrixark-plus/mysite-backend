@@ -25,8 +25,8 @@ use Hyperf\Validation\ValidationException;
 /**
  * 节点链接控制器
  * 处理思维导图节点链接相关的HTTP请求.
+ * @Controller(prefix="/api/mindmaps/{mindmapId}/links")
  */
-#[Controller(prefix: '/api/mindmaps/{mindmapId}/links')]
 class NodeLinkController extends AbstractController
 {
     /**
@@ -47,8 +47,8 @@ class NodeLinkController extends AbstractController
      * @param int $mindmapId 思维导图ID
      * @param RequestInterface $request
      * @return ResponseInterface
+     * @RequestMapping(path="/", methods={"POST"})
      */
-    #[RequestMapping(path: '/', methods: ['POST'])]
     public function create(int $mindmapId, RequestInterface $request)
     {
         try {
@@ -94,8 +94,8 @@ class NodeLinkController extends AbstractController
      * @param int $mindmapId 思维导图ID
      * @param RequestInterface $request
      * @return ResponseInterface
+     * @RequestMapping(path="/batch", methods={"POST"})
      */
-    #[RequestMapping(path: '/batch', methods: ['POST'])]
     public function batchCreate(int $mindmapId, RequestInterface $request)
     {
         try {
@@ -141,8 +141,8 @@ class NodeLinkController extends AbstractController
      *
      * @param int $mindmapId 思维导图ID
      * @return ResponseInterface
+     * @RequestMapping(path="/", methods={"GET"})
      */
-    #[RequestMapping(path: '/', methods: ['GET'])]
     public function list(int $mindmapId)
     {
         try {
@@ -178,8 +178,8 @@ class NodeLinkController extends AbstractController
      * @param int $mindmapId 思维导图ID
      * @param int $linkId 链接ID
      * @return ResponseInterface
+     * @RequestMapping(path="/{linkId}", methods={"DELETE"})
      */
-    #[RequestMapping(path: '/{linkId}', methods: ['DELETE'])]
     public function delete(int $mindmapId, int $linkId)
     {
         try {

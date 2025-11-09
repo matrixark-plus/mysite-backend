@@ -18,13 +18,14 @@ use App\Traits\LogTrait;
 use Hyperf\Config\Config;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
-use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
+use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMethod;
 use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Validation\ValidationException;
 use Qbhy\HyperfAuth\AuthManager;
 use Qbhy\HyperfAuth\Authenticatable;
+use Hyperf\Cache\Cache;
 
 /**
  * 认证控制器
@@ -48,6 +49,12 @@ class AuthController extends AbstractController
      * @var UserService
      */
     protected $userService;
+
+    /**
+     * @Inject
+     * @var Cache
+     */
+    protected $cache;
 
     /**
      * @Inject
@@ -131,6 +138,24 @@ class AuthController extends AbstractController
             $password = (string) $this->request->input('password', '');
             // 获取用户IP地址
             $loginIp = $this->request->getServerParams()['REMOTE_ADDR'] ?? '';
+            
+            // 1. IP频率限制：每IP每分钟最多5次登录尝试
+            $ipLoginKey = 'login:ip_limit:' . $loginIp;
+            $ipAttempts = (int)$this->cache->get($ipLoginKey, 0);
+            
+            if ($ipAttempts >= 5) {
+                $this->logWarning('IP登录频率限制触发', ['ip' => $loginIp]);
+                return $this->error('登录尝试过于频繁，请稍后再试', [], 429);
+            }
+            
+            // 2. 账号登录失败次数限制
+            $accountLockKey = 'login:account_lock:' . $email;
+            $accountAttempts = (int)$this->cache->get($accountLockKey, 0);
+            
+            if ($accountAttempts >= 3) {
+                $this->logWarning('账号登录失败次数过多', ['email' => $email]);
+                return $this->error('账号暂时被锁定，请30分钟后再试', [], 403);
+            }
 
             // 使用验证器验证参数
             try {
@@ -139,44 +164,70 @@ class AuthController extends AbstractController
                     'password' => $password
                 ]);
             } catch (ValidationException $e) {
+                // 验证失败也要计数
+                $this->cache->incr($ipLoginKey);
+                $this->cache->expire($ipLoginKey, 60);
+                
+                $this->cache->incr($accountLockKey);
+                $this->cache->expire($accountLockKey, 1800); // 30分钟锁定
+                
                 return $this->validationError($e->validator->errors()->first());
             }
 
-            // 使用userService处理登录逻辑，传入IP信息
-            $userData = $this->userService->login($email, $password, $loginIp);
-            
-            // 由于auth组件需要User对象进行登录，这里仍需创建User对象
-            // 但仅用于认证组件，不进行其他数据库操作
-            $user = new User();
-            $user->fill($userData);
+            try {
+                // 使用userService处理登录逻辑，传入IP信息
+                $userData = $this->userService->login($email, $password, $loginIp);
+                
+                // 登录成功，重置账号失败次数
+                $this->cache->delete($accountLockKey);
+                
+                // 记录IP登录计数，1分钟过期
+                $this->cache->incr($ipLoginKey);
+                $this->cache->expire($ipLoginKey, 60);
+                
+                // 由于auth组件需要User对象进行登录，这里仍需创建User对象
+                // 但仅用于认证组件，不进行其他数据库操作
+                $user = new User();
+                $user->fill($userData);
 
-            // 使用auth组件登录并生成token
-            $token = (string) $this->auth->login($user);
-            
-            // 获取token过期时间
-            $tokenTtl = (int) $this->config->get('auth.guards.jwt.ttl', 60 * 60 * 24);
-            $expiresIn = time() + $tokenTtl;
-            // 直接从数组中获取用户ID
-            $userId = $userData['id'] ?? 0;
+                // 使用auth组件登录并生成token
+                $token = (string) $this->auth->login($user);
+                
+                // 获取token过期时间
+                $tokenTtl = (int) $this->config->get('auth.guards.jwt.ttl', 60 * 60 * 24);
+                $expiresIn = time() + $tokenTtl;
+                // 直接从数组中获取用户ID
+                $userId = $userData['id'] ?? 0;
 
-            // 记录登录日志
-            $this->logAction('用户登录成功', ['user_id' => $userId, 'email' => $email, 'ip' => $loginIp]);
+                // 记录登录日志
+                $this->logAction('用户登录成功', ['user_id' => $userId, 'email' => $email, 'ip' => $loginIp]);
 
-            // 返回登录成功响应
-            return $this->success([
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-                'expires_in' => $expiresIn,
-                'user' => $this->formatUserInfo($user)
-            ], ResponseMessage::LOGIN_SUCCESS);
+                // 返回登录成功响应
+                return $this->success([
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
+                    'expires_in' => $expiresIn,
+                    'user' => $this->formatUserInfo($user)
+                ], ResponseMessage::LOGIN_SUCCESS);
+            } catch (\Throwable $exception) {
+                // 登录失败，增加失败计数
+                $this->cache->incr($ipLoginKey);
+                $this->cache->expire($ipLoginKey, 60);
+                
+                $this->cache->incr($accountLockKey);
+                $this->cache->expire($accountLockKey, 1800); // 30分钟锁定
+                
+                // 处理账号锁定异常
+                if (strpos($exception->getMessage(), '账号已被锁定') !== false) {
+                      $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
+                      return $this->forbidden($exception->getMessage());
+                  }
+                  $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
+                  return $this->error('登录失败');
+            }
         } catch (\Throwable $exception) {
-            // 处理账号锁定异常
-            if (strpos($exception->getMessage(), '账号已被锁定') !== false) {
-                  $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
-                  return $this->forbidden($exception->getMessage());
-              }
-              $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
-              return $this->error('登录失败');
+            $this->logError('用户登录异常', ['error' => $exception->getMessage()], $exception);
+            return $this->error('登录失败');
         }
     }
 

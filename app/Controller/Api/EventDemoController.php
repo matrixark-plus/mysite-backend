@@ -22,8 +22,8 @@ use Hyperf\HttpServer\Contract\ResponseInterface;
 /**
  * 事件驱动架构演示控制器
  * 展示如何通过API接口使用事件系统和异步任务
+ * @Controller(prefix="/api/event-demo")
  */
-#[Controller(prefix: '/api/event-demo')]
 class EventDemoController
 {
     /**
@@ -34,8 +34,8 @@ class EventDemoController
 
     /**
      * 创建实体演示
+     * @RequestMapping(path="create-entity", methods={"POST"})
      */
-    #[RequestMapping(path: 'create-entity', methods: ['POST'])]
     public function createEntity(RequestInterface $request, ResponseInterface $response)
     {
         $entityType = $request->input('entity_type');
@@ -59,8 +59,8 @@ class EventDemoController
 
     /**
      * 更新实体演示
+     * @RequestMapping(path="update-entity", methods={"PUT"})
      */
-    #[RequestMapping(path: 'update-entity', methods: ['PUT'])]
     public function updateEntity(RequestInterface $request, ResponseInterface $response)
     {
         $entityType = $request->input('entity_type');
@@ -85,8 +85,8 @@ class EventDemoController
 
     /**
      * 删除实体演示
+     * @RequestMapping(path="delete-entity", methods={"DELETE"})
      */
-    #[RequestMapping(path: 'delete-entity', methods: ['DELETE'])]
     public function deleteEntity(RequestInterface $request, ResponseInterface $response)
     {
         $entityType = $request->input('entity_type');
@@ -110,8 +110,8 @@ class EventDemoController
 
     /**
      * 创建评论演示
+     * @RequestMapping(path="create-comment", methods={"POST"})
      */
-    #[RequestMapping(path: 'create-comment', methods: ['POST'])]
     public function createComment(RequestInterface $request, ResponseInterface $response)
     {
         $commentData = $request->input('comment_data', []);
@@ -134,8 +134,8 @@ class EventDemoController
 
     /**
      * 批量处理演示
+     * @RequestMapping(path="batch-process", methods={"POST"})
      */
-    #[RequestMapping(path: 'batch-process', methods: ['POST'])]
     public function batchProcess(RequestInterface $request, ResponseInterface $response)
     {
         $items = $request->input('items', []);

@@ -15,6 +15,7 @@
         "php": ">=8.0",
         "96qbhy/hyperf-auth": "^3.1",
         "96qbhy/simple-jwt": "^v1.4.0",
+        "hyperf/async-queue": "^3.0",
         "hyperf/cache": "^3.0",
         "hyperf/command": "^3.0",
         "hyperf/config": "~3.0.0",

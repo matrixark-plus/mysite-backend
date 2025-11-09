@@ -100,7 +100,7 @@ class SubscriptionController extends AbstractController
      * @param ResponseInterface $response
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/unsubscribe/{token}', methods: ['GET'])]
+    /** @RequestMapping(path="/unsubscribe/{token}", methods={"GET"}) */
     public function unsubscribe(string $token, ResponseInterface $response)
     {
         try {
@@ -132,7 +132,7 @@ class SubscriptionController extends AbstractController
      * @param RequestInterface $request
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/', methods: ['GET'])]
+    /** @RequestMapping(path="/", methods={"GET"}) */
     public function list(RequestInterface $request)
     {
         try {
@@ -181,7 +181,7 @@ class SubscriptionController extends AbstractController
      * @param int $id 订阅ID
      * @return ResponseInterface
      */
-    #[RequestMapping(path: '/{id}/resend', methods: ['POST'])]
+    /** @RequestMapping(path="/{id}/resend", methods={"POST"}) */
     public function resend(int $id)
     {
         try {

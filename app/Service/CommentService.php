@@ -14,7 +14,6 @@ namespace App\Service;
 
 use App\Constants\ResponseMessage;
 use App\Event\NewCommentEvent;
-use App\Model\Comment;
 use Exception;
 use Hyperf\Context\ApplicationContext;
 use App\Repository\CommentRepository;
@@ -24,6 +23,7 @@ use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
 use Hyperf\Event\Contract\EventDispatcherInterface;
+use Hyperf\Cache\Cache;
 
 /**
  * 评论服务
@@ -60,6 +60,12 @@ class CommentService
      * @var BlogRepository
      */
     protected $blogRepository;
+    
+    /**
+     * @Inject
+     * @var Cache
+     */
+    protected $cache;
     /**
      * 获取评论列表.
      *
@@ -72,45 +78,35 @@ class CommentService
         $this->logger->info('获取评论列表', ['params' => $params]);
         
         try {
-            // 使用模型查询构建器，关联用户信息并只查询已发布的评论
-            $query = Comment::with('user:id,username,avatar')
-                ->approved();
-
-            // 根据内容类型过滤
-            if (isset($params['content_type'])) {
-                $query->ofType($params['content_type']);
+            // 构建缓存键 - 只有匿名用户的查询才缓存
+            $cacheKey = null;
+            if (!$userId) {
+                $cacheKey = 'comments:list:' . md5(json_encode([
+                    'content_type' => $params['content_type'] ?? '',
+                    'content_id' => $params['content_id'] ?? '',
+                    'page' => $params['page'] ?? 1,
+                    'page_size' => $params['page_size'] ?? 10
+                ]));
+                
+                // 尝试从缓存获取
+                $cachedResult = $this->cache->get($cacheKey);
+                if ($cachedResult) {
+                    return $cachedResult;
+                }
             }
-
-            // 根据内容ID过滤
-            if (isset($params['content_id'])) {
-                $query->where('post_id', '=', $params['content_id']);
-            }
-
-            // 排序
-            $query->orderBy('created_at', 'desc');
-
-            // 分页
-            $page = $params['page'] ?? 1;
-            $pageSize = $params['page_size'] ?? 10;
-            $offset = ($page - 1) * $pageSize;
-
-            $total = $query->count();
-            $comments = $query->offset($offset)->limit($pageSize)->get();
             
-            // 转换为数组
-            $commentData = $comments->toArray();
+            // 使用Repository获取评论列表，统一数据访问层
+            $result = $this->commentRepository->findWithPagination($params);
             
             // 添加点赞信息
-            $this->enrichCommentsWithLikeData($commentData, $userId);
-
-            $result = [
-                'data' => $commentData,
-                'total' => $total,
-                'page' => $page,
-                'page_size' => $pageSize,
-            ];
+            $this->enrichCommentsWithLikeData($result['data'], $userId);
             
-            $this->logger->info('获取评论列表成功', ['total' => $total]);
+            // 缓存非个性化结果
+            if ($cacheKey) {
+                $this->cache->set($cacheKey, $result, 300); // 5分钟缓存
+            }
+            
+            $this->logger->info('获取评论列表成功', ['total' => $result['total']]);
             return $result;
         } catch (Exception $e) {
             $this->logger->error('获取评论列表失败', [

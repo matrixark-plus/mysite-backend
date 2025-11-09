@@ -19,10 +19,10 @@ use Hyperf\HttpServer\Annotation\Middleware;
 use App\Middleware\JwtAuthMiddleware;
 
 /**
- * @Controller(prefix="/api/config")
+ * @Controller(prefix="/api/admin/config")
  * @Middleware({JwtAuthMiddleware::class, "admin"})
  */
-class ConfigController extends AbstractController
+class AdminConfigController extends AbstractController
 {
     use LogTrait;
 

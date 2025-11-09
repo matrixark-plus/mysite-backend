@@ -24,8 +24,8 @@ use Hyperf\Validation\ValidationException;
 /**
  * 思维导图根节点控制器
  * 处理思维导图根节点相关的HTTP请求.
+ * @Controller(prefix="/api/mindmaps")
  */
-#[Controller(prefix: '/api/mindmaps')]
 class MindmapRootController extends AbstractController
 {
     /**
@@ -42,11 +42,10 @@ class MindmapRootController extends AbstractController
 
     /**
      * 创建思维导图
-     *
      * @param RequestInterface $request
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/", methods={"POST"})
      */
-    #[RequestMapping(path: '/', methods: ['POST'])]
     public function create(RequestInterface $request)
     {
         try {
@@ -78,10 +77,9 @@ class MindmapRootController extends AbstractController
 
     /**
      * 获取用户的思维导图列表
-     *
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/", methods={"GET"})
      */
-    #[RequestMapping(path: '/', methods: ['GET'])]
     public function list()
     {
         try {
@@ -113,10 +111,9 @@ class MindmapRootController extends AbstractController
 
     /**
      * 获取公开的思维导图列表
-     *
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/public", methods={"GET"})
      */
-    #[RequestMapping(path: '/public', methods: ['GET'])]
     public function publicList()
     {
         try {
@@ -142,11 +139,10 @@ class MindmapRootController extends AbstractController
 
     /**
      * 获取思维导图详情
-     *
      * @param int $id 思维导图ID
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/{id}", methods={"GET"})
      */
-    #[RequestMapping(path: '/{id}', methods: ['GET'])]
     public function detail(int $id)
     {
         try {
@@ -178,12 +174,11 @@ class MindmapRootController extends AbstractController
 
     /**
      * 更新思维导图
-     *
      * @param int $id 思维导图ID
      * @param RequestInterface $request
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/{id}", methods={"PUT"})
      */
-    #[RequestMapping(path: '/{id}', methods: ['PUT'])]
     public function update(int $id, RequestInterface $request)
     {
         try {
@@ -223,11 +218,10 @@ class MindmapRootController extends AbstractController
 
     /**
      * 删除思维导图
-     *
      * @param int $id 思维导图ID
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/{id}", methods={"DELETE"})
      */
-    #[RequestMapping(path: '/{id}', methods: ['DELETE'])]
     public function delete(int $id)
     {
         try {
@@ -263,11 +257,10 @@ class MindmapRootController extends AbstractController
 
     /**
      * 切换思维导图的公开状态
-     *
      * @param int $id 思维导图ID
-     * @return ResponseInterface
+     * @return array
+     * @RequestMapping(path="/{id}/toggle-public", methods={"PUT"})
      */
-    #[RequestMapping(path: '/{id}/toggle-public', methods: ['PUT'])]
     public function togglePublic(int $id)
     {
         try {

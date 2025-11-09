@@ -16,6 +16,7 @@ use App\Repository\BlogRepository;
 use App\Repository\BlogCategoryRepository;
 use App\Repository\BlogTagRepository;
 use App\Repository\BlogTagRelationRepository;
+use App\Service\TaskService;
 use Hyperf\Cache\Cache;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
@@ -58,6 +59,12 @@ class BlogService
      * @var Cache
      */
     protected $cache;
+    
+    /**
+     * @Inject
+     * @var TaskService
+     */
+    protected $taskService;
     /**
      * 获取博客列表.
      * @param array $params 查询参数
@@ -133,13 +140,17 @@ class BlogService
         try {
             // 使用Redis原子操作增加阅读量，避免数据库锁竞争
             $viewCountKey = 'blog:view_count:' . $id;
-            $newViewCount = $this->cache->incr($viewCountKey);
+            $this->cache->incr($viewCountKey);
             
             // 设置过期时间，确保数据最终一致性
             $this->cache->expire($viewCountKey, 86400); // 24小时过期
             
-            // 使用Repository更新数据库阅读量
-            $this->blogRepository->incrementViewCount($id);
+            // 使用异步任务更新数据库阅读量，减轻实时压力
+            $this->taskService->dispatchTask(
+                'App\Task\AsyncUpdateBlogViewTask',
+                ['blog_id' => $id, 'retry_count' => 0, 'max_retries' => 3],
+                false
+            );
         } catch (\Exception $e) {
             $this->logger->error('增加博客阅读量失败', ['blog_id' => $id, 'error' => $e->getMessage()]);
         }

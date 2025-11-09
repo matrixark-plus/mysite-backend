@@ -78,6 +78,92 @@ class UserRepository
             return null;
         }
     }
+    
+    /**
+     * 根据用户名查询用户
+     * @param string $username 用户名
+     * @return array|null 用户数据
+     */
+    public function findByUsername(string $username): ?array
+    {
+        return $this->findBy(['username' => $username]);
+    }
+    
+    /**
+     * 更新用户密码
+     * @param int $userId 用户ID
+     * @param string $password 新密码
+     * @return bool 是否成功
+     */
+    public function updatePassword(int $userId, string $password): bool
+    {
+        try {
+            return User::where('id', $userId)->update([
+                'password' => password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]) > 0;
+        } catch (Exception $e) {
+            $this->logger->error('更新用户密码失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            return false;
+        }
+    }
+    
+    /**
+     * 更新登录信息
+     * @param int $userId 用户ID
+     * @param string $loginIp IP地址
+     * @return bool 是否成功
+     */
+    public function updateLoginInfo(int $userId, string $loginIp): bool
+    {
+        try {
+            return User::where('id', $userId)->update([
+                'last_login_ip' => $loginIp,
+                'last_login_at' => date('Y-m-d H:i:s')
+            ]) > 0;
+        } catch (Exception $e) {
+            $this->logger->error('更新登录信息失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            return false;
+        }
+    }
+    
+    /**
+     * 锁定账号
+     * @param int $userId 用户ID
+     * @return bool 是否成功
+     */
+    public function lockAccount(int $userId): bool
+    {
+        try {
+            return User::where('id', $userId)->update([
+                'status' => 0,
+                'lock_expire_time' => date('Y-m-d H:i:s', time() + 1800), // 30分钟后过期
+                'updated_at' => date('Y-m-d H:i:s')
+            ]) > 0;
+        } catch (Exception $e) {
+            $this->logger->error('锁定账号失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            return false;
+        }
+    }
+    
+    /**
+     * 重置失败尝试次数
+     * @param int $userId 用户ID
+     * @return bool 是否成功
+     */
+    public function resetFailedAttempts(int $userId): bool
+    {
+        try {
+            return User::where('id', $userId)->update([
+                'failed_login_attempts' => 0,
+                'is_locked' => false,
+                'lock_expire_time' => null
+            ]) > 0;
+        } catch (Exception $e) {
+            $this->logger->error('重置失败尝试次数失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            return false;
+        }
+    }
 
     /**
      * 根据条件获取用户列表.

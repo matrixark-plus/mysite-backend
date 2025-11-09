@@ -19,8 +19,8 @@ use Hyperf\HttpServer\Annotation\RequestMapping;
 /**
  * 用户分析控制器
  * 处理用户分析相关的HTTP请求.
+ * @Controller(prefix="/api/user-analytics")
  */
-#[Controller(prefix: '/api/user-analytics')]
 class UserAnalyticsController extends AbstractController
 {
     use LogTrait;
