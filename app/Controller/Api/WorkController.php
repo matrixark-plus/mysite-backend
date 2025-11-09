@@ -99,7 +99,7 @@ class WorkController extends AbstractController
     {
         try {
             $params = $this->request->all();
-            $userId = Context::get('user_id');
+            $userId = (int) Context::get('user_id');
             
             // 验证参数
             try {
@@ -131,7 +131,7 @@ class WorkController extends AbstractController
     {
         try {
             $params = $this->request->all();
-            $userId = Context::get('user_id');
+            $userId = (int) Context::get('user_id');
             
             // 验证参数
             try {
@@ -168,7 +168,7 @@ class WorkController extends AbstractController
     public function destroy($id)
     {
         try {
-            $userId = Context::get('user_id');
+            $userId = (int) Context::get('user_id');
             
             // 检查作品是否存在且属于当前用户
             $existingWork = $this->workService->getWorkById($id, $userId);

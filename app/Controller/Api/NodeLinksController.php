@@ -195,6 +195,6 @@ class NodeLinksController extends AbstractController
     {
         // 这里应该从JWT token或session中获取用户ID
         // 暂时返回固定值，实际使用时需要根据认证机制调整
-        return 1;
+        return (int) 1;
     }
 }

@@ -222,6 +222,7 @@ class NodeLinkController extends AbstractController
     protected function getCurrentUserId(): ?int
     {
         // 这里只是模拟，实际项目中应该实现真实的用户认证逻辑
-        return $this->request->input('user_id', null);
+        $userId = $this->request->input('user_id', null);
+        return $userId !== null ? (int) $userId : null;
     }
 }
