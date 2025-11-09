@@ -8,7 +8,9 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Model\CommentLike;
 use App\Repository\CommentLikeRepository;
+use Hyperf\Database\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
@@ -72,7 +74,6 @@ class CommentLikeService
             ];
         });
     }
-}
 
     /**
      * 批量获取评论的点赞状态

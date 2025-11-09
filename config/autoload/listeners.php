@@ -9,7 +9,9 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+use App\Event\DataUpdatedEvent;
 use App\Event\NewCommentEvent;
+use App\Listener\DataUpdatedListener;
 use App\Listener\NewCommentListener;
 use Hyperf\Command\Listener\FailToHandleListener;
 use Hyperf\ExceptionHandler\Listener\ErrorExceptionHandler;
@@ -30,5 +32,10 @@ return [
     [
         'event' => NewCommentEvent::class,
         'listener' => NewCommentListener::class,
+    ],
+    // 数据更新事件监听器
+    [
+        'event' => DataUpdatedEvent::class,
+        'listener' => DataUpdatedListener::class,
     ],
 ];

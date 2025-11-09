@@ -153,6 +153,16 @@ trait ResponseTrait
     }
     
     /**
+     * 禁止访问响应
+     * @param string $message 错误消息
+     * @param mixed $data 响应数据
+     */
+    protected function forbidden(string $message = '', $data = null): ResponseInterface
+    {
+        return $this->fail(StatusCode::FORBIDDEN, $message, $data);
+    }
+    
+    /**
      * 服务器错误响应
      * @param string $message 错误消息
      * @param mixed $data 响应数据

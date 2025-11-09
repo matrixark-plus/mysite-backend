@@ -2,12 +2,8 @@
 
 declare(strict_types=1);
 /**
- * This file is part of Hyperf.
- *
- * @link     https://www.hyperf.io
- * @document https://hyperf.wiki
- * @contact  group@hyperf.io
- * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ * 订阅控制器
+ * 处理订阅相关的HTTP请求
  */
 
 namespace App\Controller\Api;
@@ -18,15 +14,16 @@ use App\Service\SubscriptionService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
+use Hyperf\HttpServer\Annotation\RequestMethod;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Validation\ValidationException;
 
 /**
  * 订阅控制器
- * 处理订阅相关的HTTP请求.
+ * 处理订阅相关的HTTP请求
+ * @Controller(prefix="/api/subscriptions")
  */
-#[Controller(prefix: '/api/subscriptions')]
 class SubscriptionController extends AbstractController
 {
     /**
@@ -43,13 +40,10 @@ class SubscriptionController extends AbstractController
 
     /**
      * 创建订阅
-     *
-     * @param RequestInterface $request
-     * @param ResponseInterface $response
      * @return ResponseInterface
+     * @RequestMapping(path="/", methods={"POST"})
      */
-    #[RequestMapping(path: '/', methods: ['POST'])]
-    public function create(RequestInterface $request, ResponseInterface $response)
+    public function create(RequestInterface $request)
     {
         try {
             // 验证参数
@@ -72,30 +66,28 @@ class SubscriptionController extends AbstractController
 
     /**
      * 确认订阅
-     *
      * @param string $token 确认token
-     * @param ResponseInterface $response
      * @return ResponseInterface
+     * @RequestMapping(path="/confirm/{token}", methods={"GET"})
      */
-    #[RequestMapping(path: '/confirm/{token}', methods: ['GET'])]
-    public function confirm(string $token, ResponseInterface $response)
+    public function confirm(string $token)
     {
         try {
             $result = $this->subscriptionService->confirmSubscription($token);
             
             if ($result['success']) {
                 // 返回成功页面或重定向
-                return $response->write(
+                return $this->response->write(
                     "<html><head><title>订阅确认成功</title></head><body><h1>{$result['message']}</h1></body></html>"
                 );
             } else {
                 // 返回错误页面
-                return $response->write(
+                return $this->response->write(
                     "<html><head><title>订阅确认失败</title></head><body><h1>{$result['message']}</h1></body></html>"
                 );
             }
         } catch (\Exception $e) {
-            return $response->write(
+            return $this->response->write(
                 "<html><head><title>系统错误</title></head><body><h1>系统异常，请稍后重试</h1></body></html>"
             );
         }

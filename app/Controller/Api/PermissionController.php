@@ -2,12 +2,7 @@
 
 declare(strict_types=1);
 /**
- * This file is part of Hyperf.
- *
- * @link     https://www.hyperf.io
- * @document https://hyperf.wiki
- * @contact  group@hyperf.io
- * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ * 权限管理控制器
  */
 
 namespace App\Controller\Api;
@@ -21,8 +16,6 @@ use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
-use Hyperf\HttpServer\Contract\RequestInterface;
-use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Validation\ValidationException;
 
 /**
@@ -33,14 +26,14 @@ class PermissionController extends AbstractController
     use LogTrait;
 
     /**
-     * @Inject
      * @var PermissionService
+     * @Inject
      */
     protected $permissionService;
 
     /**
-     * @Inject
      * @var PermissionValidator
+     * @Inject
      */
     protected $validator;
 
@@ -50,17 +43,23 @@ class PermissionController extends AbstractController
      *
      * @RequestMapping(path="/roles", methods={"GET"})
      */
-    public function getRoles(RequestInterface $request): ResponseInterface
+    public function getRoles()
     {
         try {
+            // 验证请求参数
+            $params = $this->request->all();
+            $validatedData = $this->validator->validateGetRoles($params);
+            
             $roles = $this->permissionService->getAllRoles();
             return $this->success($roles);
+        } catch (ValidationException $e) {
+            return $this->validationError($e->validator->errors()->first());
         } catch (Exception $e) {
             $this->logError('获取角色列表异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->serverError('获取角色列表失败');
+            return $this->error('获取角色列表失败');
         }
     }
 
@@ -70,11 +69,11 @@ class PermissionController extends AbstractController
      *
      * @RequestMapping(path="/user-role", methods={"GET"})
      */
-    public function getUserRole(RequestInterface $request): ResponseInterface
+    public function getUserRole()
     {
         try {
             // 使用验证器验证参数
-            $data = $this->validator->validateGetUserRole($request->all());
+            $data = $this->validator->validateGetUserRole($this->request->all());
             $userId = $data['user_id'] ?? null;
 
             // 如果没有指定用户ID，则获取当前用户的角色
@@ -100,7 +99,7 @@ class PermissionController extends AbstractController
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->serverError('获取用户角色失败');
+            return $this->error('获取用户角色失败');
         }
     }
 
@@ -110,18 +109,18 @@ class PermissionController extends AbstractController
      *
      * @RequestMapping(path="/update-role", methods={"POST"})
      */
-    public function updateRole(RequestInterface $request): ResponseInterface
+    public function updateRole()
     {
         try {
             // 使用验证器验证参数
-            $data = $this->validator->validateUpdateRole($request->all());
+            $data = $this->validator->validateUpdateRole($this->request->all());
 
             $result = $this->permissionService->updateUserRole($data['user_id'], $data['role']);
 
             if ($result) {
                 return $this->success(['updated' => true], '用户角色更新成功');
             }
-            return $this->serverError('用户角色更新失败');
+            return $this->error('用户角色更新失败');
         } catch (ValidationException $e) {
             // 参数验证失败
             return $this->validationError($e->validator->errors()->first());
@@ -129,10 +128,10 @@ class PermissionController extends AbstractController
             $this->logError('更新用户角色异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
-                'user_id' => $request->input('user_id'),
-                'role' => $request->input('role'),
+                'user_id' => $this->request->input('user_id'),
+                'role' => $this->request->input('role'),
             ], $e, 'permission');
-            return $this->serverError($e->getMessage());
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $e->getMessage());
         }
     }
 
@@ -142,18 +141,18 @@ class PermissionController extends AbstractController
      *
      * @RequestMapping(path="/list", methods={"GET"})
      */
-    public function getPermissions(RequestInterface $request): ResponseInterface
+    public function getPermissions()
     {
         try {
-            // 从权限服务获取所有权限列表
-            $permissions = $this->permissionService->getAllPermissions();
-            return $this->success($permissions);
+            // 获取所有角色列表（系统使用角色而非权限）
+            $roles = $this->permissionService->getAllRoles();
+            return $this->success($roles);
         } catch (Exception $e) {
-            $this->logError('获取权限列表异常', [
+            $this->logError('获取角色列表异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->serverError('获取权限列表失败');
+            return $this->error('获取角色列表失败');
         }
     }
 
@@ -163,22 +162,24 @@ class PermissionController extends AbstractController
      *
      * @RequestMapping(path="/assign", methods={"POST"})
      */
-    public function assignPermission(RequestInterface $request): ResponseInterface
+    public function assignPermission()
     {
         try {
             // 使用验证器验证参数
-            $data = $this->validator->validateAssignPermission($request->all());
+            $data = $this->validator->validateAssignPermission($this->request->all());
 
-            // 分配权限
-            $result = $this->permissionService->assignPermission(
+            // 系统使用角色而非权限，所以更新用户角色
+            // 这里简化处理，假设权限数组中的第一个元素是角色
+            $role = $data['permissions'][0] ?? 'user';
+            $result = $this->permissionService->updateUserRole(
                 $data['user_id'],
-                $data['permissions']
+                $role
             );
 
             if ($result) {
                 return $this->success(['assigned' => true], '权限分配成功');
             }
-            return $this->serverError('权限分配失败');
+            return $this->error('权限分配失败');
         } catch (ValidationException $e) {
             // 参数验证失败
             return $this->validationError($e->validator->errors()->first());
@@ -186,9 +187,9 @@ class PermissionController extends AbstractController
             $this->logError('分配权限异常', [
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
-                'user_id' => $request->input('user_id'),
+                'user_id' => $this->request->input('user_id'),
             ], $e, 'permission');
-            return $this->serverError($e->getMessage());
+            return $this->error($e->getMessage());
         }
     }
 
@@ -198,11 +199,12 @@ class PermissionController extends AbstractController
      *
      * @RequestMapping(path="/check", methods={"POST"})
      */
-    public function checkPermission(RequestInterface $request): ResponseInterface
+    public function checkPermission()
     {
         try {
             // 使用验证器验证参数
-            $data = $this->validator->validateCheckPermission($request->all());
+            $permissionData = ['permission' => $this->request->input('permission')];
+            $data = $this->validator->validateCheckPermission($permissionData);
             $requiredPermission = $data['permission'];
 
             // 获取当前用户信息
@@ -214,8 +216,8 @@ class PermissionController extends AbstractController
                 return $this->success(['has_permission' => true]);
             }
 
-            // 检查用户是否拥有指定权限
-            $hasPermission = $this->permissionService->checkPermission($currentUser, $requiredPermission);
+            // 检查用户是否拥有管理员权限
+            $hasPermission = $this->permissionService->isAdmin($currentUser);
 
             return $this->success(['has_permission' => $hasPermission]);
         } catch (ValidationException $e) {
@@ -226,7 +228,7 @@ class PermissionController extends AbstractController
                 'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ], $e, 'permission');
-            return $this->serverError('检查权限失败');
+            return $this->error('检查权限失败');
         }
     }
 }

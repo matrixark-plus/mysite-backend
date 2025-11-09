@@ -15,8 +15,8 @@
         "php": ">=8.0",
         "96qbhy/hyperf-auth": "^3.1",
         "96qbhy/simple-jwt": "^v1.4.0",
-        "hyperf/cache": "~3.0.0",
-        "hyperf/command": "~3.0.0",
+        "hyperf/cache": "^3.0",
+        "hyperf/command": "^3.0",
         "hyperf/config": "~3.0.0",
         "hyperf/database": "~3.0.0",
         "hyperf/db-connection": "~3.0.0",
@@ -30,8 +30,9 @@
         "hyperf/logger": "~3.0.0",
         "hyperf/memory": "~3.0.0",
         "hyperf/process": "~3.0.0",
-        "hyperf/redis": "~3.0.0",
-        "hyperf/tracer": "~3.0.0"
+        "hyperf/redis": "^3.0",
+        "hyperf/tracer": "~3.0.0",
+        "hyperf/validation": "^3.0"
     },
     "conflict": {
         "96qbhy/simple-jwt": ">=v1.5"

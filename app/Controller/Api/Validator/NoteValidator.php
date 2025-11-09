@@ -6,7 +6,7 @@ namespace App\Controller\Api\Validator;
 
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
-use Psr\Container\ContainerInterface;
+use Hyperf\Di\Annotation\Inject;
 
 /**
  * 笔记管理相关的参数验证器.
@@ -14,17 +14,11 @@ use Psr\Container\ContainerInterface;
 class NoteValidator
 {
     /**
+     * @Inject
      * @var ValidatorFactoryInterface
      */
     protected $validatorFactory;
 
-    /**
-     * 构造函数.
-     */
-    public function __construct(ContainerInterface $container)
-    {
-        $this->validatorFactory = $container->get(ValidatorFactoryInterface::class);
-    }
 
     /**
      * 验证笔记列表请求参数.
@@ -49,6 +43,28 @@ class NoteValidator
     }
 
     /**
+     * 验证创建笔记请求参数.
+     *
+     * @param array $data 请求数据
+     * @return array 验证后的数据
+     * @throws ValidationException 当验证失败时抛出异常
+     */
+    public function validateCreateNote(array $data): array
+    {
+        $validator = $this->validatorFactory->make($data, [
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'is_public' => 'sometimes|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        return $validator->validated();
+    }
+    
+    /**
      * 验证更新笔记请求参数.
      *
      * @param array $data 请求数据
@@ -61,6 +77,30 @@ class NoteValidator
             'title' => 'sometimes|string|max:255',
             'content' => 'sometimes|string',
             'is_public' => 'sometimes|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        return $validator->validated();
+    }
+    
+    /**
+     * 验证笔记ID.
+     *
+     * @param array $data 请求数据
+     * @return array 验证后的数据
+     * @throws ValidationException 当验证失败时抛出异常
+     */
+    public function validateNoteId(array $data): array
+    {
+        $validator = $this->validatorFactory->make($data, [
+            'id' => 'required|integer|min:1',
+        ], [
+            'id.required' => '笔记ID不能为空',
+            'id.integer' => '笔记ID必须为整数',
+            'id.min' => '笔记ID必须大于0',
         ]);
 
         if ($validator->fails()) {

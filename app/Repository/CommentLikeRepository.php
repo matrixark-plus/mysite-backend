@@ -27,6 +27,15 @@ class CommentLikeRepository extends BaseRepository
     protected $table = 'comment_likes';
     
     /**
+     * 获取模型类名
+     * @return string 模型类名
+     */
+    protected function getModel(): string
+    {
+        return 'App\Model\CommentLike';
+    }
+    
+    /**
      * 根据评论ID和用户ID查找点赞记录
      * 
      * @param int $commentId 评论ID

@@ -12,11 +12,13 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Controller\Api\Validator\BlogTagRelationValidator;
 use App\Service\BlogTagRelationService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 博客标签关系控制器
@@ -30,6 +32,12 @@ class BlogTagRelationController extends AbstractController
      * @var BlogTagRelationService
      */
     protected $blogTagRelationService;
+    
+    /**
+     * @Inject
+     * @var BlogTagRelationValidator
+     */
+    protected $blogTagRelationValidator;
 
     /**
      * 为博客添加标签
@@ -46,11 +54,11 @@ class BlogTagRelationController extends AbstractController
             // $this-\u003echeckBlogPermission($blogId);
             
             $data = $request-\u003eall();
-            $tagIds = $data['tag_ids'] ?? [];
-            
-            if (! is_array($tagIds)) {
-                return $this-\u003eerror('标签ID必须是数组格式', [], 400);
-            }
+            // 验证参数
+            $validatedData = $this-\u003eblogTagRelationValidator-\u003evalidateAddTags($data);
+            $tagIds = $validatedData['tag_ids'];
+            // 验证博客ID
+            $this-\u003eblogTagRelationValidator-\u003evalidateBlogId($blogId);
             
             $result = $this-\u003eblogTagRelationService-\u003eaddTagsToBlog($blogId, $tagIds);
             
@@ -59,6 +67,8 @@ class BlogTagRelationController extends AbstractController
             } else {
                 return $this-\u003eerror($result['message'], [], 400);
             }
+        } catch (ValidationException $e) {
+            return $this-\u003eerror('参数验证失败', $e-\u003evalidator-\u003eerrors()-\u003eall(), 400);
         } catch (\Exception $e) {
             return $this-\u003eserverError($e-\u003egetMessage());
         }
@@ -80,11 +90,11 @@ class BlogTagRelationController extends AbstractController
             // $this-\u003echeckBlogPermission($blogId);
             
             $data = $request-\u003eall();
-            $tagIds = $data['tag_ids'] ?? [];
-            
-            if (! is_array($tagIds)) {
-                return $this-\u003eerror('标签ID必须是数组格式', [], 400);
-            }
+            // 验证参数
+            $validatedData = $this-\u003eblogTagRelationValidator-\u003evalidateUpdateTags($data);
+            $tagIds = $validatedData['tag_ids'];
+            // 验证博客ID
+            $this-\u003eblogTagRelationValidator-\u003evalidateBlogId($blogId);
             
             $result = $this-\u003eblogTagRelationService-\u003eupdateBlogTags($blogId, $tagIds);
             
@@ -113,11 +123,11 @@ class BlogTagRelationController extends AbstractController
             // $this-\u003echeckBlogPermission($blogId);
             
             $data = $request-\u003eall();
-            $tagIds = $data['tag_ids'] ?? [];
-            
-            if (! is_array($tagIds)) {
-                return $this-\u003eerror('标签ID必须是数组格式', [], 400);
-            }
+            // 验证参数
+            $validatedData = $this-\u003eblogTagRelationValidator-\u003evalidateRemoveTags($data);
+            $tagIds = $validatedData['tag_ids'];
+            // 验证博客ID
+            $this-\u003eblogTagRelationValidator-\u003evalidateBlogId($blogId);
             
             $result = $this-\u003eblogTagRelationService-\u003eremoveTagsFromBlog($blogId, $tagIds);
             
@@ -141,6 +151,8 @@ class BlogTagRelationController extends AbstractController
     public function getBlogTags(int $blogId)
     {
         try {
+            // 验证博客ID
+            $this-\u003eblogTagRelationValidator-\u003evalidateBlogId($blogId);
             $tagIds = $this-\u003eblogTagRelationService-\u003 egetBlogTagIds($blogId);
             
             return $this-\u003esuccess('获取成功', [
@@ -163,6 +175,8 @@ class BlogTagRelationController extends AbstractController
     public function getTagBlogs(int $tagId)
     {
         try {
+            // 验证标签ID
+            $this-\u003eblogTagRelationValidator-\u003evalidateTagId($tagId);
             $blogIds = $this-\u003eblogTagRelationService-\u003 egetTagBlogIds($tagId);
             
             return $this-\u003esuccess('获取成功', [

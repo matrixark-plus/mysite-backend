@@ -13,7 +13,9 @@ declare(strict_types=1);
 namespace App\Controller\Api;
 
 use App\Controller\AbstractController;
+use App\Controller\Api\Validator\SocialShareValidator;
 use App\Service\SocialShareService;
+use Hyperf\Validation\ValidationException;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
@@ -29,6 +31,12 @@ class SocialShareController extends AbstractController
      * @var SocialShareService
      */
     protected $socialShareService;
+    
+    /**
+     * @Inject
+     * @var SocialShareValidator
+     */
+    protected $validator;
 
     /**
      * 获取分享配置.
@@ -38,8 +46,14 @@ class SocialShareController extends AbstractController
     public function getShareConfig()
     {
         try {
+            $params = $this->request->all();
+            // 验证请求参数（虽然目前不需要参数）
+            $this->validator->validateGetShareConfig($params);
+            
             $config = $this->socialShareService->getShareConfig();
             return $this->success($config);
+        } catch (ValidationException $e) {
+            return $this->fail(422, $e->getMessage());
         } catch (Exception $e) {
             logger()->error('获取分享配置异常: ' . $e->getMessage());
             return $this->fail(500, '服务器内部错误');

@@ -1,13 +1,18 @@
-\u003c?php
+<?php
+
+declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Controller\AbstractController;
+use App\Controller\Api\Validator\NodeLinksValidator;
 use App\Service\NodeLinksService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 节点链接控制器
@@ -21,6 +26,12 @@ class NodeLinksController extends AbstractController
      * @var NodeLinksService
      */
     protected $nodeLinksService;
+    
+    /**
+     * @Inject
+     * @var NodeLinksValidator
+     */
+    protected $validator;
 
     /**
      * 创建节点链接
@@ -32,17 +43,23 @@ class NodeLinksController extends AbstractController
     public function create(RequestInterface $request, ResponseInterface $response)
     {
         try {
-            $data = $request-\u003eall();
-            $creatorId = $this-\u003egetCurrentUserId();
+            $data = $request->all();
+            $creatorId = $this->getCurrentUserId();
             
-            $link = $this-\u003enodeLinksService-\u003ecreateLink($data, $creatorId);
+            // 验证用户ID和创建链接参数
+            $this->validator->validateUserId($creatorId);
+            $this->validator->validateCreateLink($data);
             
-            return $this-\u003esuccess([
-                'data' =u003e $link,
-                'message' =u003e '创建节点链接成功'
+            $link = $this->nodeLinksService->createLink($data, $creatorId);
+            
+            return $this->success([
+                'data' => $link,
+                'message' => '创建节点链接成功'
             ]);
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003eerror($e-\u003egetMessage(), []);
+            return $this->error($e->getMessage(), []);
         }
     }
 
@@ -56,23 +73,25 @@ class NodeLinksController extends AbstractController
     public function batchCreate(RequestInterface $request, ResponseInterface $response)
     {
         try {
-            $data = $request-\u003eall();
+            $data = $request->all();
             $linksData = $data['links'] ?? [];
-            $creatorId = $this-\u003egetCurrentUserId();
+            $creatorId = $this->getCurrentUserId();
             
-            if (empty($linksData)) {
-                return $this-\u003efail('请提供链接数据');
-            }
+            // 验证用户ID和批量创建链接数据
+            $this->validator->validateUserId($creatorId);
+            $this->validator->validateBatchCreateLinks($linksData);
             
-            $results = $this-\u003enodeLinksService-\u003ebatchCreateLinks($linksData, $creatorId);
+            $results = $this->nodeLinksService->batchCreateLinks($linksData, $creatorId);
             
-            return $this-\u003esuccess([
-                'data' =u003e $results,
-                'message' =u003e '批量创建节点链接成功',
-                'created_count' =u003e count($results)
+            return $this->success([
+                'data' => $results,
+                'message' => '批量创建节点链接成功',
+                'created_count' => count($results)
             ]);
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003efail($e-\u003egetMessage());
+            return $this->error($e->getMessage());
         }
     }
 
@@ -86,20 +105,27 @@ class NodeLinksController extends AbstractController
     public function update(RequestInterface $request, ResponseInterface $response, int $id)
     {
         try {
-            $data = $request-\u003eall();
-            $creatorId = $this-\u003egetCurrentUserId();
+            $data = $request->all();
+            $creatorId = $this->getCurrentUserId();
             
-            $success = $this-\u003enodeLinksService-\u003eupdateLink($id, $data, $creatorId);
+            // 验证链接ID、用户ID和更新参数
+            $this->validator->validateLinkId($id);
+            $this->validator->validateUserId($creatorId);
+            $this->validator->validateUpdateLink($data);
+            
+            $success = $this->nodeLinksService->updateLink($id, $data, $creatorId);
             
             if ($success) {
-                return $this-\u003esuccess([
-                    'message' =u003e '更新节点链接成功'
+                return $this->success([
+                    'message' => '更新节点链接成功'
                 ]);
             } else {
-                return $this-\u003efail('更新节点链接失败');
+                return $this->error('更新节点链接失败');
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003efail($e-\u003egetMessage());
+            return $this->error($e->getMessage());
         }
     }
 
@@ -113,19 +139,25 @@ class NodeLinksController extends AbstractController
     public function delete(RequestInterface $request, ResponseInterface $response, int $id)
     {
         try {
-            $creatorId = $this-\u003egetCurrentUserId();
+            $creatorId = $this->getCurrentUserId();
             
-            $success = $this-\u003enodeLinksService-\u003edeleteLink($id, $creatorId);
+            // 验证链接ID和用户ID
+            $this->validator->validateLinkId($id);
+            $this->validator->validateUserId($creatorId);
+            
+            $success = $this->nodeLinksService->deleteLink($id, $creatorId);
             
             if ($success) {
-                return $this-\u003esuccess([
-                    'message' =u003e '删除节点链接成功'
+                return $this->success([
+                    'message' => '删除节点链接成功'
                 ]);
             } else {
-                return $this-\u003efail('删除节点链接失败');
+                return $this->error('删除节点链接失败');
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003efail($e-\u003egetMessage());
+            return $this->error($e->getMessage());
         }
     }
 
@@ -139,14 +171,19 @@ class NodeLinksController extends AbstractController
     public function getLinksByRootId(RequestInterface $request, ResponseInterface $response, int $rootId)
     {
         try {
-            $links = $this-\u003enodeLinksService-\u003 egetLinksByRootId($rootId);
+            // 验证脑图根节点ID
+            $this->validator->validateRootId($rootId);
             
-            return $this-\u003esuccess([
-                'data' =u003e $links,
-                'total' =u003e count($links)
+            $links = $this->nodeLinksService->getLinksByRootId($rootId);
+            
+            return $this->success([
+                'data' => $links,
+                'total' => count($links)
             ]);
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003efail($e-\u003egetMessage());
+            return $this->error($e->getMessage());
         }
     }
 

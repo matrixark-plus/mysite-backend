@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+use App\Exception\CoroutineExceptionHandler;
 use App\Exception\Handler\AppExceptionHandler;
 use Hyperf\HttpServer\Exception\Handler\HttpExceptionHandler;
 use Qbhy\HyperfAuth\AuthExceptionHandler;
@@ -27,6 +28,7 @@ return [
             HttpExceptionHandler::class,
             AppExceptionHandler::class,
             AuthExceptionHandler::class,
+            CoroutineExceptionHandler::class,
         ],
     ],
 ];

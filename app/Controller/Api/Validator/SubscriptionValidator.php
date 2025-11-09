@@ -6,7 +6,7 @@ namespace App\Controller\Api\Validator;
 
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
-use Psr\Container\ContainerInterface;
+use Hyperf\Di\Annotation\Inject;
 
 /**
  * 订阅管理相关的参数验证器.
@@ -14,17 +14,11 @@ use Psr\Container\ContainerInterface;
 class SubscriptionValidator
 {
     /**
+     * @Inject
      * @var ValidatorFactoryInterface
      */
     protected $validatorFactory;
 
-    /**
-     * 构造函数.
-     */
-    public function __construct(ContainerInterface $container)
-    {
-        $this->validatorFactory = $container->get(ValidatorFactoryInterface::class);
-    }
 
     /**
      * 验证创建订阅请求参数.

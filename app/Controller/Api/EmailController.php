@@ -2,28 +2,25 @@
 
 declare(strict_types=1);
 /**
- * This file is part of Hyperf.
- *
- * @link     https://www.hyperf.io
- * @document https://hyperf.wiki
- * @contact  group@hyperf.io
- * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ * 邮件控制器
+ * 处理邮件发送和验证码相关功能
  */
 
 namespace App\Controller\Api;
 
+use App\Constants\StatusCode;
 use App\Controller\AbstractController;
 use App\Controller\Api\Validator\EmailValidator;
 use App\Middleware\JwtAuthMiddleware;
 use App\Service\MailService;
 use App\Service\VerifyCodeService;
+use App\Traits\LogTrait;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
-use Hyperf\HttpServer\Contract\RequestInterface;
-use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\HttpServer\Annotation\RequestMethod;
 use Hyperf\Validation\ValidationException;
 
 /**
@@ -31,6 +28,8 @@ use Hyperf\Validation\ValidationException;
  */
 class EmailController extends AbstractController
 {
+    use LogTrait;
+
     /**
      * @Inject
      * @var MailService
@@ -50,22 +49,23 @@ class EmailController extends AbstractController
     protected $validator;
 
     /**
-     * 发送邮件（管理员）.
-     *
+     * 发送邮件（管理员）
+     * @return ResponseInterface
      * @RequestMapping(path="/send", methods={"POST"})
      * @Middleware({JwtAuthMiddleware::class, "admin"})
      */
-    public function send(RequestInterface $request, ResponseInterface $response)
+    public function send()
     {
         try {
-            $to = $request->input('to');
-            $subject = $request->input('subject');
-            $template = $request->input('template');
-            $data = $request->input('data', []);
-
-            // 验证参数
-            if (! $to || ! $subject) {
-                return $this->fail(400, '缺少必要参数');
+            // 使用验证器验证参数
+            try {
+                $validatedData = $this->validator->validateSendEmail($this->request->all());
+                $to = $validatedData['to'];
+                $subject = $validatedData['subject'];
+                $template = $validatedData['template'] ?? '';
+                $data = $validatedData['data'] ?? [];
+            } catch (ValidationException $e) {
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
             }
 
             // 构建邮件内容
@@ -77,27 +77,27 @@ class EmailController extends AbstractController
             if ($result) {
                 return $this->success(null, '邮件发送成功');
             }
-            return $this->fail(500, '邮件发送失败');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '邮件发送失败');
         } catch (Exception $e) {
-            logger()->error('邮件发送异常: ' . $e->getMessage());
-            return $this->fail(500, '服务器内部错误');
+            $this->logError('邮件发送异常', ['error' => $e->getMessage()], $e);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '服务器内部错误');
         }
     }
 
     /**
      * 发送验证码
-     *
+     * @return ResponseInterface
      * @RequestMapping(path="/verify-code", methods={"POST"})
      */
-    public function verifyCode(RequestInterface $request, ResponseInterface $response)
+    public function verifyCode()
     {
         try {
             // 验证参数
             try {
-                $validatedData = $this->validator->validateVerifyCode($request->all());
+                $validatedData = $this->validator->validateVerifyCode($this->request->all());
                 $email = $validatedData['email'];
             } catch (ValidationException $e) {
-                return $this->fail(400, $e->validator->errors()->first());
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
             }
 
             // 发送验证码
@@ -106,10 +106,10 @@ class EmailController extends AbstractController
             if ($result['success']) {
                 return $this->success(null, $result['message']);
             }
-            return $this->fail(400, $result['message']);
+            return $this->fail(StatusCode::BAD_REQUEST, $result['message']);
         } catch (Exception $e) {
-            logger()->error('发送验证码异常: ' . $e->getMessage());
-            return $this->fail(500, '服务器内部错误');
+            $this->logError('发送验证码异常', ['error' => $e->getMessage()], $e);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '服务器内部错误');
         }
     }
 

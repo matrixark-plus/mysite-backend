@@ -95,6 +95,20 @@ class SystemConfigService
     }
 
     /**
+     * 获取多个配置项
+     * @param array $keys 配置项键名列表
+     * @return array 配置项值列表，键名为配置项键名，值为配置项值
+     */
+    public function getMultipleConfigs(array $keys): array
+    {
+        $configs = [];
+        foreach ($keys as $key) {
+            $configs[$key] = $this->getConfig($key);
+        }
+        return $configs;
+    }
+
+    /**
      * 获取所有系统配置.
      * @return array
      */
@@ -186,7 +200,8 @@ class SystemConfigService
         // 注意：实际应用中可能需要使用特定的缓存删除策略
         // 这里简化处理，删除所有配置相关缓存
         $pattern = self::CACHE_PREFIX . '*';
-        $keys = $this->cache->getMultipleKeys($pattern);
+        // 获取匹配模式的所有键
+        $keys = $this->cache->keys($pattern);
 
         if (! empty($keys)) {
             $this->cache->deleteMultiple($keys);

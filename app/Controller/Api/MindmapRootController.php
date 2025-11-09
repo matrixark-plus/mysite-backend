@@ -1,4 +1,4 @@
-\u003c?php
+<?php
 
 declare(strict_types=1);
 /**
@@ -12,11 +12,14 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Controller\Api\Validator\MindmapRootValidator;
+use App\Controller\AbstractController;
 use App\Service\MindmapRootService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 思维导图根节点控制器
@@ -30,6 +33,12 @@ class MindmapRootController extends AbstractController
      * @var MindmapRootService
      */
     protected $mindmapRootService;
+    
+    /**
+     * @Inject
+     * @var MindmapRootValidator
+     */
+    protected $validator;
 
     /**
      * 创建思维导图
@@ -42,23 +51,28 @@ class MindmapRootController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $data = $request-\u003eall();
+            $data = $request->all();
             $data['creator_id'] = $userId;
             
-            $result = $this-\u003emindmapRootService-\u003 ecreateMindmap($data);
+            // 验证参数
+            $this->validator->validateCreateMindmap($data);
+            
+            $result = $this->mindmapRootService->createMindmap($data);
             
             if ($result['success']) {
-                return $this-\u003esuccess('创建成功', $result['data']);
+                return $this->success('创建成功', $result['data']);
             } else {
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->fail(400, $result['message'], []);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -72,23 +86,28 @@ class MindmapRootController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $page = (int)($this-\u003erequest-\u003einput('page', 1) ?: 1);
-            $limit = (int)($this-\u003erequest-\u003einput('limit', 20) ?: 20);
+            // 验证分页参数
+            $pagination = $this->validator->validatePagination([
+                'page' => $this->request->input('page', 1),
+                'limit' => $this->request->input('limit', 20),
+            ]);
             
-            $result = $this-\u003emindmapRootService-\u003 egetUserMindmaps($userId, $page, $limit);
+            $result = $this->mindmapRootService->getUserMindmaps($userId, $pagination['page'], $pagination['limit']);
             
             if ($result['success']) {
-                return $this-\u003esuccess('获取成功', $result['data']);
+                return $this->success('获取成功', $result['data']);
             } else {
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->fail(400, $result['message'], []);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -101,18 +120,23 @@ class MindmapRootController extends AbstractController
     public function publicList()
     {
         try {
-            $page = (int)($this-\u003erequest-\u003einput('page', 1) ?: 1);
-            $limit = (int)($this-\u003erequest-\u003einput('limit', 20) ?: 20);
+            // 验证分页参数
+            $pagination = $this->validator->validatePagination([
+                'page' => $this->request->input('page', 1),
+                'limit' => $this->request->input('limit', 20),
+            ]);
             
-            $result = $this-\u003emindmapRootService-\u003 egetPublicMindmaps($page, $limit);
+            $result = $this->mindmapRootService->getPublicMindmaps($pagination['page'], $pagination['limit']);
             
             if ($result['success']) {
-                return $this-\u003esuccess('获取成功', $result['data']);
+                return $this->success('获取成功', $result['data']);
             } else {
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->fail(400, $result['message'], []);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -126,24 +150,29 @@ class MindmapRootController extends AbstractController
     public function detail(int $id)
     {
         try {
-            // 获取当前用户ID（可能为null）
-            $userId = $this-\u003egetCurrentUserId();
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($id);
             
-            $result = $this-\u003emindmapRootService-\u003 egetMindmapDetail($id, $userId);
+            // 获取当前用户ID（可能为null）
+            $userId = $this->getCurrentUserId();
+            
+            $result = $this->mindmapRootService->getMindmapDetail($id, $userId);
             
             if ($result['success']) {
-                return $this-\u003esuccess('获取成功', $result['data']);
+                return $this->success('获取成功', $result['data']);
             } else {
                 if ($result['message'] === '思维导图不存在') {
-                    return $this-\u003enotFound($result['message']);
+                    return $this->notFound($result['message']);
                 }
                 if ($result['message'] === '无权限查看此思维导图') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->forbidden($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->fail(400, $result['message'], []);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -159,28 +188,36 @@ class MindmapRootController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $data = $request-\u003eall();
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($id);
             
-            $result = $this-\u003emindmapRootService-\u003 eupdateMindmap($id, $userId, $data);
+            $data = $request->all();
+            
+            // 验证更新参数
+            $this->validator->validateUpdateMindmap($data);
+            
+            $result = $this->mindmapRootService->updateMindmap($id, $userId, $data);
             
             if ($result['success']) {
-                return $this-\u003esuccess('更新成功', $result['data']);
+                return $this->success('更新成功', $result['data']);
             } else {
                 if ($result['message'] === '思维导图不存在') {
-                    return $this-\u003enotFound($result['message']);
+                    return $this->notFound($result['message']);
                 }
                 if ($result['message'] === '无权限修改此思维导图') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->forbidden($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->fail(400, $result['message'], []);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -195,16 +232,21 @@ class MindmapRootController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
+            
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($id);
             
             // 这里应该调用删除思维导图的方法（需要级联删除节点和链接）
             // 暂时返回成功
-            return $this-\u003esuccess('删除成功');
+            return $this->success('删除成功');
+        } catch (ValidationException $e) {
+            return $this->error($e->getMessage(), [], 422);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -219,26 +261,31 @@ class MindmapRootController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $result = $this-\u003emindmapRootService-\u003etogglePublicStatus($id, $userId);
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($id);
+            
+            $result = $this->mindmapRootService->togglePublicStatus($id, $userId);
             
             if ($result['success']) {
-                return $this-\u003esuccess($result['message'], $result['data']);
+                return $this->success($result['message'], $result['data']);
             } else {
                 if ($result['message'] === '思维导图不存在') {
-                    return $this-\u003enotFound($result['message']);
+                    return $this->notFound($result['message']);
                 }
                 if ($result['message'] === '无权限修改此思维导图') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->forbidden($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->fail(400, $result['message'], []);
             }
+        } catch (ValidationException $e) {
+            return $this->error($e->getMessage(), [], 422);
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
     
@@ -251,6 +298,6 @@ class MindmapRootController extends AbstractController
     protected function getCurrentUserId(): ?int
     {
         // 这里只是模拟，实际项目中应该实现真实的用户认证逻辑
-        return $this-\u003erequest-\u003einput('user_id', null);
+        return $this->request->input('user_id', null);
     }
 }

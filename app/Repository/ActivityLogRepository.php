@@ -35,6 +35,15 @@ class ActivityLogRepository extends BaseRepository
      * @var string
      */
     protected $table = 'activity_logs';
+    
+    /**
+     * 获取模型类名
+     * @return string 模型类名
+     */
+    protected function getModel(): string
+    {
+        return 'App\Model\ActivityLog';
+    }
 
     /**
      * 获取最近活动

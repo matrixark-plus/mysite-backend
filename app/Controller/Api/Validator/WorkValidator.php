@@ -6,7 +6,7 @@ namespace App\Controller\Api\Validator;
 
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
-use Psr\Container\ContainerInterface;
+use Hyperf\Di\Annotation\Inject;
 
 /**
  * 作品管理相关的参数验证器.
@@ -14,17 +14,10 @@ use Psr\Container\ContainerInterface;
 class WorkValidator
 {
     /**
+     * @Inject
      * @var ValidatorFactoryInterface
      */
     protected $validatorFactory;
-
-    /**
-     * 构造函数.
-     */
-    public function __construct(ContainerInterface $container)
-    {
-        $this->validatorFactory = $container->get(ValidatorFactoryInterface::class);
-    }
 
     /**
      * 验证作品列表请求参数.
@@ -40,6 +33,33 @@ class WorkValidator
             'per_page' => 'sometimes|integer|min:1|max:100',
             'category_id' => 'sometimes|integer|min:1',
             'keyword' => 'sometimes|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        return $validator->validated();
+    }
+
+    /**
+     * 验证创建作品请求参数.
+     *
+     * @param array $data 请求数据
+     * @return array 验证后的数据
+     * @throws ValidationException 当验证失败时抛出异常
+     */
+    public function validateCreateWork(array $data): array
+    {
+        $validator = $this->validatorFactory->make($data, [
+            'title' => 'required|string|max:255',
+            'description' => 'sometimes|string',
+            'category_id' => 'required|integer|min:1',
+            'cover_image' => 'sometimes|string|max:500',
+            'images' => 'sometimes|array',
+            'demo_url' => 'sometimes|url|max:500',
+            'source_url' => 'sometimes|url|max:500',
+            'is_public' => 'sometimes|boolean',
         ]);
 
         if ($validator->fails()) {

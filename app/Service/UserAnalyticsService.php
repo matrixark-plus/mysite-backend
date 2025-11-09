@@ -17,7 +17,6 @@ use Carbon\Carbon;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
-use Carbon\Carbon;
 
 /**
  * 用户分析服务层

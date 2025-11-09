@@ -2,17 +2,13 @@
 
 declare(strict_types=1);
 /**
- * This file is part of Hyperf.
- *
- * @link     https://www.hyperf.io
- * @document https://hyperf.wiki
- * @contact  group@hyperf.io
- * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ * 订阅管理控制器
  */
 
 namespace App\Controller\Api;
 
 use App\Controller\AbstractController;
+use App\Controller\Api\Validator\SubscribeValidator;
 use App\Service\SubscribeService;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
@@ -20,6 +16,7 @@ use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * @Controller(prefix="/api/subscribe")
@@ -33,6 +30,12 @@ class SubscribeController extends AbstractController
     protected $subscribeService;
 
     /**
+     * @Inject
+     * @var SubscribeValidator
+     */
+    protected $validator;
+
+    /**
      * 订阅博客.
      *
      * @RequestMapping(path="/blog", methods={"POST"})
@@ -40,20 +43,18 @@ class SubscribeController extends AbstractController
     public function blogSubscribe(RequestInterface $request, ResponseInterface $response)
     {
         try {
-            $email = $request->input('email');
-
-            // 验证邮箱格式
-            if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return $this->fail(400, '邮箱格式不正确');
-            }
+            $data = $request->all();
+            $validatedData = $this->validator->validateBlogSubscribe($data);
 
             // 添加订阅
-            $result = $this->subscribeService->addBlogSubscribe($email);
+            $result = $this->subscribeService->addBlogSubscribe($validatedData['email']);
 
             if ($result['success']) {
                 return $this->success(null, $result['message']);
             }
             return $this->fail(400, $result['message']);
+        } catch (ValidationException $e) {
+            return $this->fail(400, $e->validator->errors()->first());
         } catch (Exception $e) {
             logger()->error('订阅博客异常: ' . $e->getMessage());
             return $this->fail(500, '服务器内部错误');
@@ -68,17 +69,17 @@ class SubscribeController extends AbstractController
     public function confirmSubscribe(RequestInterface $request, ResponseInterface $response)
     {
         try {
-            $token = $request->input('token');
-
-            if (! $token) {
-                return $this->fail(400, '缺少确认参数');
-            }
+            $data = $request->all();
+            $validatedData = $this->validator->validateConfirmSubscribe($data);
 
             // 确认订阅
-            $result = $this->subscribeService->confirmSubscribe($token);
+            $result = $this->subscribeService->confirmSubscribe($validatedData['token']);
 
             // 直接返回HTML页面，让用户在浏览器中看到确认结果
             $html = $this->buildConfirmPage($result['success'], $result['message']);
+            return $response->raw($html)->withHeader('Content-Type', 'text/html');
+        } catch (ValidationException $e) {
+            $html = $this->buildConfirmPage(false, $e->validator->errors()->first());
             return $response->raw($html)->withHeader('Content-Type', 'text/html');
         } catch (Exception $e) {
             logger()->error('确认订阅异常: ' . $e->getMessage());

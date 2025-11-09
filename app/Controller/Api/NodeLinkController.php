@@ -1,4 +1,4 @@
-\u003c?php
+<?php
 
 declare(strict_types=1);
 /**
@@ -12,11 +12,15 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Controller\AbstractController;
+use App\Controller\Api\Validator\NodeLinkValidator;
 use App\Service\NodeLinkService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\HttpServer\Contract\ResponseInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 节点链接控制器
@@ -30,6 +34,12 @@ class NodeLinkController extends AbstractController
      * @var NodeLinkService
      */
     protected $nodeLinkService;
+    
+    /**
+     * @Inject
+     * @var NodeLinkValidator
+     */
+    protected $validator;
 
     /**
      * 创建节点链接
@@ -43,28 +53,38 @@ class NodeLinkController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $data = $request-\u003eall();
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($mindmapId);
             
-            $result = $this-\u003enodeLinkService-\u003 ecreateNodeLink($userId, $data);
+            $data = $request->all();
+            // 确保data中包含mindmapId
+            $data['mindmap_id'] = $mindmapId;
+            
+            // 验证创建节点链接的参数
+            $this->validator->validateCreateNodeLink($data);
+            
+            $result = $this->nodeLinkService->createNodeLink($userId, $data);
             
             if ($result['success']) {
-                return $this-\u003esuccess('创建成功', $result['data']);
+                return $this->success('创建成功', $result['data']);
             } else {
                 if ($result['message'] === '无权限操作此思维导图') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->error($result['message']);
                 }
                 if ($result['message'] === '源节点或目标节点不存在') {
-                    return $this-\u003enotFound($result['message']);
+                    return $this->notFound($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->error($result['message']);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage());
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->error($e->getMessage());
         }
     }
 
@@ -80,30 +100,39 @@ class NodeLinkController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $data = $request-\u003eall();
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($mindmapId);
+            
+            $data = $request->all();
             $links = $data['links'] ?? [];
             
-            if (! is_array($links)) {
-                return $this-\u003eerror('链接数据必须是数组格式', [], 400);
+            // 验证批量创建节点链接的数据
+            $this->validator->validateBatchCreateNodeLinks($links);
+            
+            // 确保所有链接都包含mindmapId
+            foreach ($links as &$link) {
+                $link['mindmap_id'] = $mindmapId;
             }
             
-            $result = $this-\u003enodeLinkService-\u003 ebatchCreateNodeLinks($userId, $links);
+            $result = $this->nodeLinkService->batchCreateNodeLinks($userId, $links);
             
             if ($result['success']) {
-                return $this-\u003esuccess('批量创建成功', $result['data']);
+                return $this->success('批量创建成功', $result['data']);
             } else {
                 if ($result['message'] === '无权限操作此思维导图') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->error($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->error($result['message']);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage());
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->error($e->getMessage());
         }
     }
 
@@ -117,21 +146,29 @@ class NodeLinkController extends AbstractController
     public function list(int $mindmapId)
     {
         try {
-            // 获取当前用户ID（可能为null）
-            $userId = $this-\u003egetCurrentUserId();
+            // 验证思维导图ID
+            $this->validator->validateMindmapId($mindmapId);
             
-            $result = $this-\u003enodeLinkService-\u003 egetMindmapLinks($userId, $mindmapId);
+            // 获取当前用户ID（可能为null）
+            $userId = $this->getCurrentUserId();
+            if ($userId !== null) {
+                $this->validator->validateUserId($userId);
+            }
+            
+            $result = $this->nodeLinkService->getMindmapLinks($userId, $mindmapId);
             
             if ($result['success']) {
-                return $this-\u003esuccess('获取成功', $result['data']);
+                return $this->success('获取成功', $result['data']);
             } else {
                 if ($result['message'] === '无权限查看此思维导图') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->error($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->error($result['message']);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage());
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
 
@@ -147,26 +184,32 @@ class NodeLinkController extends AbstractController
     {
         try {
             // 获取当前用户ID
-            $userId = $this-\u003egetCurrentUserId();
+            $userId = $this->getCurrentUserId();
             if (! $userId) {
-                return $this-\u003eunauthorized('请先登录');
+                return $this->unauthorized('请先登录');
             }
             
-            $result = $this-\u003enodeLinkService-\u003 edeleteNodeLink($userId, $linkId);
+            // 验证思维导图ID和链接ID
+            $this->validator->validateMindmapId($mindmapId);
+            $this->validator->validateLinkId($linkId);
+            
+            $result = $this->nodeLinkService->deleteNodeLink($userId, $linkId);
             
             if ($result['success']) {
-                return $this-\u003esuccess('删除成功');
+                return $this->success('删除成功');
             } else {
                 if ($result['message'] === '链接不存在') {
-                    return $this-\u003enotFound($result['message']);
+                    return $this->notFound($result['message']);
                 }
                 if ($result['message'] === '无权限操作此链接') {
-                    return $this-\u003eforbidden($result['message']);
+                    return $this->forbidden($result['message']);
                 }
-                return $this-\u003eerror($result['message'], [], 400);
+                return $this->error($result['message'], [], 400);
             }
+        } catch (ValidationException $e) {
+            return $this->validationError($e->getMessage());
         } catch (\Exception $e) {
-            return $this-\u003eserverError($e-\u003egetMessage());
+            return $this->serverError($e->getMessage());
         }
     }
     
@@ -179,6 +222,6 @@ class NodeLinkController extends AbstractController
     protected function getCurrentUserId(): ?int
     {
         // 这里只是模拟，实际项目中应该实现真实的用户认证逻辑
-        return $this-\u003erequest-\u003einput('user_id', null);
+        return $this->request->input('user_id', null);
     }
 }

@@ -16,6 +16,7 @@ use App\Model\User;
 use App\Service\UserService;
 use App\Traits\LogTrait;
 use Hyperf\Config\Config;
+use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
@@ -111,7 +112,7 @@ class AuthController extends AbstractController
             return $this->success(['user_id' => $userId, 'email' => $email], ResponseMessage::CREATE_SUCCESS);
         } catch (\Throwable $exception) {
             $this->logError('用户注册失败', ['error' => $exception->getMessage()], $exception);
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '注册失败');
+            return $this->error('注册失败');
         }
     }
 
@@ -171,11 +172,11 @@ class AuthController extends AbstractController
         } catch (\Throwable $exception) {
             // 处理账号锁定异常
             if (strpos($exception->getMessage(), '账号已被锁定') !== false) {
-                $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
-                return $this->fail(StatusCode::FORBIDDEN, $exception->getMessage());
-            }
-            $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '登录失败');
+                  $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
+                  return $this->forbidden($exception->getMessage());
+              }
+              $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
+              return $this->error('登录失败');
         }
     }
 
@@ -215,7 +216,7 @@ class AuthController extends AbstractController
             ], ResponseMessage::UPDATE_SUCCESS);
         } catch (\Throwable $exception) {
             $this->logError('Token刷新失败', ['error' => $exception->getMessage()], $exception);
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, 'Token刷新失败');
+            return $this->error('Token刷新失败');
         }
     }
 
@@ -244,7 +245,7 @@ class AuthController extends AbstractController
             return $this->success(null, ResponseMessage::LOGOUT_SUCCESS);
         } catch (\Throwable $exception) {
             $this->logError('用户登出失败', ['error' => $exception->getMessage()], $exception);
-            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '登出失败');
+            return $this->error('登出失败');
         }
     }
 

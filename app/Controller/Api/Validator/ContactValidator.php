@@ -1,12 +1,16 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * 联系表单验证器
+ * 处理联系表单相关请求参数的验证
+ */
 
 namespace App\Controller\Api\Validator;
 
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
-use Psr\Container\ContainerInterface;
+use Hyperf\Di\Annotation\Inject;
 
 /**
  * 联系表单相关的参数验证器.
@@ -14,17 +18,10 @@ use Psr\Container\ContainerInterface;
 class ContactValidator
 {
     /**
+     * @Inject
      * @var ValidatorFactoryInterface
      */
     protected $validatorFactory;
-
-    /**
-     * 构造函数.
-     */
-    public function __construct(ContainerInterface $container)
-    {
-        $this->validatorFactory = $container->get(ValidatorFactoryInterface::class);
-    }
 
     /**
      * 验证提交联系表单请求参数.

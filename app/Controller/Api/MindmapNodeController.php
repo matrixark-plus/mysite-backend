@@ -12,11 +12,13 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Controller\Api\Validator\MindmapNodeValidator;
 use App\Service\MindmapNodeService;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 思维导图节点控制器
@@ -32,6 +34,12 @@ class MindmapNodeController extends AbstractController
      * @var MindmapNodeService
      */
     protected $mindmapNodeService;
+    
+    /**
+     * @Inject
+     * @var MindmapNodeValidator
+     */
+    protected $mindmapNodeValidator;
 
     /**
      * 创建节点
@@ -52,10 +60,15 @@ class MindmapNodeController extends AbstractController
                 return $this-\u003eunauthorized('请先登录');
             }
             
+            // 验证思维导图ID
+            $this-\u003emindmapNodeValidator-\u003evalidateMindmapId($mindmapId);
+            
             $data = $request-\u003eall();
             $data['root_id'] = $mindmapId;
+            // 验证参数
+            $validatedData = $this-\u003emindmapNodeValidator-\u003evalidateCreateNode($data);
             
-            $result = $this-\u003emindmapNodeService-\u003 ecreateNode($userId, $data);
+            $result = $this-\u003emindmapNodeService-\u003 ecreateNode($userId, $validatedData);
             
             if ($result['success']) {
                 return $this-\u003esuccess('创建成功', $result['data']);
@@ -65,6 +78,8 @@ class MindmapNodeController extends AbstractController
                 }
                 return $this-\u003eerror($result['message'], [], 400);
             }
+        } catch (ValidationException $e) {
+            return $this-\u003eerror('参数验证失败', $e-\u003evalidator-\u003eerrors()-\u003eall(), 400);
         } catch (\Exception $e) {
             return $this-\u003eserverError($e-\u003egetMessage());
         }
@@ -89,19 +104,20 @@ class MindmapNodeController extends AbstractController
                 return $this-\u003eunauthorized('请先登录');
             }
             
+            // 验证思维导图ID
+            $this-\u003emindmapNodeValidator-\u003evalidateMindmapId($mindmapId);
+            
             $data = $request-\u003eall();
-            $nodes = $data['nodes'] ?? [];
-            
-            if (! is_array($nodes)) {
-                return $this-\u003eerror('节点数据必须是数组格式', [], 400);
-            }
-            
             // 为所有节点设置root_id
-            foreach ($nodes as &$node) {
+            $data['nodes'] = array_map(function($node) use ($mindmapId) {
                 $node['root_id'] = $mindmapId;
-            }
+                return $node;
+            }, $data['nodes'] ?? []);
             
-            $result = $this-\u003emindmapNodeService-\u003 ebatchCreateNodes($userId, $nodes);
+            // 验证参数
+            $validatedData = $this-\u003emindmapNodeValidator-\u003evalidateBatchCreateNodes($data);
+            
+            $result = $this-\u003emindmapNodeService-\u003 ebatchCreateNodes($userId, $validatedData['nodes']);
             
             if ($result['success']) {
                 return $this-\u003esuccess('批量创建成功', $result['data']);
@@ -128,6 +144,9 @@ class MindmapNodeController extends AbstractController
     public function list(int $mindmapId)
     {
         try {
+            // 验证思维导图ID
+            $this-\u003emindmapNodeValidator-\u003evalidateMindmapId($mindmapId);
+            
             // 获取当前用户ID（可能为null）
             $userId = $this-\u003egetCurrentUserId();
             
@@ -166,9 +185,15 @@ class MindmapNodeController extends AbstractController
                 return $this-\u003eunauthorized('请先登录');
             }
             
-            $data = $request-\u003eall();
+            // 验证思维导图ID和节点ID
+            $this-\u003emindmapNodeValidator-\u003evalidateMindmapId($mindmapId);
+            $this-\u003emindmapNodeValidator-\u003evalidateNodeId($nodeId);
             
-            $result = $this-\u003emindmapNodeService-\u003 eupdateNode($userId, $nodeId, $data);
+            $data = $request-\u003eall();
+            // 验证参数
+            $validatedData = $this-\u003emindmapNodeValidator-\u003evalidateUpdateNode($data);
+            
+            $result = $this-\u003emindmapNodeService-\u003 eupdateNode($userId, $nodeId, $validatedData);
             
             if ($result['success']) {
                 return $this-\u003esuccess('更新成功', $result['data']);
@@ -204,6 +229,10 @@ class MindmapNodeController extends AbstractController
             if (! $userId) {
                 return $this-\u003eunauthorized('请先登录');
             }
+            
+            // 验证思维导图ID和节点ID
+            $this-\u003emindmapNodeValidator-\u003evalidateMindmapId($mindmapId);
+            $this-\u003emindmapNodeValidator-\u003evalidateNodeId($nodeId);
             
             $result = $this-\u003emindmapNodeService-\u003 edeleteNode($userId, $nodeId);
             

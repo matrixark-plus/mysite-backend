@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use Hyperf\Utils\Context;
+
+use App\Constants\StatusCode;
 use App\Controller\AbstractController;
 use App\Controller\Api\Validator\WorkValidator;
 use App\Service\WorkService;
+use App\Traits\LogTrait;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
-use Hyperf\HttpServer\Contract\RequestInterface;
-use Hyperf\HttpServer\Contract\ResponseInterface;
-use Hyperf\Utils\Context;
 use App\Middleware\JwtAuthMiddleware;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\Validation\ValidationException;
@@ -23,15 +24,17 @@ use Hyperf\Validation\ValidationException;
  */
 class WorkController extends AbstractController
 {
+    use LogTrait;
+    
     /**
-     * @Inject
      * @var WorkService
+     * @Inject
      */
     protected $workService;
 
     /**
-     * @Inject
      * @var WorkValidator
+     * @Inject
      */
     protected $validator;
 
@@ -39,10 +42,10 @@ class WorkController extends AbstractController
      * 获取作品列表
      * @RequestMapping(path="", methods={"GET"})
      */
-    public function index(RequestInterface $request, ResponseInterface $response)
+    public function index()
     {
         try {
-            $params = $request->all();
+            $params = $this->request->all();
             $userId = Context::has('user_id') ? Context::get('user_id') : null;
             
             // 验证参数
@@ -58,17 +61,10 @@ class WorkController extends AbstractController
             
             $result = $this->workService->getWorks($params, $userId);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $result,
-            ]);
+            return $this->success($result, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '获取作品列表失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取作品列表失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取作品列表失败');
         }
     }
 
@@ -76,7 +72,7 @@ class WorkController extends AbstractController
      * 获取作品详情
      * @RequestMapping(path="/{id}", methods={"GET"})
      */
-    public function show($id, ResponseInterface $response)
+    public function show($id)
     {
         try {
             $userId = Context::has('user_id') ? Context::get('user_id') : null;
@@ -84,56 +80,32 @@ class WorkController extends AbstractController
             $work = $this->workService->getWorkById($id, $userId);
             
             if (!$work) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '作品不存在',
-                    'data' => [],
-                ]);
+                return $this->notFound('作品不存在');
             }
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $work,
-            ]);
+            return $this->success($work, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '获取作品详情失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取作品详情失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取作品详情失败');
         }
     }
 
     /**
      * 创建作品
      * @RequestMapping(path="", methods={"POST"})
-     * @Middleware(JwtAuthMiddleware::class)
+     * @Middleware({JwtAuthMiddleware::class})
      */
-    public function store(RequestInterface $request, ResponseInterface $response)
+    public function store()
     {
         try {
-            $params = $request->all();
+            $params = $this->request->all();
             $userId = Context::get('user_id');
             
             // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'title' => 'required|string|max:255',
-                'description' => 'required|string',
-                'category_id' => 'required|integer|min:1',
-                'cover_image' => 'sometimes|string|max:500',
-                'images' => 'sometimes|array',
-                'demo_url' => 'sometimes|url|max:500',
-                'source_url' => 'sometimes|url|max:500',
-                'is_public' => 'sometimes|boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            try {
+                $validatedData = $this->validator->validateCreateWork($params);
+            } catch (ValidationException $e) {
+                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
             }
             
             // 处理图片数组
@@ -143,17 +115,10 @@ class WorkController extends AbstractController
             
             $work = $this->workService->createWork($userId, $params);
             
-            return $response->json([
-                'code' => 201,
-                'message' => '创建成功',
-                'data' => $work,
-            ]);
+            return $this->success($work, '创建成功', StatusCode::CREATED);
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '创建作品失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('创建作品失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '创建作品失败');
         }
     }
 
@@ -162,10 +127,10 @@ class WorkController extends AbstractController
      * @RequestMapping(path="/{id}", methods={"PUT"})
      * @Middleware(JwtAuthMiddleware::class)
      */
-    public function update($id, RequestInterface $request, ResponseInterface $response)
+    public function update($id)
     {
         try {
-            $params = $request->all();
+            $params = $this->request->all();
             $userId = Context::get('user_id');
             
             // 验证参数
@@ -183,26 +148,15 @@ class WorkController extends AbstractController
             // 检查作品是否存在且属于当前用户
             $existingWork = $this->workService->getWorkById($id, $userId);
             if (!$existingWork) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '作品不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->notFound('作品不存在或无权限操作');
             }
             
             $work = $this->workService->updateWork($id, $userId, $params);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '更新成功',
-                'data' => $work,
-            ]);
+            return $this->success($work, '更新成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '更新作品失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('更新作品失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '更新作品失败');
         }
     }
 
@@ -211,7 +165,7 @@ class WorkController extends AbstractController
      * @RequestMapping(path="/{id}", methods={"DELETE"})
      * @Middleware(JwtAuthMiddleware::class)
      */
-    public function destroy($id, ResponseInterface $response)
+    public function destroy($id)
     {
         try {
             $userId = Context::get('user_id');
@@ -246,22 +200,15 @@ class WorkController extends AbstractController
      * 获取作品分类列表
      * @RequestMapping(path="/categories", methods={"GET"})
      */
-    public function getCategories(ResponseInterface $response)
+    public function getCategories()
     {
         try {
             $categories = $this->workService->getCategories();
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $categories,
-            ]);
+            return $this->success($categories, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '获取分类列表失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取分类列表失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取分类列表失败');
         }
     }
 
@@ -270,10 +217,10 @@ class WorkController extends AbstractController
      * @RequestMapping(path="/categories", methods={"POST"})
      * @Middleware(JwtAuthMiddleware::class)
      */
-    public function createCategory(RequestInterface $request, ResponseInterface $response)
+    public function createCategory()
     {
         try {
-            $params = $request->all();
+            $params = $this->request->all();
             $userId = Context::get('user_id');
             
             // 验证参数
@@ -285,17 +232,10 @@ class WorkController extends AbstractController
             
             $category = $this->workService->createCategory($params);
             
-            return $response->json([
-                'code' => 201,
-                'message' => '创建成功',
-                'data' => $category,
-            ]);
+            return $this->success($category, '创建成功', StatusCode::CREATED);
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '创建分类失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('创建分类失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '创建分类失败');
         }
     }
 
@@ -304,10 +244,10 @@ class WorkController extends AbstractController
      * @RequestMapping(path="/categories/{id}", methods={"PUT"})
      * @Middleware(JwtAuthMiddleware::class)
      */
-    public function updateCategory($id, RequestInterface $request, ResponseInterface $response)
+    public function updateCategory($id)
     {
         try {
-            $params = $request->all();
+            $params = $this->request->all();
             
             // 验证参数
             try {
@@ -319,24 +259,13 @@ class WorkController extends AbstractController
             $category = $this->workService->updateCategory($id, $params);
             
             if (!$category) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '分类不存在',
-                    'data' => [],
-                ]);
+                return $this->notFound('分类不存在');
             }
             
-            return $response->json([
-                'code' => 200,
-                'message' => '更新成功',
-                'data' => $category,
-            ]);
+            return $this->success($category, '更新成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '更新分类失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('更新分类失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '更新分类失败');
         }
     }
 
@@ -345,40 +274,25 @@ class WorkController extends AbstractController
      * @RequestMapping(path="/categories/{id}", methods={"DELETE"})
      * @Middleware(JwtAuthMiddleware::class)
      */
-    public function deleteCategory($id, ResponseInterface $response)
+    public function deleteCategory($id)
     {
         try {
             // 检查分类是否被使用
             $workCount = $this->workService->getWorkCountByCategory($id);
             if ($workCount > 0) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '该分类下还有作品，无法删除',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::BAD_REQUEST, '该分类下还有作品，无法删除');
             }
             
             $result = $this->workService->deleteCategory($id);
             
             if (!$result) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '分类不存在',
-                    'data' => [],
-                ]);
+                return $this->notFound('分类不存在');
             }
             
-            return $response->json([
-                'code' => 200,
-                'message' => '删除成功',
-                'data' => [],
-            ]);
+            return $this->success(null, '删除成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '删除分类失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('删除分类失败', ['error' => $e->getMessage()], $e, 'work');
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '删除分类失败');
         }
     }
 }

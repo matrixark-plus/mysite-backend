@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
+use App\Constants\StatusCode;
 use App\Controller\AbstractController;
 use App\Controller\Api\Validator\NoteValidator;
 use App\Service\NoteService;
+use App\Traits\LogTrait;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
-use Hyperf\HttpServer\Contract\RequestInterface;
-use Hyperf\HttpServer\Contract\ResponseInterface;
-use Hyperf\Utils\Context;
 use App\Middleware\JwtAuthMiddleware;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\Validation\ValidationException;
@@ -24,6 +23,8 @@ use Hyperf\Validation\ValidationException;
  */
 class NoteController extends AbstractController
 {
+    use LogTrait;
+
     /**
      * @Inject
      * @var NoteService
@@ -40,17 +41,22 @@ class NoteController extends AbstractController
      * 获取笔记列表
      * @RequestMapping(path="", methods={"GET"})
      */
-    public function index(RequestInterface $request, ResponseInterface $response)
+    public function index()
     {
         try {
-            $params = $request->all();
-            $userId = Context::get('user_id');
+            $params = $this->request->all();
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
             
             // 验证参数
             try {
                 $validatedData = $this->validator->validateNoteList($params);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
             }
 
             // 设置默认值
@@ -59,17 +65,10 @@ class NoteController extends AbstractController
             
             $result = $this->noteService->getNotes($userId, $params);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $result,
-            ]);
+            return $this->success($result, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '获取笔记列表失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取笔记列表失败', ['error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取笔记列表失败');
         }
     }
 
@@ -77,32 +76,34 @@ class NoteController extends AbstractController
      * 获取笔记详情
      * @RequestMapping(path="/{id}", methods={"GET"})
      */
-    public function show($id, ResponseInterface $response)
+    public function show($id)
     {
         try {
-            $userId = Context::get('user_id');
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
+            
+            // 验证参数
+            try {
+                $validatedData = $this->validator->validateNoteId(['id' => $id]);
+                $id = $validatedData['id'];
+            } catch (ValidationException $e) {
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
+            }
             
             $note = $this->noteService->getNoteById($id, $userId);
             
             if (!$note) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '笔记不存在',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '笔记不存在');
             }
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $note,
-            ]);
+            return $this->success($note, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '获取笔记详情失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取笔记详情失败', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取笔记详情失败');
         }
     }
 
@@ -110,40 +111,31 @@ class NoteController extends AbstractController
      * 创建笔记
      * @RequestMapping(path="", methods={"POST"})
      */
-    public function store(RequestInterface $request, ResponseInterface $response)
+    public function store()
     {
         try {
-            $params = $request->all();
-            $userId = Context::get('user_id');
+            $params = $this->request->all();
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
             
-            // 验证参数
-            $validator = $this->validatorFactory->make($params, [
-                'title' => 'required|string|max:255',
-                'content' => 'required|string',
-                'is_public' => 'sometimes|boolean',
-            ]);
-
-            if ($validator->fails()) {
-                return $response->json([
-                    'code' => 400,
-                    'message' => '参数验证失败',
-                    'data' => $validator->errors()->toArray(),
-                ]);
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
             }
             
-            $note = $this->noteService->createNote($userId, $params);
+            // 验证参数
+            try {
+                $validatedData = $this->validator->validateCreateNote($params);
+            } catch (ValidationException $e) {
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
+            }
             
-            return $response->json([
-                'code' => 201,
-                'message' => '创建成功',
-                'data' => $note,
-            ]);
+            // 使用验证后的数据创建笔记
+            $note = $this->noteService->createNote($userId, $validatedData);
+            
+            return $this->success($note, '创建成功', 201);
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '创建笔记失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('创建笔记失败', ['error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '创建笔记失败');
         }
     }
 
@@ -151,42 +143,37 @@ class NoteController extends AbstractController
      * 更新笔记
      * @RequestMapping(path="/{id}", methods={"PUT"})
      */
-    public function update($id, RequestInterface $request, ResponseInterface $response)
+    public function update($id)
     {
         try {
-            $params = $request->all();
-            $userId = Context::get('user_id');
+            $params = $this->request->all();
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
             
             // 验证参数
             try {
                 $validatedData = $this->validator->validateUpdateNote($params);
             } catch (ValidationException $e) {
-                return $this->validationError('参数验证失败', $e->validator->errors()->toArray());
+                return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
             }
             
             // 检查笔记是否存在且属于当前用户
             $existingNote = $this->noteService->getNoteById($id, $userId);
             if (!$existingNote) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '笔记不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '笔记不存在或无权限操作');
             }
             
-            $note = $this->noteService->updateNote($id, $userId, $params);
+            // 使用验证后的数据更新笔记
+            $note = $this->noteService->updateNote($id, $userId, $validatedData);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '更新成功',
-                'data' => $note,
-            ]);
+            return $this->success($note, '更新成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '更新笔记失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('更新笔记失败', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '更新笔记失败');
         }
     }
 
@@ -194,34 +181,28 @@ class NoteController extends AbstractController
      * 删除笔记
      * @RequestMapping(path="/{id}", methods={"DELETE"})
      */
-    public function destroy($id, ResponseInterface $response)
+    public function destroy($id)
     {
         try {
-            $userId = Context::get('user_id');
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
             
             // 检查笔记是否存在且属于当前用户
             $existingNote = $this->noteService->getNoteById($id, $userId);
             if (!$existingNote) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '笔记不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '笔记不存在或无权限操作');
             }
             
-            $this->noteService->deleteNote($id, $userId);
+            $result = $this->noteService->deleteNote($id, $userId);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '删除成功',
-                'data' => [],
-            ]);
+            return $this->success(null, '删除成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '删除笔记失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('删除笔记失败', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '删除笔记失败');
         }
     }
 
@@ -229,34 +210,28 @@ class NoteController extends AbstractController
      * 获取笔记版本历史
      * @RequestMapping(path="/{id}/versions", methods={"GET"})
      */
-    public function getVersions($id, ResponseInterface $response)
+    public function getVersions($id)
     {
         try {
-            $userId = Context::get('user_id');
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
             
             // 检查笔记是否存在且属于当前用户
             $existingNote = $this->noteService->getNoteById($id, $userId);
             if (!$existingNote) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '笔记不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '笔记不存在或无权限操作');
             }
             
             $versions = $this->noteService->getNoteVersions($id);
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $versions,
-            ]);
+            return $this->success($versions, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '获取版本历史失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取版本历史失败', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取版本历史失败');
         }
     }
 
@@ -264,42 +239,32 @@ class NoteController extends AbstractController
      * 获取指定版本笔记内容
      * @RequestMapping(path="/{id}/versions/{versionId}", methods={"GET"})
      */
-    public function getVersion($id, $versionId, ResponseInterface $response)
+    public function getVersion($id, $versionId)
     {
         try {
-            $userId = Context::get('user_id');
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
             
             // 检查笔记是否存在且属于当前用户
             $existingNote = $this->noteService->getNoteById($id, $userId);
             if (!$existingNote) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '笔记不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '笔记不存在或无权限操作');
             }
             
             $version = $this->noteService->getNoteVersionById($id, $versionId);
             
             if (!$version) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '版本不存在',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '版本不存在');
             }
             
-            return $response->json([
-                'code' => 200,
-                'message' => '获取成功',
-                'data' => $version,
-            ]);
+            return $this->success($version, '获取成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '恢复版本失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('获取版本详情失败', ['id' => $id, 'versionId' => $versionId, 'error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取版本详情失败');
         }
     }
     
@@ -309,42 +274,35 @@ class NoteController extends AbstractController
      * 恢复到指定版本
      * @RequestMapping(path="/{id}/versions/{versionId}/restore", methods={"POST"})
      */
-    public function restoreVersion($id, $versionId, ResponseInterface $response)
+    public function restoreVersion($id, $versionId)
     {
         try {
-            $userId = Context::get('user_id');
+            // 从JWT中获取用户ID，JwtAuthMiddleware已将用户信息注入到控制器中
+            $userId = $this->user->id ?? null;
+            
+            if (!$userId) {
+                return $this->fail(StatusCode::UNAUTHORIZED, '用户未登录');
+            }
             
             // 检查笔记是否存在且属于当前用户
             $existingNote = $this->noteService->getNoteById($id, $userId);
             if (!$existingNote) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '笔记不存在或无权限操作',
-                    'data' => [],
-                ]);
+                return $this->fail(StatusCode::NOT_FOUND, '笔记不存在或无权限操作');
             }
             
+            // 检查版本是否存在
+            $version = $this->noteService->getNoteVersionById($id, $versionId);
+            if (!$version) {
+                return $this->fail(StatusCode::NOT_FOUND, '版本不存在');
+            }
+            
+            // 恢复版本
             $note = $this->noteService->restoreNoteFromVersion($id, $versionId, $userId);
             
-            if (!$note) {
-                return $response->json([
-                    'code' => 404,
-                    'message' => '版本不存在',
-                    'data' => [],
-                ]);
-            }
-            
-            return $response->json([
-                'code' => 200,
-                'message' => '恢复成功',
-                'data' => $note,
-            ]);
+            return $this->success($note, '恢复成功');
         } catch (\Exception $e) {
-            return $response->json([
-                'code' => 500,
-                'message' => '恢复版本失败',
-                'data' => ['error' => $e->getMessage()],
-            ]);
+            $this->logError('恢复版本失败', ['id' => $id, 'versionId' => $versionId, 'error' => $e->getMessage()]);
+            return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '恢复版本失败');
         }
     }
 }
