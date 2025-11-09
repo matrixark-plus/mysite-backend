@@ -533,14 +533,14 @@ abstract class BaseRepository
      * 分批处理大量数据
      * 避免一次性加载全部数据到内存中，适用于处理大量数据的场景
      * 
+     * @param callable $callback 处理回调函数，接收每批数据
      * @param array $conditions 查询条件
      * @param int $chunkSize 每批处理的数据量
-     * @param callable $callback 处理回调函数，接收每批数据
      * @param array $columns 返回字段（默认全部）
      * @param array $orders 排序条件
      * @return bool 是否成功执行
      */
-    public function chunk(array $conditions = [], int $chunkSize = 1000, callable $callback, array $columns = ['*'], array $orders = []): bool
+    public function chunk(callable $callback, array $conditions = [], int $chunkSize = 1000, array $columns = ['*'], array $orders = []): bool
     {
         try {
             if (empty($this->table)) {
