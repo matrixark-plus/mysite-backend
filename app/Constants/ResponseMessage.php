@@ -166,6 +166,8 @@ class ResponseMessage
 
     public const OPERATION_FAILED = '操作失败';
 
+    public const TOO_MANY_REQUESTS = '请求过于频繁，请稍后再试';
+
     /**
      * 根据状态码获取默认消息.
      * @param int $code 状态码
@@ -186,6 +188,7 @@ class ResponseMessage
             StatusCode::NOT_FOUND => self::RESOURCE_NOT_FOUND,
             StatusCode::METHOD_NOT_ALLOWED => self::OPERATION_FAILED,
             StatusCode::UNPROCESSABLE_ENTITY => self::PARAM_ERROR,
+            StatusCode::TOO_MANY_REQUESTS => self::TOO_MANY_REQUESTS,
 
             // 服务器错误
             StatusCode::INTERNAL_SERVER_ERROR => self::SERVER_ERROR,

@@ -528,4 +528,113 @@ abstract class BaseRepository
     {
         return Db::transaction($callback);
     }
+    
+    /**
+     * 分批处理大量数据
+     * 避免一次性加载全部数据到内存中，适用于处理大量数据的场景
+     * 
+     * @param array $conditions 查询条件
+     * @param int $chunkSize 每批处理的数据量
+     * @param callable $callback 处理回调函数，接收每批数据
+     * @param array $columns 返回字段（默认全部）
+     * @param array $orders 排序条件
+     * @return bool 是否成功执行
+     */
+    public function chunk(array $conditions = [], int $chunkSize = 1000, callable $callback, array $columns = ['*'], array $orders = []): bool
+    {
+        try {
+            if (empty($this->table)) {
+                throw new Exception('表名未设置');
+            }
+            
+            $query = Db::table($this->table)->select($columns);
+            
+            // 添加查询条件
+            foreach ($conditions as $key => $value) {
+                if (is_array($value) && isset($value[0]) && in_array(strtolower($value[0]), ['in', 'not in', 'between', 'like'])) {
+                    // 处理特殊操作符
+                    $operator = strtolower($value[0]);
+                    $actualValue = $value[1] ?? null;
+                    
+                    switch ($operator) {
+                        case 'in':
+                            $query->whereIn($key, $actualValue);
+                            break;
+                        case 'not in':
+                            $query->whereNotIn($key, $actualValue);
+                            break;
+                        case 'between':
+                            if (is_array($actualValue) && count($actualValue) >= 2) {
+                                $query->whereBetween($key, [$actualValue[0], $actualValue[1]]);
+                            }
+                            break;
+                        case 'like':
+                            $query->where($key, 'like', $actualValue);
+                            break;
+                    }
+                } else {
+                    // 普通条件
+                    $query->where($key, $value);
+                }
+            }
+            
+            // 添加排序
+            foreach ($orders as $field => $direction) {
+                $query->orderBy($field, $direction);
+            }
+            
+            // 使用chunk方法分批处理数据
+            return $query->chunk($chunkSize, $callback);
+        } catch (Exception $e) {
+            $this->logger->error('分批处理数据失败', [
+                'table' => $this->table,
+                'conditions' => $conditions,
+                'chunk_size' => $chunkSize,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
+    /**
+     * 批量插入数据
+     * 优化大量数据的插入操作
+     * 
+     * @param array $dataSet 数据集，二维数组格式
+     * @param int $batchSize 每批插入的数据量
+     * @return int 成功插入的记录数
+     */
+    public function bulkInsert(array $dataSet, int $batchSize = 1000): int
+    {
+        if (empty($dataSet)) {
+            return 0;
+        }
+        
+        $totalInserted = 0;
+        
+        try {
+            if (empty($this->table)) {
+                throw new Exception('表名未设置');
+            }
+            
+            // 分批插入数据
+            foreach (array_chunk($dataSet, $batchSize) as $batch) {
+                $inserted = Db::table($this->table)->insert($batch);
+                if ($inserted) {
+                    $totalInserted += count($batch);
+                }
+            }
+            
+            return $totalInserted;
+        } catch (Exception $e) {
+            $this->logger->error('批量插入数据失败', [
+                'table' => $this->table,
+                'batch_size' => $batchSize,
+                'total_records' => count($dataSet),
+                'inserted_records' => $totalInserted,
+                'error' => $e->getMessage()
+            ]);
+            return $totalInserted;
+        }
+    }
 }

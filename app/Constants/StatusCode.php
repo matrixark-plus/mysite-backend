@@ -34,6 +34,8 @@ class StatusCode
 
     public const UNPROCESSABLE_ENTITY = 422; // 无法处理的实体
 
+    public const TOO_MANY_REQUESTS = 429; // 请求过于频繁
+
     // 服务器错误相关状态码
     public const INTERNAL_SERVER_ERROR = 500; // 服务器内部错误
 
