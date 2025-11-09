@@ -240,11 +240,22 @@ class MindmapRootController extends AbstractController
             // 验证思维导图ID
             $this->validator->validateMindmapId($id);
             
-            // 这里应该调用删除思维导图的方法（需要级联删除节点和链接）
-            // 暂时返回成功
-            return $this->success([], '删除成功');
+            // 调用服务层删除思维导图（级联删除节点和链接）
+            $result = $this->mindmapRootService->deleteMindmap($id, $userId);
+            
+            if ($result['success']) {
+                return $this->success([], '删除成功');
+            } else {
+                if ($result['message'] === '思维导图不存在') {
+                    return $this->notFound($result['message']);
+                }
+                if ($result['message'] === '无权限修改此思维导图') {
+                    return $this->forbidden($result['message']);
+                }
+                return $this->fail(400, $result['message'], []);
+            }
         } catch (ValidationException $e) {
-            return $this->error($e->getMessage(), [], 422);
+            return $this->validationError($e->getMessage(), []);
         } catch (\Exception $e) {
             return $this->serverError($e->getMessage());
         }

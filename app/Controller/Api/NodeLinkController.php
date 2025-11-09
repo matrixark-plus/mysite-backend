@@ -155,7 +155,7 @@ class NodeLinkController extends AbstractController
                 $this->validator->validateUserId($userId);
             }
             
-            $result = $this->nodeLinkService->getMindmapLinks($userId, $mindmapId);
+            $result = $this->nodeLinkService->getMindmapLinks($mindmapId, $userId);
             
             if ($result['success']) {
                 return $this->success($result['data'], '获取成功');
@@ -193,7 +193,7 @@ class NodeLinkController extends AbstractController
             $this->validator->validateMindmapId($mindmapId);
             $this->validator->validateLinkId($linkId);
             
-            $result = $this->nodeLinkService->deleteNodeLink($userId, $linkId);
+            $result = $this->nodeLinkService->deleteNodeLink($linkId, $userId);
             
             if ($result['success']) {
                 return $this->success([], '删除成功');
