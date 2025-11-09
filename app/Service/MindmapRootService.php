@@ -42,6 +42,26 @@ class MindmapRootService
      * @var MindmapNodeRepository
      */
     protected $mindmapNodeRepository;
+    
+    /**
+     * 统计满足条件的思维导图数量
+     * 
+     * @param array $conditions 查询条件
+     * @return int 符合条件的记录数
+     */
+    private function countMindmaps(array $conditions = []): int
+    {
+        try {
+            $query = MindmapRoot::query();
+            if (! empty($conditions)) {
+                $query = $query->where($conditions);
+            }
+            return $query->count();
+        } catch (Exception $e) {
+            $this->logger->error('统计思维导图数量异常: ' . $e->getMessage(), ['conditions' => $conditions]);
+            return 0;
+        }
+    }
 
     /**
      * 创建思维导图
@@ -109,7 +129,7 @@ class MindmapRootService
             $offset = ($page - 1) * $limit;
 
             $mindmaps = $this->mindmapRootRepository->findAllBy($conditions, ['*'], $order, $limit, $offset);
-            $total = $this->mindmapRootRepository->count($conditions);
+            $total = $this->countMindmaps($conditions);
 
             // 转换为数组格式
             $data = [];
@@ -158,7 +178,7 @@ class MindmapRootService
         try {
             $offset = ($page - 1) * $limit;
             $mindmaps = $this->mindmapRootRepository->findPublicMindmaps($conditions, $order, $limit, $offset);
-            $total = $this->mindmapRootRepository->count(['is_public' => 1, 'is_active' => 1] + $conditions);
+            $total = $this->countMindmaps(['is_public' => 1, 'is_active' => 1] + $conditions);
 
             // 转换为数组格式
             $data = [];
@@ -316,13 +336,25 @@ class MindmapRootService
                 ];
             }
 
-            $result = $this->mindmapRootRepository->togglePublicStatus($id);
+            // 先获取当前状态
+            $mindmap = $this->mindmapRootRepository->findById($id);
+            if (! $mindmap) {
+                return [
+                    'success' => false,
+                    'message' => '思维导图不存在',
+                ];
+            }
+            
+            // 切换状态（取反）
+            $newPublicStatus = ! $mindmap->is_public;
+            $result = $this->mindmapRootRepository->togglePublicStatus($id, $newPublicStatus);
+            
             if ($result) {
                 return [
                     'success' => true,
                     'message' => '状态切换成功',
                     'data' => [
-                        'is_public' => $result->is_public,
+                        'is_public' => $newPublicStatus,
                     ],
                 ];
             }

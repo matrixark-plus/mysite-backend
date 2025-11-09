@@ -11,8 +11,10 @@ declare(strict_types=1);
  */
 use App\Middleware\CorsMiddleware;
 use App\Middleware\JwtAuthMiddleware;
+use App\Middleware\RateLimiterMiddleware;
 use App\Middleware\RequestLogMiddleware;
-use Hyperf\HttpServer\Middleware\BodyParserMiddleware;
+use Hyperf\HttpServer\Contract\RequestInterface;
+use Hyperf\HttpServer\Middleware\BodyParserMiddleware as HyperfBodyParserMiddleware;
 
 /**
  * This file is part of Hyperf.
@@ -25,8 +27,10 @@ use Hyperf\HttpServer\Middleware\BodyParserMiddleware;
 return [
     'http' => [
         // 必须的请求体解析中间件，用于处理JSON和表单请求
-        BodyParserMiddleware::class,
+        HyperfBodyParserMiddleware::class,
         RequestLogMiddleware::class,
+        // API访问频率限制中间件
+        RateLimiterMiddleware::class,
         // 跨域中间件
         CorsMiddleware::class,
     ],
@@ -45,5 +49,6 @@ return [
         // 中间件别名映射
         'cors' => CorsMiddleware::class,
         'jwt' => JwtAuthMiddleware::class,
+        'rate_limiter' => RateLimiterMiddleware::class,
     ],
 ];
