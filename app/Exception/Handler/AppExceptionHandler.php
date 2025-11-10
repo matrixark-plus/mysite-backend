@@ -17,10 +17,11 @@ use App\Constants\StatusCode;
 use Hyperf\Contract\StdoutLoggerInterface;
 use Hyperf\ExceptionHandler\ExceptionHandler;
 use Hyperf\HttpMessage\Stream\SwooleStream;
-use Hyperf\Utils\ApplicationContext;
+use \Hyperf\Context\ApplicationContext;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
+use function Hyperf\Support\env;
 
 class AppExceptionHandler extends ExceptionHandler
 {

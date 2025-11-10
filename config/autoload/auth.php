@@ -15,6 +15,7 @@ use Qbhy\HyperfAuth\Guard\SessionGuard;
 use Qbhy\HyperfAuth\Provider\EloquentProvider;
 use Qbhy\SimpleJwt\Encoders;
 use Qbhy\SimpleJwt\EncryptAdapters as Encrypter;
+use function Hyperf\Support\env;
 
 return [
     // 默认认证配置
