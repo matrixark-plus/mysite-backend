@@ -13,9 +13,9 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Hyperf\Database\Query\Builder;
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\HasMany;
-use Hyperf\Model\Relations\MorphTo;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\MorphTo;
 
 /**
  * 评论模型.
@@ -23,14 +23,12 @@ use Hyperf\Model\Relations\MorphTo;
 class Comment extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_PENDING = 0; // 待审核
-
     public const STATUS_APPROVED = 1; // 已通过
 
     public const STATUS_REJECTED = 2; // 已拒绝
-
     /**
      * 内容类型常量.
      */
@@ -39,7 +37,7 @@ class Comment extends Model
     public const POST_TYPE_WORK = 'work';
 
     /**
-     * 时间戳.
+     * 时间戳
      */
     public bool $timestamps = true;
 
@@ -54,7 +52,7 @@ class Comment extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'user_id',
@@ -63,6 +61,8 @@ class Comment extends Model
         'parent_id',
         'content',
         'status',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -75,7 +75,7 @@ class Comment extends Model
     }
 
     /**
-     * 获取父评论.
+     * 获取父评论
      * @return BelongsTo
      */
     public function parent()
@@ -84,7 +84,7 @@ class Comment extends Model
     }
 
     /**
-     * 获取子评论.
+     * 获取子评论
      * @return HasMany
      */
     public function children()
@@ -119,7 +119,7 @@ class Comment extends Model
     }
 
     /**
-     * 获取状态文本.
+     * 获取状态文本
      * @return string
      */
     public function getStatusTextAttribute()
@@ -133,7 +133,7 @@ class Comment extends Model
     }
 
     /**
-     * 范围：仅获取已审核通过的评论.
+     * 范围：仅获取已审核通过的评论
      * @param Builder $query
      * @return Builder
      */
@@ -143,7 +143,7 @@ class Comment extends Model
     }
 
     /**
-     * 范围：按类型筛选.
+     * 范围：按类型筛选
      * @param Builder $query
      * @return Builder
      */
@@ -152,3 +152,4 @@ class Comment extends Model
         return $query->where('post_type', $type);
     }
 }
+

@@ -11,7 +11,7 @@ declare(strict_types=1);
  */
 use Qbhy\HyperfAuth\HyperfAuthServiceProvider;
 
-/**
+/*
  * This file is part of Hyperf.
  *
  * @see     https://www.hyperf.io
@@ -23,6 +23,6 @@ use Qbhy\HyperfAuth\HyperfAuthServiceProvider;
 return [
     'providers' => [
         // 注册96qbhy/hyperf-auth的服务提供者
-        HyperfAuthServiceProvider::class,
+        // HyperfAuthServiceProvider::class,
     ],
 ];

@@ -33,13 +33,13 @@ class SubscriptionRepository
      * 根据ID查找订阅记录.
      *
      * @param int $id 订阅记录ID
-     * @return array|null 订阅数据数组或null
+     * @return null|array 订阅数据数组或null
      */
     public function findById(int $id): ?array
     {
         try {
             $result = Db::table('subscriptions')->find($id);
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找订阅记录失败: ' . $e->getMessage(), ['subscription_id' => $id]);
             return null;
@@ -50,13 +50,13 @@ class SubscriptionRepository
      * 根据邮箱查找订阅记录.
      *
      * @param string $email 邮箱地址
-     * @return array|null 订阅数据数组或null
+     * @return null|array 订阅数据数组或null
      */
     public function findByEmail(string $email): ?array
     {
         try {
             $result = Db::table('subscriptions')->where('email', $email)->first();
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据邮箱查找订阅记录失败: ' . $e->getMessage(), ['email' => $email]);
             return null;
@@ -68,13 +68,13 @@ class SubscriptionRepository
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
-     * @return array|null 订阅数据数组或null
+     * @return null|array 订阅数据数组或null
      */
     public function findBy(array $conditions, array $columns = ['*']): ?array
     {
         try {
             $query = Db::table('subscriptions');
-            
+
             foreach ($conditions as $key => $value) {
                 // 处理复杂条件如OR
                 if ($key === 'OR' && is_array($value)) {
@@ -87,9 +87,9 @@ class SubscriptionRepository
                     $query = $query->where($key, $value);
                 }
             }
-            
+
             $result = $query->select($columns)->first();
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据条件查询订阅记录失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
@@ -139,7 +139,7 @@ class SubscriptionRepository
      * 创建订阅记录.
      *
      * @param array<string, mixed> $data 订阅数据
-     * @return array|null 创建的订阅数据数组或null
+     * @return null|array 创建的订阅数据数组或null
      */
     public function create(array $data): ?array
     {

@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
 
 /**
  * 笔记版本历史模型.
@@ -20,7 +20,7 @@ use Hyperf\Model\Relations\BelongsTo;
 class NoteVersion extends Model
 {
     /**
-     * 时间戳字段.
+     * 时间戳字�?
      */
     public bool $timestamps = true;
 
@@ -35,7 +35,7 @@ class NoteVersion extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字�?
      */
     protected array $fillable = [
         'note_id',
@@ -51,13 +51,12 @@ class NoteVersion extends Model
     protected array $hidden = [];
 
     /**
-     * 获取关联的笔记.
+     * 获取关联的笔�?
      * @return BelongsTo
      */
     public function note()
     {
         return $this->belongsTo(Note::class, 'note_id', 'id');
     }
-
-
 }
+

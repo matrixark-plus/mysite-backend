@@ -12,23 +12,41 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use Carbon\Carbon;
-use Exception;
-use Hyperf\Config\ConfigInterface;
-use Hyperf\Di\Annotation\Inject;
-use Psr\Log\LoggerInterface;
-use Hyperf\Redis\RedisFactory;
-use Redis;
-use App\Repository\UserRepository;
+use App\Repository\ActivityLogRepository;
 use App\Repository\BlogRepository;
 use App\Repository\CommentRepository;
-use App\Repository\ActivityLogRepository;
+use App\Repository\UserRepository;
+use Carbon\Carbon;
+use Exception;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Redis\RedisFactory;
+use Psr\Log\LoggerInterface;
 
 // 注意：权限管理相关功能已移至PermissionService
 // 系统配置现在通过环境变量文件管理，不再使用数据库
 
 class SystemService
 {
+    /**
+     * 允许修改的配置键白名单
+     * 仅允许修改应用相关的非敏感配置.
+     */
+    private const ALLOWED_CONFIG_KEYS = [
+        'APP_NAME',
+        'APP_DEBUG',
+        'APP_TIMEZONE',
+        'CACHE_DRIVER',
+        'LOG_CHANNEL',
+        'LOG_LEVEL',
+        'DB_CONNECTION',
+        'DB_HOST',
+        'DB_PORT',
+        'DB_DATABASE',
+        'REDIS_HOST',
+        'REDIS_PORT',
+        'REDIS_PASSWORD',
+    ];
+
     /**
      * @var RedisFactory
      */
@@ -49,7 +67,7 @@ class SystemService
      * @var LoggerInterface
      */
     protected $logger;
-    
+
     /**
      * @Inject
      * @var EnvironmentFileService
@@ -61,27 +79,27 @@ class SystemService
      * @var UserRepository
      */
     protected $userRepository;
-    
+
     /**
      * @Inject
      * @var BlogRepository
      */
     protected $blogRepository;
-    
+
     /**
      * @Inject
      * @var CommentRepository
      */
     protected $commentRepository;
-    
+
     /**
      * @Inject
      * @var ActivityLogRepository
      */
     protected $activityLogRepository;
-    
+
     /**
-     * 构造函数. 注入依赖
+     * 构造函数. 注入依赖.
      *
      * @param RedisFactory $redisFactory Redis工厂
      * @param mixed $config 配置接口
@@ -92,7 +110,7 @@ class SystemService
         $this->redisFactory = $redisFactory;
         $this->config = $config;
         $this->logger = $logger;
-        
+
         // 初始化Redis实例
         $this->redis = $this->redisFactory->get('default');
     }
@@ -206,31 +224,10 @@ class SystemService
     }
 
     /**
-     * 允许修改的配置键白名单
-     * 仅允许修改应用相关的非敏感配置
-     */
-    private const ALLOWED_CONFIG_KEYS = [
-        'APP_NAME',
-        'APP_DEBUG',
-        'APP_TIMEZONE',
-        'CACHE_DRIVER',
-        'LOG_CHANNEL',
-        'LOG_LEVEL',
-        'DB_CONNECTION',
-        'DB_HOST',
-        'DB_PORT',
-        'DB_DATABASE',
-        'REDIS_HOST',
-        'REDIS_PORT',
-        'REDIS_PASSWORD',
-    ];
-
-    /**
      * 更新系统配置.
      *
      * @param string $key 配置键
      * @param mixed $value 配置值
-     * @return bool
      */
     public function updateConfig(string $key, mixed $value): bool
     {
@@ -241,7 +238,7 @@ class SystemService
             }
 
             // 验证配置键是否在白名单中
-            if (!in_array($key, self::ALLOWED_CONFIG_KEYS)) {
+            if (! in_array($key, self::ALLOWED_CONFIG_KEYS)) {
                 $this->logger->warning('尝试修改非授权的配置项: ' . $key);
                 throw new Exception('无权修改此配置项');
             }
@@ -258,7 +255,7 @@ class SystemService
 
             // 记录配置修改日志
             $this->logger->info('系统配置已更新', ['key' => $key]);
-            
+
             return $result;
         } catch (Exception $e) {
             $this->logger->error('更新系统配置异常: ' . $e->getMessage(), ['key' => $key]);
@@ -267,39 +264,9 @@ class SystemService
     }
 
     /**
-     * 验证配置值的安全性
-     * @param string $key 配置键
-     * @param mixed $value 配置值
-     * @throws Exception
-     */
-    private function validateConfigValue(string $key, mixed $value): void
-    {
-        $valueStr = (string) $value;
-        
-        // 防止路径遍历攻击
-        if (strpos($valueStr, '../') !== false || strpos($valueStr, '..\\') !== false) {
-            throw new Exception('配置值包含非法字符');
-        }
-        
-        // 验证数据库配置
-        if (strpos($key, 'DB_') === 0 && $key !== 'DB_CONNECTION') {
-            // 数据库连接字符串不能包含危险字符
-            if (preg_match('/[;&|`\\$]/', $valueStr)) {
-                throw new Exception('数据库配置包含非法字符');
-            }
-        }
-        
-        // 限制配置值长度，防止过大的输入
-        if (mb_strlen($valueStr) > 500) {
-            throw new Exception('配置值长度不能超过500字符');
-        }
-    }
-
-    /**
      * 批量更新系统配置.
      *
      * @param array<string, mixed> $configs 配置数组
-     * @return bool
      */
     public function batchUpdateConfig(array $configs): bool
     {
@@ -308,36 +275,36 @@ class SystemService
             if (count($configs) > 20) {
                 throw new Exception('批量更新数量不能超过20个');
             }
-            
+
             // 过滤和验证所有配置项
             $validatedConfigs = [];
             foreach ($configs as $key => $value) {
                 // 验证配置键是否合法
-                if (!preg_match('/^[a-zA-Z0-9_\.]+$/', $key)) {
+                if (! preg_match('/^[a-zA-Z0-9_\.]+$/', $key)) {
                     throw new Exception('配置键格式不合法: ' . $key);
                 }
-                
+
                 // 验证配置键是否在白名单中
-                if (!in_array($key, self::ALLOWED_CONFIG_KEYS)) {
+                if (! in_array($key, self::ALLOWED_CONFIG_KEYS)) {
                     $this->logger->warning('尝试修改非授权的配置项: ' . $key);
                     throw new Exception('无权修改此配置项: ' . $key);
                 }
-                
+
                 // 安全验证配置值
                 $this->validateConfigValue($key, $value);
-                
+
                 $validatedConfigs[$key] = $value;
             }
-            
+
             // 通过环境变量文件服务批量更新配置
             $result = $this->environmentFileService->batchUpdateEnvVars($validatedConfigs);
-            
+
             // 清除缓存
             $this->redis->del('system:config');
-            
+
             // 记录批量配置修改日志
             $this->logger->info('系统配置批量已更新', ['keys' => array_keys($validatedConfigs)]);
-            
+
             return $result;
         } catch (Exception $e) {
             $this->logger->error('批量更新系统配置异常: ' . $e->getMessage());
@@ -349,20 +316,19 @@ class SystemService
      * 获取用户统计
      *
      * @param array<string, string> $timeRange 时间范围
-     * @return int
      */
     protected function getUserCount(array $timeRange): int
     {
         try {
             $conditions = [];
-            
+
             if (isset($timeRange['start'])) {
                 $conditions['created_at >='] = $timeRange['start'];
             }
             if (isset($timeRange['end'])) {
                 $conditions['created_at <='] = $timeRange['end'];
             }
-            
+
             return $this->userRepository->count($conditions);
         } catch (Exception $e) {
             $this->logger->error('获取用户统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
@@ -374,7 +340,6 @@ class SystemService
      * 获取文章统计
      *
      * @param array<string, string> $timeRange 时间范围
-     * @return int
      */
     protected function getArticleCount(array $timeRange): int
     {
@@ -400,7 +365,6 @@ class SystemService
      * 获取评论统计
      *
      * @param array<string, string> $timeRange 时间范围
-     * @return int
      */
     protected function getCommentCount(array $timeRange): int
     {
@@ -426,7 +390,6 @@ class SystemService
      * 获取浏览量统计
      *
      * @param array<string, string> $timeRange 时间范围
-     * @return int
      */
     protected function getViewCount(array $timeRange): int
     {
@@ -447,7 +410,7 @@ class SystemService
     {
         try {
             $limit = $params['limit'] ?? 10;
-            
+
             // 通过ActivityLogRepository获取最近活动
             return $this->activityLogRepository->getRecentActivities($limit);
         } catch (Exception $e) {
@@ -519,7 +482,6 @@ class SystemService
      * 计算天数.
      *
      * @param array<string, string> $timeRange 时间范围
-     * @return int
      */
     protected function calculateDays(array $timeRange): int
     {
@@ -531,6 +493,35 @@ class SystemService
         $end = Carbon::parse($timeRange['end']);
 
         return $start->diffInDays($end) + 1;
+    }
+
+    /**
+     * 验证配置值的安全性.
+     * @param string $key 配置键
+     * @param mixed $value 配置值
+     * @throws Exception
+     */
+    private function validateConfigValue(string $key, mixed $value): void
+    {
+        $valueStr = (string) $value;
+
+        // 防止路径遍历攻击
+        if (strpos($valueStr, '../') !== false || strpos($valueStr, '..\\') !== false) {
+            throw new Exception('配置值包含非法字符');
+        }
+
+        // 验证数据库配置
+        if (strpos($key, 'DB_') === 0 && $key !== 'DB_CONNECTION') {
+            // 数据库连接字符串不能包含危险字符
+            if (preg_match('/[;&|`\$]/', $valueStr)) {
+                throw new Exception('数据库配置包含非法字符');
+            }
+        }
+
+        // 限制配置值长度，防止过大的输入
+        if (mb_strlen($valueStr) > 500) {
+            throw new Exception('配置值长度不能超过500字符');
+        }
     }
 
     // 权限管理相关功能已移至PermissionService

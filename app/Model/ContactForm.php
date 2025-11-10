@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
 
 /**
  * 联系表单模型.
@@ -20,9 +20,10 @@ use Hyperf\Model\Relations\BelongsTo;
 class ContactForm extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_UNPROCESSED = 0;
+
     public const STATUS_PROCESSED = 1;
 
     /**
@@ -36,7 +37,7 @@ class ContactForm extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字�?
      */
     protected array $fillable = [
         'name',
@@ -54,7 +55,7 @@ class ContactForm extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字�?
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -63,7 +64,7 @@ class ContactForm extends Model
     ];
 
     /**
-     * 获取处理人
+     * 获取处理�?
      * @return BelongsTo
      */
     public function processor()
@@ -71,3 +72,4 @@ class ContactForm extends Model
         return $this->belongsTo(User::class, 'processed_by', 'id');
     }
 }
+

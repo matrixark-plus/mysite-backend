@@ -1,30 +1,49 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Model;
 
-use Hyperf\DbConnection\Model\Model;
 use Hyperf\Database\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Model;
 
 /**
- * 节点链接表模型
- * 用于表示脑图节点之间的链接关系
+ * 节点链接表模�? * 用于表示脑图节点之间的链接关�?
  */
 class NodeLinks extends Model
 {
     /**
-     * 表名
+     * 链接类型常量.
+     */
+    public const LINK_TYPE_BIDIRECTIONAL = 'bidirectional';
+
+    public const LINK_TYPE_UNIDIRECTIONAL = 'unidirectional';
+
+    /**
+     * 时间�?
+     */
+    public bool $timestamps = true;
+
+    /**
+     * 表名.
      */
     protected ?string $table = 'node_links';
 
     /**
-     * 主键
+     * 主键.
      */
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段
+     * 可填充字�?
      */
     protected array $fillable = [
         'source_node_id',
@@ -34,12 +53,7 @@ class NodeLinks extends Model
     ];
 
     /**
-     * 时间戳
-     */
-    public bool $timestamps = true;
-
-    /**
-     * 时间戳字段
+     * 时间戳字�?
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -48,14 +62,7 @@ class NodeLinks extends Model
     ];
 
     /**
-     * 链接类型常量
-     */
-    public const LINK_TYPE_BIDIRECTIONAL = 'bidirectional';
-    public const LINK_TYPE_UNIDIRECTIONAL = 'unidirectional';
-
-    /**
-     * 获取源节点
-     * @return BelongsTo
+     * 获取源节�?
      */
     public function sourceNode(): BelongsTo
     {
@@ -63,8 +70,7 @@ class NodeLinks extends Model
     }
 
     /**
-     * 获取目标节点
-     * @return BelongsTo
+     * 获取目标节点.
      */
     public function targetNode(): BelongsTo
     {
@@ -72,8 +78,7 @@ class NodeLinks extends Model
     }
 
     /**
-     * 访问器：获取完整链接信息
-     * @return array
+     * 访问器：获取完整链接信息.
      */
     public function getFullLinkAttribute(): array
     {
@@ -88,8 +93,7 @@ class NodeLinks extends Model
     }
 
     /**
-     * 修改器：设置链接类型
-     * @param string $value
+     * 修改器：设置链接类型.
      */
     public function setLinkTypeAttribute(string $value): void
     {
@@ -97,3 +101,4 @@ class NodeLinks extends Model
         $this->attributes['link_type'] = in_array($value, $validTypes) ? $value : self::LINK_TYPE_UNIDIRECTIONAL;
     }
 }
+

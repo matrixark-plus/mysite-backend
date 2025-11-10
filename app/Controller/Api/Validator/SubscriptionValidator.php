@@ -1,12 +1,20 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
+use Hyperf\Di\Annotation\Inject;
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
-use Hyperf\Di\Annotation\Inject;
 
 /**
  * 订阅管理相关的参数验证器.
@@ -18,7 +26,6 @@ class SubscriptionValidator
      * @var ValidatorFactoryInterface
      */
     protected $validatorFactory;
-
 
     /**
      * 验证创建订阅请求参数.
@@ -82,7 +89,7 @@ class SubscriptionValidator
 
         return $validator->validated();
     }
-    
+
     /**
      * 验证取消订阅token参数.
      *

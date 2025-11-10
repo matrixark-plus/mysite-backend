@@ -2,32 +2,35 @@
 
 declare(strict_types=1);
 /**
- * 博客分类数据访问层
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
 namespace App\Repository;
 
 use App\Model\BlogCategory;
-use Hyperf\DbConnection\Db;
 
 class BlogCategoryRepository
 {
     /**
-     * 获取所有分类
+     * 获取所有分类.
      * @return array 分类列表
      */
     public function findAll(): array
     {
-        $categories = BlogCategory::orderBy('sort_order', 'asc')
+        return BlogCategory::orderBy('sort_order', 'asc')
             ->get()
             ->toArray();
-        
-        return $categories;
     }
 
     /**
-     * 根据ID获取分类
+     * 根据ID获取分类.
      * @param int $id 分类ID
-     * @return array|null 分类信息
+     * @return null|array 分类信息
      */
     public function findById(int $id): ?array
     {
@@ -36,7 +39,7 @@ class BlogCategoryRepository
     }
 
     /**
-     * 创建分类
+     * 创建分类.
      * @param array $data 分类数据
      * @return array 创建的分类信息
      */
@@ -52,15 +55,15 @@ class BlogCategoryRepository
             'created_at' => time(),
             'updated_at' => time(),
         ]);
-        
+
         return $category->toArray();
     }
 
     /**
-     * 更新分类
+     * 更新分类.
      * @param int $id 分类ID
      * @param array $data 更新数据
-     * @return array|null 更新后的分类信息
+     * @return null|array 更新后的分类信息
      */
     public function update(int $id, array $data): ?array
     {
@@ -68,18 +71,18 @@ class BlogCategoryRepository
         if (! $category) {
             return null;
         }
-        
+
         $updateData = $data;
-        if (!isset($data['updated_at'])) {
+        if (! isset($data['updated_at'])) {
             $updateData['updated_at'] = time();
         }
-        
+
         $category->update($updateData);
         return $category->toArray();
     }
 
     /**
-     * 删除分类
+     * 删除分类.
      * @param int $id 分类ID
      * @return bool 删除结果
      */
@@ -89,7 +92,7 @@ class BlogCategoryRepository
     }
 
     /**
-     * 获取分类下的博客数量
+     * 获取分类下的博客数量.
      * @param int $categoryId 分类ID
      * @return int 博客数量
      */
@@ -99,22 +102,20 @@ class BlogCategoryRepository
     }
 
     /**
-     * 获取父分类下的子分类
+     * 获取父分类下的子分类.
      * @param int $parentId 父分类ID
      * @return array 子分类列表
      */
     public function findChildren(int $parentId): array
     {
-        $children = BlogCategory::where('parent_id', $parentId)
+        return BlogCategory::where('parent_id', $parentId)
             ->orderBy('sort_order', 'asc')
             ->get()
             ->toArray();
-        
-        return $children;
     }
 
     /**
-     * 检查分类名称是否已存在
+     * 检查分类名称是否已存在.
      * @param string $name 分类名称
      * @param int $excludeId 排除的ID
      * @return bool 是否存在
@@ -125,12 +126,12 @@ class BlogCategoryRepository
         if ($excludeId > 0) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         return $query->exists();
     }
 
     /**
-     * 检查分类slug是否已存在
+     * 检查分类slug是否已存在.
      * @param string $slug slug
      * @param int $excludeId 排除的ID
      * @return bool 是否存在
@@ -141,12 +142,12 @@ class BlogCategoryRepository
         if ($excludeId > 0) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         return $query->exists();
     }
 
     /**
-     * 生成分类slug
+     * 生成分类slug.
      * @param string $name 分类名称
      * @param int $excludeId 排除的ID
      * @return string 生成的slug
@@ -163,7 +164,7 @@ class BlogCategoryRepository
         // 检查slug是否已存在
         $count = 1;
         $originalSlug = $slug;
-        
+
         while ($this->checkSlugExists($slug, $excludeId)) {
             $slug = $originalSlug . '-' . $count++;
         }

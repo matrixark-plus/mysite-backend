@@ -18,10 +18,12 @@ namespace App\Model;
 class Subscription extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_UNVERIFIED = 0;
+
     public const STATUS_VERIFIED = 1;
+
     public const STATUS_CANCELLED = 2;
 
     /**
@@ -35,12 +37,14 @@ class Subscription extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'email',
         'token',
         'status',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -49,7 +53,7 @@ class Subscription extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -57,3 +61,4 @@ class Subscription extends Model
         'status' => 'integer',
     ];
 }
+

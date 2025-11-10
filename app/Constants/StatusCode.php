@@ -48,11 +48,11 @@ class StatusCode
     // 业务错误相关状态码
     public const VALIDATION_ERROR = 422; // 数据验证错误
 
-    public const BUSINESS_ERROR = 400; // 业务处理失败
+    public const BUSINESS_ERROR = 406; // 业务处理失败（修改为406以避免与BAD_REQUEST重复）
 
     public const DATA_DUPLICATE = 409; // 数据冲突/重复
 
-    public const DATA_EXISTS = 409; // 数据已存在
+    public const DATA_EXISTS = 410; // 数据已存在（修改为410以避免与DATA_DUPLICATE重复）
 
     // 注意：消息获取逻辑已移至ResponseMessage类
     // 请使用ResponseMessage::getDefaultMessage()获取默认消息

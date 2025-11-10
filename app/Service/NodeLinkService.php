@@ -50,10 +50,10 @@ class NodeLinkService
     protected $mindmapRootRepository;
 
     /**
-     * 创建节点链接
+     * 创建节点链接.
      *
      * @param array<string, mixed> $linkData 链接数据
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function createNodeLink(array $linkData, ?int $userId = null): array
@@ -124,10 +124,10 @@ class NodeLinkService
     }
 
     /**
-     * 批量创建节点链接
+     * 批量创建节点链接.
      *
      * @param array<array<string, mixed>> $linksData 链接数据数组
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function batchCreateNodeLinks(array $linksData, ?int $userId = null): array
@@ -191,10 +191,10 @@ class NodeLinkService
     }
 
     /**
-     * 获取思维导图的所有节点链接
+     * 获取思维导图的所有节点链接.
      *
      * @param int $rootId 思维导图根ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function getMindmapLinks(int $rootId, ?int $userId = null): array
@@ -240,10 +240,10 @@ class NodeLinkService
     }
 
     /**
-     * 删除节点链接
+     * 删除节点链接.
      *
      * @param int $linkId 链接ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function deleteNodeLink(int $linkId, ?int $userId = null): array
@@ -289,10 +289,10 @@ class NodeLinkService
     }
 
     /**
-     * 删除与指定节点相关的所有链接
+     * 删除与指定节点相关的所有链接.
      *
      * @param int $nodeId 节点ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function deleteLinksByNodeId(int $nodeId, ?int $userId = null): array
@@ -334,10 +334,10 @@ class NodeLinkService
     }
 
     /**
-     * 检查思维导图操作权限
+     * 检查思维导图操作权限.
      *
      * @param int $rootId 思维导图根ID
-     * @param int|null $userId 用户ID
+     * @param null|int $userId 用户ID
      * @return bool 是否有权限
      */
     protected function checkMindmapPermission(int $rootId, ?int $userId): bool
@@ -351,10 +351,10 @@ class NodeLinkService
     }
 
     /**
-     * 检查思维导图访问权限
+     * 检查思维导图访问权限.
      *
      * @param int $rootId 思维导图根ID
-     * @param int|null $userId 用户ID
+     * @param null|int $userId 用户ID
      * @return bool 是否有权限
      */
     protected function checkMindmapAccess(int $rootId, ?int $userId): bool

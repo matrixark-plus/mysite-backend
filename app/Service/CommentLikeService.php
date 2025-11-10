@@ -3,33 +3,41 @@
 declare(strict_types=1);
 /**
  * 评论点赞服务
- * 处理评论点赞的业务逻辑
+ * 提供评论点赞相关的业务逻辑处理
  */
 
 namespace App\Service;
 
 use App\Model\CommentLike;
 use App\Repository\CommentLikeRepository;
-use Hyperf\Database\Db;
-use Hyperf\Di\Annotation\Inject;
+use Hyperf\DbConnection\Db;
 use Psr\Log\LoggerInterface;
 
 class CommentLikeService
-{
+{    
     /**
-     * @Inject
      * @var LoggerInterface
      */
-    protected $logger;
+    private $logger;
     
     /**
-     * @Inject
      * @var CommentLikeRepository
      */
-    protected $commentLikeRepository;
+    private $commentLikeRepository;
     
     /**
-     * 点赞/取消点赞评论
+     * CommentLikeService constructor.
+     * @param LoggerInterface $logger
+     * @param CommentLikeRepository $commentLikeRepository
+     */
+    public function __construct(LoggerInterface $logger, CommentLikeRepository $commentLikeRepository)
+    {
+        $this->logger = $logger;
+        $this->commentLikeRepository = $commentLikeRepository;
+    }
+
+    /**
+     * 点赞/取消点赞评论.
      * @param int $commentId 评论ID
      * @param int $userId 用户ID
      * @return array 操作结果
@@ -64,13 +72,13 @@ class CommentLikeService
                 'comment_id' => $commentId,
                 'user_id' => $userId,
                 'action' => $liked ? 'like' : 'unlike',
-                'like_count' => $likeCount
+                'like_count' => $likeCount,
             ]);
 
             return [
                 'liked' => $liked,
                 'like_count' => $likeCount,
-                'message' => $message
+                'message' => $message,
             ];
         });
     }
@@ -78,7 +86,7 @@ class CommentLikeService
     /**
      * 批量获取评论的点赞状态
      * @param array $commentIds 评论ID数组
-     * @param int|null $userId 用户ID（可选）
+     * @param null|int $userId 用户ID（可选）
      * @return array 点赞状态映射
      */
     public function getBatchLikeStatus(array $commentIds, ?int $userId = null): array
@@ -118,7 +126,7 @@ class CommentLikeService
         foreach ($commentIds as $commentId) {
             $result[$commentId] = [
                 'like_count' => $likeCountMap[$commentId] ?? 0,
-                'is_liked' => $userLikes[$commentId] ?? false
+                'is_liked' => $userLikes[$commentId] ?? false,
             ];
         }
 
@@ -126,18 +134,67 @@ class CommentLikeService
     }
 
     /**
-     * 获取用户点赞的评论ID列表
+     * 获取用户点赞的评论ID列表.
      * @param int $userId 用户ID
      * @param int $limit 限制数量
      * @return array 评论ID数组
      */
     public function getUserLikedComments(int $userId, int $limit = 100): array
     {
-        return CommentLike::where('user_id', $userId)
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
-            ->select('comment_id')
-            ->pluck('comment_id')
-            ->toArray();
+        try {
+            return CommentLike::where('user_id', $userId)
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->select('comment_id')
+                ->pluck('comment_id')
+                ->toArray();
+        } catch (\Exception $e) {
+            $this->logger->error('获取用户点赞的评论列表失败', [
+                'user_id' => $userId,
+                'limit' => $limit,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+    
+    /**
+     * 检查用户是否已点赞（与模型方法对应）
+     * 
+     * @param int $commentId 评论ID
+     * @param int $userId 用户ID
+     * @return bool 是否已点赞
+     */
+    public function isLiked(int $commentId, int $userId): bool
+    {
+        try {
+            return $this->commentLikeRepository->findByCommentAndUser($commentId, $userId) !== null;
+        } catch (\Exception $e) {
+            $this->logger->error('检查评论点赞状态失败', [
+                'comment_id' => $commentId,
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
+    /**
+     * 获取评论点赞数（与模型方法对应）
+     * 
+     * @param int $commentId 评论ID
+     * @return int 点赞数量
+     */
+    public function getLikeCount(int $commentId): int
+    {
+        try {
+            return $this->commentLikeRepository->countByComment($commentId);
+        } catch (\Exception $e) {
+            $this->logger->error('获取评论点赞数失败', [
+                'comment_id' => $commentId,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
+        }
     }
 }

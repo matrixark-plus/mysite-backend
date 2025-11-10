@@ -14,47 +14,47 @@ namespace App\Event;
 
 /**
  * 数据更新事件
- * 当重要数据被更新时触发此事件，用于异步处理和确保最终一致性
+ * 当重要数据被更新时触发此事件，用于异步处理和确保最终一致性.
  */
 class DataUpdatedEvent
 {
     /**
-     * 操作类型
+     * 操作类型.
      *
      * @var string
      */
     protected $action;
 
     /**
-     * 实体类型
+     * 实体类型.
      *
      * @var string
      */
     protected $entityType;
 
     /**
-     * 实体ID
+     * 实体ID.
      *
      * @var int
      */
     protected $entityId;
 
     /**
-     * 数据变化
+     * 数据变化.
      *
      * @var array
      */
     protected $changedData;
 
     /**
-     * 操作时间戳
+     * 操作时间戳.
      *
      * @var int
      */
     protected $timestamp;
 
     /**
-     * 构造函数
+     * 构造函数.
      *
      * @param string $action 操作类型（create/update/delete）
      * @param string $entityType 实体类型（blog/work/user等）
@@ -71,7 +71,7 @@ class DataUpdatedEvent
     }
 
     /**
-     * 获取操作类型
+     * 获取操作类型.
      */
     public function getAction(): string
     {
@@ -79,7 +79,7 @@ class DataUpdatedEvent
     }
 
     /**
-     * 获取实体类型
+     * 获取实体类型.
      */
     public function getEntityType(): string
     {
@@ -87,7 +87,7 @@ class DataUpdatedEvent
     }
 
     /**
-     * 获取实体ID
+     * 获取实体ID.
      */
     public function getEntityId(): int
     {
@@ -95,7 +95,7 @@ class DataUpdatedEvent
     }
 
     /**
-     * 获取数据变化
+     * 获取数据变化.
      */
     public function getChangedData(): array
     {
@@ -103,7 +103,7 @@ class DataUpdatedEvent
     }
 
     /**
-     * 获取操作时间戳
+     * 获取操作时间戳.
      */
     public function getTimestamp(): int
     {

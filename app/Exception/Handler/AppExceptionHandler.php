@@ -14,13 +14,14 @@ namespace App\Exception\Handler;
 
 use App\Constants\ResponseMessage;
 use App\Constants\StatusCode;
+use Hyperf\Context\ApplicationContext;
 use Hyperf\Contract\StdoutLoggerInterface;
 use Hyperf\ExceptionHandler\ExceptionHandler;
 use Hyperf\HttpMessage\Stream\SwooleStream;
-use \Hyperf\Context\ApplicationContext;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
+
 use function Hyperf\Support\env;
 
 class AppExceptionHandler extends ExceptionHandler

@@ -17,12 +17,13 @@ use App\Event\NewCommentEvent;
 use App\Task\AsyncLogTask;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Event\Contract\EventDispatcherInterface;
-use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
+use Throwable;
 
 /**
  * 事件驱动架构示例服务
- * 演示如何使用事件系统和异步任务确保最终一致性
+ * 演示如何使用事件系统和异步任务确保最终一致性.
  */
 class EventDemoService
 {
@@ -51,7 +52,7 @@ class EventDemoService
     protected $redisLockService;
 
     /**
-     * 演示创建实体并触发数据更新事件
+     * 演示创建实体并触发数据更新事件.
      *
      * @param string $entityType 实体类型
      * @param array $entityData 实体数据
@@ -66,11 +67,11 @@ class EventDemoService
         // 使用Redis分布式锁确保并发安全
         $lockKey = sprintf('entity:create:%s', $entityType);
         $lockValue = uniqid();
-        
+
         try {
             // 尝试获取分布式锁，超时时间5秒，锁定时间10秒
             if (! $this->redisLockService->lock($lockKey, $lockValue, 10, 5)) {
-                throw new \RuntimeException('系统繁忙，请稍后再试');
+                throw new RuntimeException('系统繁忙，请稍后再试');
             }
 
             // 模拟实体创建（在实际应用中，这里应该调用Repository层的方法）
@@ -101,7 +102,7 @@ class EventDemoService
                 'entity_id' => $entityId,
                 'message' => '实体创建成功',
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 确保异常情况下也释放锁
             $this->redisLockService->unlock($lockKey, $lockValue);
 
@@ -119,7 +120,7 @@ class EventDemoService
     }
 
     /**
-     * 演示更新实体并触发数据更新事件
+     * 演示更新实体并触发数据更新事件.
      *
      * @param string $entityType 实体类型
      * @param int $entityId 实体ID
@@ -140,7 +141,7 @@ class EventDemoService
         try {
             // 尝试获取分布式锁，超时时间3秒，锁定时间5秒
             if (! $this->redisLockService->lock($lockKey, $lockValue, 5, 3)) {
-                throw new \RuntimeException('系统繁忙，请稍后再试');
+                throw new RuntimeException('系统繁忙，请稍后再试');
             }
 
             // 模拟实体更新
@@ -177,7 +178,7 @@ class EventDemoService
                 'success' => true,
                 'message' => '实体更新成功',
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 确保异常情况下也释放锁
             $this->redisLockService->unlock($lockKey, $lockValue);
 
@@ -195,7 +196,7 @@ class EventDemoService
     }
 
     /**
-     * 演示删除实体并触发数据更新事件
+     * 演示删除实体并触发数据更新事件.
      *
      * @param string $entityType 实体类型
      * @param int $entityId 实体ID
@@ -215,7 +216,7 @@ class EventDemoService
         try {
             // 尝试获取分布式锁
             if (! $this->redisLockService->lock($lockKey, $lockValue, 5, 3)) {
-                throw new \RuntimeException('系统繁忙，请稍后再试');
+                throw new RuntimeException('系统繁忙，请稍后再试');
             }
 
             // 模拟实体删除
@@ -252,7 +253,7 @@ class EventDemoService
                 'success' => true,
                 'message' => '实体删除成功',
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 确保异常情况下也释放锁
             $this->redisLockService->unlock($lockKey, $lockValue);
 
@@ -270,7 +271,7 @@ class EventDemoService
     }
 
     /**
-     * 演示创建评论并触发评论事件
+     * 演示创建评论并触发评论事件.
      *
      * @param array $commentData 评论数据
      * @return array 操作结果
@@ -301,7 +302,7 @@ class EventDemoService
                 'comment_id' => $commentId,
                 'message' => '评论创建成功',
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('创建评论失败', [
                 'error' => $e->getMessage(),
             ]);
@@ -314,7 +315,7 @@ class EventDemoService
     }
 
     /**
-     * 演示批量异步任务处理
+     * 演示批量异步任务处理.
      *
      * @param array $items 待处理项目列表
      * @return array 处理结果
@@ -358,7 +359,7 @@ class EventDemoService
     // 以下方法仅用于演示，实际应用中应调用Repository层
 
     /**
-     * 模拟创建实体
+     * 模拟创建实体.
      */
     private function simulateCreateEntity(string $entityType, array $data): int
     {
@@ -369,7 +370,7 @@ class EventDemoService
     }
 
     /**
-     * 模拟更新实体
+     * 模拟更新实体.
      */
     private function simulateUpdateEntity(string $entityType, int $entityId, array $data): bool
     {
@@ -380,7 +381,7 @@ class EventDemoService
     }
 
     /**
-     * 模拟删除实体
+     * 模拟删除实体.
      */
     private function simulateDeleteEntity(string $entityType, int $entityId): bool
     {
@@ -391,7 +392,7 @@ class EventDemoService
     }
 
     /**
-     * 模拟创建评论
+     * 模拟创建评论.
      */
     private function simulateCreateComment(array $data): int
     {

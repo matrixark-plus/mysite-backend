@@ -10,7 +10,7 @@ declare(strict_types=1);
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 return [
-    /**
+    /*
      * 支持的IDE类型：
      * "sublime", "textmate", "cursor", "emacs", "macvim", "phpstorm", "idea",
      * "vscode", "vscode-insiders", "vscode-remote", "vscode-insiders-remote",

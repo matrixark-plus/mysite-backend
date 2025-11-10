@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 /**
- * 评论控制器
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
@@ -51,7 +56,7 @@ class CommentController extends AbstractController
     {
         try {
             $params = $request->all();
-            
+
             // 验证参数
             try {
                 $validatedData = $this->validator->validateCommentList($params);
@@ -59,9 +64,10 @@ class CommentController extends AbstractController
             } catch (ValidationException $e) {
                 return $this->validationError($e->validator->errors()->first());
             }
-            
-            $page = $request->input('page', 1);
-            $pageSize = $request->input('page_size', 10);
+
+            // 将分页参数合并到params中
+            $params['page'] = $request->input('page', 1);
+            $params['page_size'] = $request->input('page_size', 10);
 
             // 获取当前用户ID（如果已登录）
             $userId = null;
@@ -71,7 +77,7 @@ class CommentController extends AbstractController
             }
 
             // 获取评论列表
-            $result = $this->commentService->getComments($params, $page, $pageSize, $userId);
+            $result = $this->commentService->getComments($params, $userId);
             return $this->success($result, ResponseMessage::COMMENT_LIST_SUCCESS, StatusCode::SUCCESS);
         } catch (Exception $e) {
             return $this->serverError(ResponseMessage::COMMENT_LIST_FAILED . ': ' . $e->getMessage());
@@ -87,7 +93,7 @@ class CommentController extends AbstractController
     {
         try {
             $data = $request->all();
-            
+
             // 验证必要字段
             try {
                 $validatedData = $this->validator->validateCreateComment($data);

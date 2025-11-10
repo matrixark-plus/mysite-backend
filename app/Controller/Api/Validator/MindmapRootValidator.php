@@ -1,12 +1,20 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
-use Hyperf\Validation\ValidationException;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 思维导图根节点验证器
@@ -21,7 +29,7 @@ class MindmapRootValidator
     protected $validationFactory;
 
     /**
-     * 验证创建思维导图的参数
+     * 验证创建思维导图的参数.
      *
      * @param array $data 请求数据
      * @throws ValidationException 验证失败时抛出异常
@@ -50,7 +58,7 @@ class MindmapRootValidator
     }
 
     /**
-     * 验证分页参数
+     * 验证分页参数.
      *
      * @param array $params 请求参数
      * @return array 验证并标准化后的分页参数
@@ -74,13 +82,13 @@ class MindmapRootValidator
 
         // 标准化分页参数，提供默认值
         return [
-            'page' => max(1, (int)($params['page'] ?? 1)),
-            'limit' => max(1, min(100, (int)($params['limit'] ?? 20))),
+            'page' => max(1, (int) ($params['page'] ?? 1)),
+            'limit' => max(1, min(100, (int) ($params['limit'] ?? 20))),
         ];
     }
 
     /**
-     * 验证思维导图ID
+     * 验证思维导图ID.
      *
      * @param int $id 思维导图ID
      * @throws ValidationException 验证失败时抛出异常
@@ -98,7 +106,7 @@ class MindmapRootValidator
     }
 
     /**
-     * 验证更新思维导图的参数
+     * 验证更新思维导图的参数.
      *
      * @param array $data 请求数据
      * @throws ValidationException 验证失败时抛出异常
@@ -122,9 +130,9 @@ class MindmapRootValidator
     }
 
     /**
-     * 验证用户ID
+     * 验证用户ID.
      *
-     * @param int|null $userId 用户ID
+     * @param null|int $userId 用户ID
      * @throws ValidationException 验证失败时抛出异常
      */
     public function validateUserId(?int $userId): void

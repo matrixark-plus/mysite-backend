@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
 
 /**
  * 用户分析模型.
@@ -30,7 +30,7 @@ class UserAnalytics extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字�?
      */
     protected array $fillable = [
         'user_id',
@@ -54,7 +54,7 @@ class UserAnalytics extends Model
     ];
 
     /**
-     * 时间戳字段.
+     * 时间戳字�?
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -62,7 +62,7 @@ class UserAnalytics extends Model
     ];
 
     /**
-     * 获取关联用户
+     * 获取关联用户.
      * @return BelongsTo
      */
     public function user()
@@ -70,3 +70,4 @@ class UserAnalytics extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 }
+

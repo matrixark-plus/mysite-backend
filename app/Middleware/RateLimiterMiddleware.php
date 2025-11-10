@@ -16,18 +16,18 @@ use App\Constants\StatusCode;
 use Hyperf\Context\ApplicationContext;
 use Hyperf\Contract\StdoutLoggerInterface;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\HttpMessage\Stream\SwooleStream;
 use Hyperf\Redis\RedisFactory;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Log\LoggerInterface;
 use Redis;
 use Throwable;
 
 /**
  * API访问频率限制中间件
- * 使用Redis实现基于IP和路径的访问频率限制，防止API滥用
+ * 使用Redis实现基于IP和路径的访问频率限制，防止API滥用.
  */
 class RateLimiterMiddleware implements MiddlewareInterface
 {
@@ -44,13 +44,13 @@ class RateLimiterMiddleware implements MiddlewareInterface
     protected $redisFactory;
 
     /**
-     * Redis实例
+     * Redis实例.
      * @var Redis
      */
     protected $redis;
 
     /**
-     * 默认配置
+     * 默认配置.
      * @var array
      */
     protected $defaultConfig = [
@@ -61,7 +61,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
 
     /**
      * 路径特定配置
-     * 可以为不同API路径设置不同的限制规则
+     * 可以为不同API路径设置不同的限制规则.
      * @var array
      */
     protected $pathSpecificConfig = [
@@ -78,7 +78,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
     ];
 
     /**
-     * 构造函数
+     * 构造函数.
      */
     public function __construct()
     {
@@ -87,7 +87,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 处理请求，实现访问频率限制
+     * 处理请求，实现访问频率限制.
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
@@ -108,7 +108,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
 
             // 获取配置
             $config = $this->getConfigForPath($path);
-            
+
             // 检查是否处于封禁状态
             if ($this->isBlocked($blockKey)) {
                 $remainingBlockTime = $this->getRemainingBlockTime($blockKey);
@@ -133,12 +133,10 @@ class RateLimiterMiddleware implements MiddlewareInterface
 
             // 继续处理请求
             $response = $handler->handle($request);
-            
+
             // 添加速率限制头信息
             $attempts = $this->getCurrentAttempts($key);
-            $response = $this->addRateLimitHeaders($response, $config['max_attempts'], $attempts, $config['decay_minutes']);
-            
-            return $response;
+            return $this->addRateLimitHeaders($response, $config['max_attempts'], $attempts, $config['decay_minutes']);
         } catch (Throwable $e) {
             $this->logger->error('访问频率限制中间件异常', [
                 'error' => $e->getMessage(),
@@ -150,7 +148,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 判断是否应该跳过频率限制
+     * 判断是否应该跳过频率限制.
      */
     protected function shouldSkipRateLimit(string $path): bool
     {
@@ -173,7 +171,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 为特定路径获取配置
+     * 为特定路径获取配置.
      */
     protected function getConfigForPath(string $path): array
     {
@@ -188,7 +186,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 生成Redis键名
+     * 生成Redis键名.
      */
     protected function generateKey(string $ip, string $path, string $method): string
     {
@@ -198,7 +196,7 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 增加访问计数
+     * 增加访问计数.
      */
     protected function incrementCount(string $key, int $decayMinutes): void
     {
@@ -210,16 +208,16 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 获取当前访问次数
+     * 获取当前访问次数.
      */
     protected function getCurrentAttempts(string $key): int
     {
         $count = $this->redis->get($key);
-        return $count ? (int)$count : 0;
+        return $count ? (int) $count : 0;
     }
 
     /**
-     * 检查是否超过访问限制
+     * 检查是否超过访问限制.
      */
     protected function exceedsRateLimit(string $key, int $maxAttempts): bool
     {
@@ -240,28 +238,28 @@ class RateLimiterMiddleware implements MiddlewareInterface
      */
     protected function isBlocked(string $blockKey): bool
     {
-        return (bool)$this->redis->exists($blockKey);
+        return (bool) $this->redis->exists($blockKey);
     }
 
     /**
-     * 获取剩余封禁时间（秒）
+     * 获取剩余封禁时间（秒）.
      */
     protected function getRemainingBlockTime(string $blockKey): int
     {
-        return (int)$this->redis->ttl($blockKey);
+        return (int) $this->redis->ttl($blockKey);
     }
 
     /**
-     * 创建频率限制响应
+     * 创建频率限制响应.
      */
     protected function createRateLimitResponse(int $retryAfter): ResponseInterface
     {
         $response = ApplicationContext::getContainer()->get(ResponseInterface::class);
         return $response
             ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Retry-After', (string)$retryAfter)
+            ->withHeader('Retry-After', (string) $retryAfter)
             ->withStatus(429)
-            ->withBody(new \Hyperf\HttpMessage\Stream\SwooleStream(json_encode([
+            ->withBody(new SwooleStream(json_encode([
                 'code' => StatusCode::TOO_MANY_REQUESTS,
                 'message' => '请求过于频繁，请稍后再试',
                 'data' => [
@@ -271,15 +269,15 @@ class RateLimiterMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 添加速率限制头信息
+     * 添加速率限制头信息.
      */
     protected function addRateLimitHeaders(ResponseInterface $response, int $limit, int $remaining, int $resetMinutes): ResponseInterface
     {
         $resetTime = time() + ($resetMinutes * 60);
-        
+
         return $response
-            ->withHeader('X-RateLimit-Limit', (string)$limit)
-            ->withHeader('X-RateLimit-Remaining', (string)($limit - $remaining))
-            ->withHeader('X-RateLimit-Reset', (string)$resetTime);
+            ->withHeader('X-RateLimit-Limit', (string) $limit)
+            ->withHeader('X-RateLimit-Remaining', (string) ($limit - $remaining))
+            ->withHeader('X-RateLimit-Reset', (string) $resetTime);
     }
 }

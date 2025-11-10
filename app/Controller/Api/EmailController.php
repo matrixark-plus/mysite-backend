@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 /**
- * 邮件控制器
- * 处理邮件发送和验证码相关功能
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
@@ -20,7 +24,6 @@ use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\RequestMapping;
-use Hyperf\HttpServer\Annotation\RequestMethod;
 use Hyperf\Validation\ValidationException;
 
 /**
@@ -49,7 +52,7 @@ class EmailController extends AbstractController
     protected $validator;
 
     /**
-     * 发送邮件（管理员）
+     * 发送邮件（管理员）.
      * @return ResponseInterface
      * @RequestMapping(path="/send", methods={"POST"})
      * @Middleware({JwtAuthMiddleware::class, "admin"})

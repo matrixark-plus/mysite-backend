@@ -1,10 +1,16 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * 评论点赞模型
+ */
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
+use App\Model\Comment;
+use App\Model\User;
+use Hyperf\DbConnection\Model\Model;
+use Hyperf\Database\Model\Relations\BelongsTo;
 
 /**
  * 评论点赞模型.
@@ -22,7 +28,7 @@ class CommentLike extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'comment_id',
@@ -37,7 +43,7 @@ class CommentLike extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -45,7 +51,7 @@ class CommentLike extends Model
     ];
 
     /**
-     * 获取关联的评论.
+     * 获取关联的评论
      */
     public function comment(): BelongsTo
     {
@@ -53,34 +59,14 @@ class CommentLike extends Model
     }
 
     /**
-     * 获取点赞的用户.
+     * 获取点赞的用户
      */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    /**
-     * 检查用户是否已点赞
-     * @param int $commentId 评论ID
-     * @param int $userId 用户ID
-     * @return bool
-     */
-    public static function isLiked(int $commentId, int $userId): bool
-    {
-        return self::where('comment_id', $commentId)
-            ->where('user_id', $userId)
-            ->first() !== null;
-    }
-
-    /**
-     * 获取评论点赞数
-     * @param int $commentId 评论ID
-     * @return int
-     */
-    public static function getLikeCount(int $commentId): int
-    {
-        return self::where('comment_id', $commentId)
-            ->count();
-    }
+    // 注：业务逻辑方法已移至CommentLikeService层
+    // 保留纯模型关系定义
 }
+

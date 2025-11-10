@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
 
 /**
  * 博客分类模型.
@@ -31,7 +31,7 @@ class BlogCategory extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'name',
@@ -50,7 +50,7 @@ class BlogCategory extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -69,7 +69,7 @@ class BlogCategory extends Model
     }
 
     /**
-     * 获取父分类.
+     * 获取父分类
      * @return BelongsTo
      */
     public function parent()
@@ -78,7 +78,7 @@ class BlogCategory extends Model
     }
 
     /**
-     * 获取子分类.
+     * 获取子分类
      * @return HasMany
      */
     public function children()
@@ -86,3 +86,4 @@ class BlogCategory extends Model
         return $this->hasMany(BlogCategory::class, 'parent_id', 'id');
     }
 }
+

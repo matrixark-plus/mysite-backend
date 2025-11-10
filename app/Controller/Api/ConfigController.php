@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 /**
- * 配置管理控制器
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
 
-use App\Controller\AbstractController;
 use App\Constants\StatusCode;
+use App\Controller\AbstractController;
 use App\Controller\Api\Validator\ConfigValidator;
 use App\Middleware\JwtAuthMiddleware;
 use App\Service\SystemService;
@@ -70,7 +75,7 @@ class ConfigController extends AbstractController
         try {
             $data = $this->request->all();
             $validatedData = $this->validator->validateUpdateConfig($data);
-            
+
             $result = $this->systemService->updateConfig($validatedData['key'], $validatedData['value']);
 
             if ($result) {
@@ -95,7 +100,7 @@ class ConfigController extends AbstractController
         try {
             $data = $this->request->all();
             $validatedData = $this->validator->validateBatchUpdateConfig($data);
-            
+
             $result = $this->systemService->batchUpdateConfig($validatedData['configs']);
 
             if ($result) {

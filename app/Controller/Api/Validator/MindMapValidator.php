@@ -1,11 +1,19 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
 
 /**
@@ -21,7 +29,7 @@ class MindMapValidator
     protected $validationFactory;
 
     /**
-     * 验证根节点列表请求参数
+     * 验证根节点列表请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -51,7 +59,7 @@ class MindMapValidator
     }
 
     /**
-     * 验证脑图ID
+     * 验证脑图ID.
      *
      * @param int $id 脑图ID
      * @return bool 验证通过返回true

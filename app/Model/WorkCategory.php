@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Database\Model\Collection;
-use Hyperf\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
 
 /**
  * 作品分类模型.
@@ -31,7 +31,7 @@ class WorkCategory extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'name',
@@ -49,7 +49,7 @@ class WorkCategory extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -59,8 +59,8 @@ class WorkCategory extends Model
     ];
 
     /**
-     * 获取父分类.
-     * @return \Hyperf\Model\Relations\BelongsTo
+     * 获取父分类
+     * @return BelongsTo
      */
     public function parent()
     {
@@ -68,7 +68,7 @@ class WorkCategory extends Model
     }
 
     /**
-     * 获取子分类.
+     * 获取子分类
      * @return HasMany
      */
     public function children()
@@ -85,3 +85,4 @@ class WorkCategory extends Model
         return $this->hasMany(Work::class, 'category_id', 'id');
     }
 }
+

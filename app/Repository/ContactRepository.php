@@ -40,14 +40,15 @@ class ContactRepository extends BaseRepository
      * 根据ID查找联系记录.
      *
      * @param int $id
-     * @return Contact|null
+     * @return array|null
      */
-    public function findById(int $id): ?Contact
+    public function findById(int $id): ?array
     {
         try {
-            return $this-\u003emodel-\u003efind($id);
+            $model = $this->model->find($id);
+            return $model ? $model->toArray() : null;
         } catch (\Throwable $e) {
-            $this-\u003elogger-\u003eerror('查找联系记录失败: ' . $e-\u003egetMessage(), ['id' =\u003e $id]);
+            $this->logger->error('查找联系记录失败: ' . $e->getMessage(), ['id' => $id]);
             return null;
         }
     }
@@ -56,14 +57,15 @@ class ContactRepository extends BaseRepository
      * 创建联系记录.
      *
      * @param array $data
-     * @return Contact|null
+     * @return array|null
      */
-    public function create(array $data): ?Contact
+    public function create(array $data): ?array
     {
         try {
-            return $this-\u003emodel-\u003ecreate($data);
+            $model = $this->model->create($data);
+            return $model ? $model->toArray() : null;
         } catch (\Throwable $e) {
-            $this-\u003elogger-\u003eerror('创建联系记录失败: ' . $e-\u003egetMessage(), $data);
+            $this->logger->error('创建联系记录失败: ' . $e->getMessage(), $data);
             return null;
         }
     }
@@ -126,10 +128,10 @@ class ContactRepository extends BaseRepository
                 -\u003eget();
             
             return [
-                'total' =\u003e $total,
-                'page' =\u003e $page,
-                'pageSize' =\u003e $pageSize,
-                'list' =\u003e $list,
+                'total' => $total,
+                'page' => $page,
+                'pageSize' => $pageSize,
+                'list' => $list->toArray(),
             ];
         } catch (\Throwable $e) {
             $this-\u003elogger-\u003eerror('获取联系记录列表失败: ' . $e-\u003egetMessage(), ['filters' =\u003e $filters]);

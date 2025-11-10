@@ -53,7 +53,7 @@ class SubscribeService
     protected $redisFactory;
 
     /**
-     * 构造函数
+     * 构造函数.
      */
     public function __construct()
     {
@@ -95,9 +95,9 @@ class SubscribeService
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ];
-            
+
             $subscribe = $this->subscribeRepository->create($subscribeData);
-            
+
             if (! $subscribe) {
                 return [
                     'success' => false,
@@ -115,7 +115,7 @@ class SubscribeService
                     'message' => '订阅成功，请查收验证邮件',
                 ];
             }
-            
+
             // 发送失败，删除记录
             $this->subscribeRepository->delete($subscribe['id']);
             return [
@@ -152,20 +152,20 @@ class SubscribeService
 
             // 更新订阅状态
             $updateData = [
-                'status' => Subscribe::STATUS_CONFIRMED,
+                'status' => 'confirmed',
                 'confirmed_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ];
-            
+
             $success = $this->subscribeRepository->update($subscribe->id, $updateData);
-            
+
             if ($success) {
                 return [
                     'success' => true,
                     'message' => '订阅确认成功！',
                 ];
             }
-            
+
             return [
                 'success' => false,
                 'message' => '更新订阅状态失败，请稍后重试',
@@ -202,9 +202,9 @@ class SubscribeService
                 'token' => $token,
                 'updated_at' => Carbon::now(),
             ];
-            
+
             $success = $this->subscribeRepository->update($subscribe->id, $updateData);
-            
+
             if (! $success) {
                 return [
                     'success' => false,
@@ -241,11 +241,10 @@ class SubscribeService
      * @param string $type 订阅类型
      * @return array
      */
-    public function getConfirmedSubscribers($type = Subscribe::TYPE_BLOG)
+    public function getConfirmedSubscribers($type = 'blog')
     {
         return $this->subscribeRepository->getConfirmedSubscribers($type);
     }
-
 
     /**
      * 生成订阅token.

@@ -18,7 +18,7 @@ namespace App\Model;
 class SystemConfig extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_DISABLED = 0;  // 禁用
 
@@ -38,7 +38,7 @@ class SystemConfig extends Model
     public const TYPE_JSON = 'json';
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     public bool $timestamps = true;
 
@@ -53,17 +53,13 @@ class SystemConfig extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'key',
         'value',
-        'description',
-        'type',
-        'sort',
-        'status',
-        'created_by',
-        'updated_by',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -73,7 +69,7 @@ class SystemConfig extends Model
 
     /**
      * 获取配置值
-     * 根据配置类型返回适当的数据类型.
+     * 根据配置类型返回适当的数据类型
      * @return mixed
      */
     public function getValue()
@@ -112,3 +108,4 @@ class SystemConfig extends Model
         }
     }
 }
+

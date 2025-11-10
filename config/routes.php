@@ -12,7 +12,7 @@ declare(strict_types=1);
 use Hyperf\HttpServer\Router\Router;
 
 // 健康检查路由
-Router::addRoute(['GET', 'HEAD'], '/', function() {
+Router::addRoute(['GET', 'HEAD'], '/', function () {
     return ['status' => 'ok', 'message' => 'Service is running'];
 });
 
@@ -46,11 +46,11 @@ Router::addGroup('/api', function () {
         Router::get('/{id}', 'App\Controller\Api\CommentController@show');
         Router::get('/{id}/replies', 'App\Controller\Api\CommentController@getReplies');
         Router::post('/{id}/reply', 'App\Controller\Api\CommentController@replyComment');
-        
+
         // 需要认证的评论接口
         Router::put('/{id}', 'App\Controller\Api\CommentController@update');
         Router::delete('/{id}', 'App\Controller\Api\CommentController@destroy');
-        
+
         // 管理员审核接口
         Router::get('/pending/list', 'App\Controller\Api\CommentController@getPendingComments');
         Router::put('/{id}/approve', 'App\Controller\Api\CommentController@approveComment');
@@ -111,7 +111,7 @@ Router::addGroup('/api', function () {
         Router::post('/update-role', 'App\Controller\Api\PermissionController@updateRole', ['middleware' => ['admin_permission']]);
         Router::get('/list', 'App\Controller\Api\PermissionController@getPermissions', ['middleware' => ['admin_permission']]);
         Router::post('/assign', 'App\Controller\Api\PermissionController@assignPermission', ['middleware' => ['admin_permission']]);
-        
+
         // 需要认证的路由
         Router::get('/user-role', 'App\Controller\Api\PermissionController@getUserRole', ['middleware' => ['permission']]);
         Router::post('/check', 'App\Controller\Api\PermissionController@checkPermission', ['middleware' => ['permission']]);

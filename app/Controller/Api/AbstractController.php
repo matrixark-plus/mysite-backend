@@ -1,4 +1,4 @@
-\u003c?php
+<?php
 
 declare(strict_types=1);
 /**
@@ -132,7 +132,8 @@ abstract class AbstractController
     protected function getUserIdFromContext(): ?int
     {
         // 这里只是一个示例，实际实现应该从认证中间件设置的上下文或请求中获取
-        return Context::get('user.id');
+        $userId = Context::get('user.id');
+        return $userId === null ? null : (int) $userId;
     }
 
     /**

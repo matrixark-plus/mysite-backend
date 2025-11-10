@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * 活动日志Repository
- * 负责活动日志相关的数据库操作
+ * 负责活动日志相关的数据库操作.
  */
 class ActivityLogRepository extends BaseRepository
 {
@@ -30,23 +30,14 @@ class ActivityLogRepository extends BaseRepository
     protected $logger;
 
     /**
-     * 表名
+     * 表名.
      *
      * @var string
      */
     protected $table = 'activity_logs';
-    
-    /**
-     * 获取模型类名
-     * @return string 模型类名
-     */
-    protected function getModel(): string
-    {
-        return 'App\Model\ActivityLog';
-    }
 
     /**
-     * 获取最近活动
+     * 获取最近活动.
      *
      * @param int $limit 限制数量
      * @param array $conditions 额外条件
@@ -56,7 +47,7 @@ class ActivityLogRepository extends BaseRepository
     {
         try {
             $query = Db::table($this->table);
-            
+
             // 添加额外条件
             foreach ($conditions as $key => $value) {
                 if (is_array($value)) {
@@ -65,25 +56,25 @@ class ActivityLogRepository extends BaseRepository
                     $query->where($key, $value);
                 }
             }
-            
+
             $activities = $query
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)
                 ->get();
-            
+
             // 确保返回数组格式
             $result = [];
             foreach ($activities as $activity) {
                 $result[] = (array) $activity;
             }
-            
+
             return $result;
         } catch (Exception $e) {
             $this->logger->error('获取最近活动失败: ' . $e->getMessage(), ['limit' => $limit, 'conditions' => $conditions]);
             return [];
         }
     }
-    
+
     /**
      * 获取活动统计
      *
@@ -94,18 +85,27 @@ class ActivityLogRepository extends BaseRepository
     {
         try {
             $query = Db::table($this->table);
-            
+
             if (isset($timeRange['start'])) {
                 $query->where('created_at', '>=', $timeRange['start']);
             }
             if (isset($timeRange['end'])) {
                 $query->where('created_at', '<=', $timeRange['end']);
             }
-            
+
             return $query->count();
         } catch (Exception $e) {
             $this->logger->error('获取活动统计失败: ' . $e->getMessage(), ['timeRange' => $timeRange]);
             return 0;
         }
+    }
+
+    /**
+     * 获取模型类名.
+     * @return string 模型类名
+     */
+    protected function getModel(): string
+    {
+        return 'App\Model\ActivityLog';
     }
 }

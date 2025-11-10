@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace App\Traits;
 
+use Hyperf\Context\ApplicationContext;
 use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -33,7 +34,7 @@ trait LogTrait
         }
 
         // 从容器中获取
-        $container = \Hyperf\Context\ApplicationContext::getContainer();
+        $container = ApplicationContext::getContainer();
         $loggerFactory = $container->get(LoggerFactory::class);
         return $loggerFactory->get($name);
     }

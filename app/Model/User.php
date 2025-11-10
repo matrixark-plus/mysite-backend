@@ -17,8 +17,8 @@ use Qbhy\HyperfAuth\Authenticatable;
 
 /**
  * 用户模型
- * 实现hyperf-auth的认证接口.
- * 
+ * 实现hyperf-auth的认证接�?
+ *
  * @property int $id
  * @property string $email
  * @property string $password_hash
@@ -32,7 +32,7 @@ use Qbhy\HyperfAuth\Authenticatable;
  * @property int $login_attempts
  * @property bool $is_locked
  * @property string $lock_expire_time
- * 
+ *
  * @method static static|\Hyperf\Database\Query\Builder where($column, $operator = null, $value = null, $boolean = 'and')
  * @method static static|\Hyperf\Database\Query\Builder orderBy($column, $direction = 'asc')
  * @method static static|\Hyperf\Database\Query\Builder select($columns = ['*'])
@@ -50,9 +50,9 @@ class User extends Model implements Authenticatable
     public bool $incrementing = true;
 
     /**
-     * 时间戳. 设为false因为我们不需要updated_at字段
+     * 时间戳
      */
-    public bool $timestamps = false;
+    public bool $timestamps = true;
 
     /**
      * 表名.
@@ -70,22 +70,20 @@ class User extends Model implements Authenticatable
     protected string $keyType = 'int';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      * @var string[]
      */
     protected array $fillable = [
-        'email',
-        'password_hash',
-        'real_name',
-        'avatar',
-        'bio',
-        'is_active',
+        'username',
+        'password',
+        'login_ip',
+        'login_time',
+        'status',
+        'failed_attempts',
+        'locked',
         'is_admin',
-        'last_login_at',
-        'last_login_ip',
-        'login_attempts',
-        'is_locked',
-        'lock_expire_time',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -93,7 +91,7 @@ class User extends Model implements Authenticatable
      * @var string[]
      */
     protected array $hidden = [
-        'password_hash',
+        'password',
     ];
 
     /**
@@ -113,11 +111,11 @@ class User extends Model implements Authenticatable
     }
 
     /**
-     * 获取用于验证密码的字段.
+     * 获取用于验证密码的字段
      */
     public function getAuthPasswordName(): string
     {
-        return 'password_hash';
+        return 'password';
     }
 
     /**
@@ -129,11 +127,11 @@ class User extends Model implements Authenticatable
     }
 
     /**
-     * 设置密码属性，转换为密码哈希.
+     * 设置密码属性，转换为密码哈希
      */
     public function setPasswordAttribute(string $value): void
     {
-        $this->attributes['password_hash'] = password_hash($value, PASSWORD_DEFAULT);
+        $this->attributes['password'] = password_hash($value, PASSWORD_DEFAULT);
     }
 
     /**
@@ -145,7 +143,7 @@ class User extends Model implements Authenticatable
     }
 
     /**
-     * 根据键检索用户（符合hyperf-auth规范）.
+     * 根据键检索用户（符合hyperf-auth规范�?
      * @param mixed $key
      */
     public static function retrieveById($key): ?Authenticatable
@@ -161,3 +159,4 @@ class User extends Model implements Authenticatable
         return password_verify($password, $this->getAuthPassword());
     }
 }
+

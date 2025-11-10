@@ -53,7 +53,7 @@ abstract class AbstractJob
     /**
      * 执行任务
      */
-    abstract public function handle();
+    abstract public function handle(): void;
 
     /**
      * 执行任务并处理异常.

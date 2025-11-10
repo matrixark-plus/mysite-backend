@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
 
 /**
  * 博客标签关联模型.
@@ -30,11 +30,13 @@ class BlogTagRelation extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'blog_id',
         'tag_id',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -43,14 +45,17 @@ class BlogTagRelation extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
+        'updated_at' => 'timestamp',
+        'blog_id' => 'integer',
+        'tag_id' => 'integer',
     ];
 
     /**
-     * 获取关联博客
+     * 获取关联博客.
      * @return BelongsTo
      */
     public function blog()
@@ -59,7 +64,7 @@ class BlogTagRelation extends Model
     }
 
     /**
-     * 获取关联标签
+     * 获取关联标签.
      * @return BelongsTo
      */
     public function tag()
@@ -67,3 +72,4 @@ class BlogTagRelation extends Model
         return $this->belongsTo(BlogTag::class, 'tag_id', 'id');
     }
 }
+

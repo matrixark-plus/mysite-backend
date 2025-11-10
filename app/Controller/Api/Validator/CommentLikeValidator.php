@@ -1,14 +1,21 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
-use Hyperf\Di\Annotation\Inject;
-use Hyperf\Validation\ValidationException;
 use App\Model\Comment;
-use App\Constants\StatusCode;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Validation\Contract\ValidatorFactoryInterface;
+use Hyperf\Validation\ValidationException;
 
 /**
  * 评论点赞验证器
@@ -23,7 +30,7 @@ class CommentLikeValidator
     protected $validationFactory;
 
     /**
-     * 验证评论ID并检查评论是否存在
+     * 验证评论ID并检查评论是否存在.
      *
      * @param int $commentId 评论ID
      * @return bool 验证通过返回true

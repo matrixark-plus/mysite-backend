@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 /**
- * 首页控制器
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller;
@@ -19,7 +24,7 @@ class IndexController extends AbstractController
     use LogTrait;
 
     /**
-     * 首页入口
+     * 首页入口.
      * @RequestMapping(path="", methods={"GET"})
      */
     public function index()

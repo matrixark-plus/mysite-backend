@@ -18,9 +18,10 @@ namespace App\Model;
 class Contact extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_UNPROCESSED = 0;
+
     public const STATUS_PROCESSED = 1;
 
     /**
@@ -34,7 +35,7 @@ class Contact extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'name',
@@ -45,6 +46,8 @@ class Contact extends Model
         'ip',
         'status',
         'processed_at',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -53,7 +56,7 @@ class Contact extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -62,3 +65,4 @@ class Contact extends Model
         'status' => 'integer',
     ];
 }
+

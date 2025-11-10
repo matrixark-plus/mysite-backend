@@ -24,7 +24,9 @@ use Psr\Log\LoggerInterface;
  * 新评论监听器
  * 监听新评论事件并发送通知.
  */
-#[Listener]
+/**
+ * @Listener
+ */
 class NewCommentListener implements ListenerInterface
 {
     /**
@@ -33,7 +35,7 @@ class NewCommentListener implements ListenerInterface
     protected $logger;
 
     /**
-     * 构造函数.
+     * 构造函数
      */
     public function __construct()
     {
@@ -42,7 +44,7 @@ class NewCommentListener implements ListenerInterface
     }
 
     /**
-     * 监听的事件列表.
+     * 监听的事件列表
      */
     public function listen(): array
     {
@@ -52,7 +54,7 @@ class NewCommentListener implements ListenerInterface
     }
 
     /**
-     * 处理新评论事件.
+     * 处理新评论事件
      */
     public function process(object $event): void
     {
@@ -78,10 +80,10 @@ class NewCommentListener implements ListenerInterface
             $container = ApplicationContext::getContainer();
 
             // 构建邮件内容
-            $subject = '新评论需要审核 - ID: ' . $commentId;
+            $subject = '新评论需要审核- ID: ' . $commentId;
             $body = $this->buildEmailBody($commentId, $commentData);
 
-            // 由于无法确认邮件服务是否已配置，使用条件检查
+            // 由于无法确认邮件服务是否已配置，使用条件检测
             if (class_exists('Hyperf\Mail\MailerInterface') && $container->has('Hyperf\Mail\MailerInterface')) {
                 $mailer = $container->get('Hyperf\Mail\MailerInterface');
                 $adminEmail = env('ADMIN_EMAIL', 'admin@example.com');
@@ -123,10 +125,12 @@ class NewCommentListener implements ListenerInterface
         $body .= '- 用户ID: ' . ($commentData['user_id'] ?? '未知') . "\n";
         $body .= '- 文章ID: ' . ($commentData['post_id'] ?? '未知') . "\n";
         $body .= '- 文章类型: ' . ($commentData['post_type'] ?? '未知') . "\n";
-        $body .= '- 评论内容: ' . ($commentData['content'] ?? '无') . "\n\n";
+        $body .= '- 评论内容: ' . ($commentData['content'] ?? '未知') . "\n\n";
         $body .= "请尽快登录管理后台进行审核。\n\n";
-        $body .= '此邮件由系统自动发送，请勿回复。';
+        $body .= '此邮件由系统自动发送，请勿回复';
 
         return $body;
     }
 }
+
+

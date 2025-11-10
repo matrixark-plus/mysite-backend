@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
 
 /**
  * 脑图节点模型.
@@ -24,6 +24,7 @@ class MindmapNode extends Model
      * 节点类型常量.
      */
     public const NODE_TYPE_NORMAL = 'node';
+
     public const NODE_TYPE_NOTE_LINK = 'note_link';
 
     /**
@@ -37,7 +38,7 @@ class MindmapNode extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字�?
      */
     protected array $fillable = [
         'root_id',
@@ -55,7 +56,7 @@ class MindmapNode extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字�?
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -65,7 +66,7 @@ class MindmapNode extends Model
     ];
 
     /**
-     * 获取根节点
+     * 获取根节�?
      * @return BelongsTo
      */
     public function root()
@@ -74,7 +75,7 @@ class MindmapNode extends Model
     }
 
     /**
-     * 获取父节点
+     * 获取父节�?
      * @return BelongsTo
      */
     public function parent()
@@ -83,7 +84,7 @@ class MindmapNode extends Model
     }
 
     /**
-     * 获取子节点
+     * 获取子节�?
      * @return HasMany
      */
     public function children()
@@ -92,7 +93,7 @@ class MindmapNode extends Model
     }
 
     /**
-     * 获取关联笔记
+     * 获取关联笔记.
      * @return BelongsTo
      */
     public function note()
@@ -100,3 +101,4 @@ class MindmapNode extends Model
         return $this->belongsTo(Note::class, 'note_id', 'id');
     }
 }
+

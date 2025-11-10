@@ -14,10 +14,9 @@ namespace App\Service;
 
 use Exception;
 use Hyperf\Cache\CacheManager;
-use Hyperf\Di\Annotation\Inject;
 use Hyperf\Context\ApplicationContext;
+use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
-use App\Service\EnvironmentFileService;
 
 /**
  * 系统配置服务
@@ -95,7 +94,7 @@ class SystemConfigService
     }
 
     /**
-     * 获取多个配置项
+     * 获取多个配置项.
      * @param array $keys 配置项键名列表
      * @return array 配置项值列表，键名为配置项键名，值为配置项值
      */

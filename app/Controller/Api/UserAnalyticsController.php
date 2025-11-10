@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 /**
- * 用户分析控制器
- * 处理用户分析相关的HTTP请求.
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
@@ -12,6 +16,7 @@ use App\Constants\StatusCode;
 use App\Controller\AbstractController;
 use App\Service\UserAnalyticsService;
 use App\Traits\LogTrait;
+use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
@@ -24,7 +29,7 @@ use Hyperf\HttpServer\Annotation\RequestMapping;
 class UserAnalyticsController extends AbstractController
 {
     use LogTrait;
-    
+
     /**
      * @Inject
      * @var UserAnalyticsService
@@ -32,14 +37,14 @@ class UserAnalyticsController extends AbstractController
     protected $userAnalyticsService;
 
     /**
-     * 记录用户事件
+     * 记录用户事件.
      * @RequestMapping(path="record-event", methods={"POST"})
      */
     public function recordEvent()
     {
         try {
             $data = $this->request->all();
-            
+
             // 从请求中提取必要信息
             $eventData = [
                 'user_id' => $data['user_id'] ?? null,
@@ -53,20 +58,20 @@ class UserAnalyticsController extends AbstractController
             ];
 
             $result = $this->userAnalyticsService->recordUserEvent($eventData);
-            
+
             if ($result['success']) {
                 return $this->success($result['data'], $result['message']);
             }
-            
+
             return $this->fail(StatusCode::BAD_REQUEST, $result['message']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logError('记录用户事件失败', ['error' => $e->getMessage()], $e, 'analytics');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '记录用户事件失败');
         }
     }
 
     /**
-     * 获取用户活动记录
+     * 获取用户活动记录.
      * @RequestMapping(path="user-activity/{userId}", methods={"GET"})
      */
     public function getUserActivity()
@@ -82,20 +87,20 @@ class UserAnalyticsController extends AbstractController
             }
 
             $result = $this->userAnalyticsService->getUserActivity($userId, $limit);
-            
+
             if ($result['success']) {
                 return $this->success($result['data']);
             }
-            
+
             return $this->fail(StatusCode::BAD_REQUEST, $result['message']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logError('获取用户活动记录失败', ['error' => $e->getMessage()], $e, 'analytics');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取用户活动记录失败');
         }
     }
 
     /**
-     * 获取统计数据（管理员功能）
+     * 获取统计数据（管理员功能）.
      * @RequestMapping(path="stats", methods={"GET"})
      */
     public function getStats()
@@ -108,38 +113,38 @@ class UserAnalyticsController extends AbstractController
             }
 
             $conditions = [];
-            
+
             // 处理查询条件
             if ($startDate = $this->request->input('start_date')) {
                 $conditions['created_at'] = ['$gte' => $startDate];
             }
-            
+
             if ($endDate = $this->request->input('end_date')) {
                 if (! isset($conditions['created_at'])) {
                     $conditions['created_at'] = [];
                 }
                 $conditions['created_at']['$lte'] = $endDate;
             }
-            
+
             if ($eventType = $this->request->input('event_type')) {
                 $conditions['event_type'] = $eventType;
             }
 
             $result = $this->userAnalyticsService->getUserStats($conditions);
-            
+
             if ($result['success']) {
                 return $this->success($result['data']);
             }
-            
+
             return $this->fail(StatusCode::BAD_REQUEST, $result['message']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logError('获取统计数据失败', ['error' => $e->getMessage()], $e, 'analytics');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '获取统计数据失败');
         }
     }
 
     /**
-     * 清理过期数据（管理员功能）
+     * 清理过期数据（管理员功能）.
      * @RequestMapping(path="clean-old-data", methods={"POST"})
      */
     public function cleanOldData()
@@ -152,15 +157,15 @@ class UserAnalyticsController extends AbstractController
             }
 
             $days = (int) $this->request->input('days', 90);
-            
+
             $result = $this->userAnalyticsService->cleanOldAnalyticsData($days);
-            
+
             if ($result['success']) {
                 return $this->success($result['data'], $result['message']);
             }
-            
+
             return $this->fail(StatusCode::BAD_REQUEST, $result['message']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logError('清理过期数据失败', ['error' => $e->getMessage()], $e, 'analytics');
             return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, '清理过期数据失败');
         }

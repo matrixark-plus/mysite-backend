@@ -44,7 +44,7 @@ class SubscriptionService
     protected $mailService;
 
     /**
-     * 创建订阅
+     * 创建订阅.
      *
      * @param array<string, mixed> $subscriptionData 订阅数据
      * @return array 操作结果
@@ -76,7 +76,8 @@ class SubscriptionService
                         'success' => false,
                         'message' => '您已经订阅过了',
                     ];
-                } elseif ($existing->status === 'pending') {
+                }
+                if ($existing->status === 'pending') {
                     // 重新发送确认邮件
                     return $this->resendConfirmation($existing->id);
                 }
@@ -84,7 +85,7 @@ class SubscriptionService
 
             // 生成确认token
             $token = Str::random(64);
-            
+
             // 创建订阅记录
             $data = [
                 'email' => $subscriptionData['email'],
@@ -92,7 +93,7 @@ class SubscriptionService
                 'subscription_type' => $subscriptionData['subscription_type'] ?? 'newsletter',
                 'status' => 'pending',
                 'confirm_token' => $token,
-                'confirm_expire_at' => Carbon::now()-u003eaddDays(7)-u003etoDateTimeString(),
+                'confirm_expire_at' => Carbon::now()->addDays(7)->toDateTimeString(),
             ];
 
             $result = $this->subscriptionRepository->create($data);
@@ -130,7 +131,7 @@ class SubscriptionService
     }
 
     /**
-     * 确认订阅
+     * 确认订阅.
      *
      * @param string $token 确认token
      * @return array 操作结果
@@ -147,7 +148,7 @@ class SubscriptionService
             }
 
             // 检查是否已过期
-            if ($subscription->confirm_expire_at && Carbon::parse($subscription->confirm_expire_at)-u003eisPast()) {
+            if ($subscription->confirm_expire_at && Carbon::parse($subscription->confirm_expire_at)->isPast()) {
                 return [
                     'success' => false,
                     'message' => '确认链接已过期，请重新订阅',
@@ -157,7 +158,7 @@ class SubscriptionService
             // 更新订阅状态
             $result = $this->subscriptionRepository->update($subscription->id, [
                 'status' => 'subscribed',
-                'confirmed_at' => Carbon::now()-u003etoDateTimeString(),
+                'confirmed_at' => Carbon::now()->toDateTimeString(),
                 'confirm_token' => null,
                 'confirm_expire_at' => null,
             ]);
@@ -183,7 +184,7 @@ class SubscriptionService
     }
 
     /**
-     * 取消订阅
+     * 取消订阅.
      *
      * @param string $token 取消订阅token
      * @return array 操作结果
@@ -202,7 +203,7 @@ class SubscriptionService
             // 更新订阅状态
             $result = $this->subscriptionRepository->update($subscription->id, [
                 'status' => 'unsubscribed',
-                'unsubscribed_at' => Carbon::now()-u003etoDateTimeString(),
+                'unsubscribed_at' => Carbon::now()->toDateTimeString(),
             ]);
 
             if ($result) {
@@ -226,7 +227,7 @@ class SubscriptionService
     }
 
     /**
-     * 重新发送确认邮件
+     * 重新发送确认邮件.
      *
      * @param int $id 订阅ID
      * @return array 操作结果
@@ -246,7 +247,7 @@ class SubscriptionService
             $token = Str::random(64);
             $this->subscriptionRepository->update($id, [
                 'confirm_token' => $token,
-                'confirm_expire_at' => Carbon::now()-u003eaddDays(7)-u003etoDateTimeString(),
+                'confirm_expire_at' => Carbon::now()->addDays(7)->toDateTimeString(),
             ]);
 
             // 发送确认邮件
@@ -267,7 +268,7 @@ class SubscriptionService
     }
 
     /**
-     * 获取订阅列表（管理员功能）
+     * 获取订阅列表（管理员功能）.
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string, string> $order 排序方式
@@ -316,7 +317,7 @@ class SubscriptionService
     }
 
     /**
-     * 生成确认URL
+     * 生成确认URL.
      *
      * @param string $token 确认token
      * @return string 确认URL

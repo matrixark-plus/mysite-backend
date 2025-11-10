@@ -14,16 +14,15 @@ namespace App\Model;
 
 /**
  * 订阅模型
- * 对应SubscribeService中使用的subscribes表
+ * 对应SubscribeService中使用的订阅表
  */
 class Subscribe extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_PENDING = 0;  // 待确认
     public const STATUS_CONFIRMED = 1; // 已确认
-
     /**
      * 订阅类型常量.
      */
@@ -40,7 +39,7 @@ class Subscribe extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'email',
@@ -58,7 +57,7 @@ class Subscribe extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -67,3 +66,4 @@ class Subscribe extends Model
         'status' => 'integer',
     ];
 }
+

@@ -14,10 +14,10 @@ namespace App\Service;
 
 use App\Repository\UserRepository;
 use Exception;
+use Hyperf\Cache\Cache;
 use Hyperf\Di\Annotation\Inject;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
-use Hyperf\Cache\Cache;
 
 /**
  * 用户服务
@@ -36,13 +36,13 @@ class UserService
      * @var UserRepository
      */
     protected $userRepository;
-    
+
     /**
      * @Inject
      * @var Cache
      */
     protected $cache;
-    
+
     /**
      * 创建新用户.
      *
@@ -98,7 +98,7 @@ class UserService
      * 根据ID获取用户.
      *
      * @param int $id 用户ID
-     * @return array<string, mixed>|null 用户信息数组或null
+     * @return null|array<string, mixed> 用户信息数组或null
      */
     public function getUserById(int $id): ?array
     {
@@ -109,7 +109,7 @@ class UserService
      * 根据邮箱获取用户.
      *
      * @param string $email 邮箱
-     * @return array<string, mixed>|null 用户信息数组或null
+     * @return null|array<string, mixed> 用户信息数组或null
      */
     public function getUserByEmail(string $email): ?array
     {
@@ -119,8 +119,7 @@ class UserService
     /**
      * 根据用户名获取用户.
      *
-     * @param string $username 用户名
-     * @return array<string, mixed>|null 用户信息数组或null
+     * @return null|array<string, mixed> 用户信息数组或null
      */
     /**
      * 验证用户凭证
@@ -128,8 +127,8 @@ class UserService
      * @param string $email 邮箱
      * @param string $password 密码
      * @param string $loginIp 登录IP地址
-     * @return array<string, mixed>|null 验证通过的用户信息数组或null
-     * @throws \Exception 当用户账号被锁定或禁用时抛出异常
+     * @return null|array<string, mixed> 验证通过的用户信息数组或null
+     * @throws Exception 当用户账号被锁定或禁用时抛出异常
      */
     public function validateCredentials(string $email, string $password, string $loginIp = ''): ?array
     {
@@ -144,13 +143,12 @@ class UserService
             $lockExpireTime = $userData['lock_expire_time'] ?? 0;
             if ($lockExpireTime > time()) {
                 $lockTime = ceil(($lockExpireTime - time()) / 60);
-                throw new \Exception("账号已被锁定，请{$lockTime}分钟后再试");
-            } else {
-                // 锁定时间已过期，解锁账号
-                $this->unlockUser($userData['id']);
-                $userData['is_locked'] = false;
-                $userData['login_attempts'] = 0;
+                throw new Exception("账号已被锁定，请{$lockTime}分钟后再试");
             }
+            // 锁定时间已过期，解锁账号
+            $this->unlockUser($userData['id']);
+            $userData['is_locked'] = false;
+            $userData['login_attempts'] = 0;
         }
 
         // 检查密码是否正确
@@ -162,7 +160,7 @@ class UserService
 
         // 检查用户状态
         if (! $userData['is_active']) {
-            throw new \Exception('账号已被禁用');
+            throw new Exception('账号已被禁用');
         }
 
         // 登录成功，重置失败次数并更新登录信息
@@ -173,126 +171,7 @@ class UserService
     }
 
     /**
-     * 记录登录失败
-     *
-     * @param int $userId 用户ID
-     * @param string $loginIp 登录IP地址
-     */
-    protected function recordLoginFailure(int $userId, string $loginIp): void
-    {
-        try {
-            // 获取当前登录失败次数
-            $userData = $this->userRepository->findById($userId);
-            if (! $userData) {
-                return;
-            }
-
-            $loginAttempts = ($userData['login_attempts'] ?? 0) + 1;
-            $updateData = ['login_attempts' => $loginAttempts];
-
-            // 如果失败次数达到5次，锁定账号30分钟
-            if ($loginAttempts >= 5) {
-                $updateData['is_locked'] = true;
-                $updateData['lock_expire_time'] = time() + 30 * 60; // 30分钟后解锁
-                $this->logger->warning('用户账号被锁定', ['user_id' => $userId, 'attempts' => $loginAttempts, 'ip' => $loginIp]);
-            }
-
-            // 更新用户信息
-            $this->userRepository->update($userId, $updateData);
-            $this->logger->info('记录登录失败', ['user_id' => $userId, 'attempts' => $loginAttempts, 'ip' => $loginIp]);
-        } catch (\Exception $e) {
-            $this->logger->error('记录登录失败异常', ['user_id' => $userId, 'ip' => $loginIp, 'error' => $e->getMessage()]);
-        }
-    }
-    
-    /**
-     * 清除失败登录尝试记录
-     * @param int $userId 用户ID
-     */
-    protected function clearFailedLoginAttempts(int $userId): void
-    {
-        try {
-            // 清除缓存中的失败尝试记录
-            $cacheKey = "login:failed_attempts:user:{$userId}";
-            $this->cache->delete($cacheKey);
-            
-            // 更新数据库中的失败尝试记录
-            $this->resetLoginAttempts($userId);
-        } catch (\Exception $e) {
-            $this->logger->error('清除失败登录尝试记录失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * 更新用户登录信息
-     *
-     * @param int $userId 用户ID
-     * @param string $loginIp 登录IP地址
-     */
-    protected function updateLoginInfo(int $userId, string $loginIp): void
-    {
-        try {
-            $updateData = [
-                'last_login_at' => date('Y-m-d H:i:s'),
-                'last_login_ip' => $loginIp
-            ];
-            $this->userRepository->update($userId, $updateData);
-            $this->logger->info('更新登录信息成功', ['user_id' => $userId, 'ip' => $loginIp]);
-        } catch (\Exception $e) {
-            $this->logger->error('更新登录信息异常', ['user_id' => $userId, 'ip' => $loginIp, 'error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * 重置登录失败次数
-     *
-     * @param int $userId 用户ID
-     */
-    protected function resetLoginAttempts(int $userId): void
-    {
-        try {
-            $this->userRepository->update($userId, ['login_attempts' => 0]);
-        } catch (\Exception $e) {
-            $this->logger->error('重置登录失败次数异常', ['user_id' => $userId, 'error' => $e->getMessage()]);
-        }
-    }
-    
-    /**
-     * 模拟密码哈希计算，防止用户枚举攻击
-     */
-    protected function simulatePasswordHash(): void
-    {
-        // 执行与password_verify类似时间复杂度的操作
-        password_hash('dummy_password', PASSWORD_DEFAULT);
-    }
-    
-    /**
-     * 记录登录失败尝试
-     * @param int $userId 用户ID
-     * @param string $ip IP地址
-     */
-    protected function recordFailedLoginAttempt(int $userId, string $ip): void
-    {
-        try {
-            // 记录在缓存中
-            $cacheKey = "login:failed_attempts:user:{$userId}";
-            $attempts = (int)$this->cache->get($cacheKey, 0) + 1;
-            $this->cache->set($cacheKey, $attempts, 1800); // 30分钟过期
-            
-            // 也记录在数据库中
-            $this->recordLoginFailure($userId, $ip);
-            
-            // 记录IP失败尝试
-            $ipCacheKey = "login:failed_attempts:ip:{$ip}";
-            $this->cache->incr($ipCacheKey);
-            $this->cache->set($ipCacheKey, (int)$this->cache->get($ipCacheKey, 0), 300); // 5分钟过期
-        } catch (\Exception $e) {
-            $this->logger->error('记录登录失败尝试失败', ['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * 解锁用户账号
+     * 解锁用户账号.
      *
      * @param int $userId 用户ID
      */
@@ -302,10 +181,10 @@ class UserService
             $this->userRepository->update($userId, [
                 'is_locked' => false,
                 'lock_expire_time' => null,
-                'login_attempts' => 0
+                'login_attempts' => 0,
             ]);
             $this->logger->info('用户账号已解锁', ['user_id' => $userId]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('解锁用户账号异常', ['user_id' => $userId, 'error' => $e->getMessage()]);
             throw $e;
         }
@@ -335,14 +214,14 @@ class UserService
         try {
             // 从Repository获取用户信息
             $userData = $this->userRepository->findBy(['email' => $email]);
-            
-            if (!$userData) {
+
+            if (! $userData) {
                 $this->logger->warning('登录失败: 用户不存在', ['email' => $email, 'ip' => $loginIp]);
                 // 使用相同的响应时间避免用户枚举攻击
                 $this->simulatePasswordHash();
                 throw new InvalidArgumentException('邮箱或密码错误');
             }
-            
+
             // 检查账号状态
             if (isset($userData['is_locked']) && $userData['is_locked']) {
                 $lockExpireTime = $userData['lock_expire_time'] ?? 0;
@@ -352,36 +231,36 @@ class UserService
                     throw new InvalidArgumentException("账号已被锁定，请{$lockTime}分钟后再试");
                 }
             }
-            
+
             // 验证密码
-            if (!password_verify($password, $userData['password_hash'] ?? '')) {
+            if (! password_verify($password, $userData['password_hash'] ?? '')) {
                 $this->logger->warning('登录失败: 密码错误', ['user_id' => $userData['id'], 'ip' => $loginIp]);
-                
+
                 // 记录失败尝试
                 $this->recordFailedLoginAttempt($userData['id'], $loginIp);
                 throw new InvalidArgumentException('邮箱或密码错误');
             }
-            
+
             // 检查是否需要重新哈希密码（安全升级）
             if (password_needs_rehash($userData['password_hash'], PASSWORD_DEFAULT)) {
                 $this->userRepository->update($userData['id'], [
                     'password_hash' => password_hash($password, PASSWORD_DEFAULT),
                 ]);
             }
-            
+
             // 记录成功登录，清除失败次数
             $this->clearFailedLoginAttempts($userData['id']);
-            
+
             // 更新登录信息
             $this->updateLoginInfo($userData['id'], $loginIp);
-            
+
             // 移除敏感信息
             unset($userData['password_hash']);
-            
+
             return $userData;
         } catch (InvalidArgumentException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('用户登录失败', ['email' => $email, 'ip' => $loginIp, 'error' => $e->getMessage()]);
             throw new InvalidArgumentException('邮箱或密码错误');
         }
@@ -528,14 +407,13 @@ class UserService
 
         try {
             // 使用Repository获取用户列表（按照实际方法参数签名调用）
-            $userCollection = $this->userRepository->findAllBy(
+            return $this->userRepository->findAllBy(
                 $conditions,
                 ['*'], // 查询所有字段
                 [$sortBy => $sortOrder]
             );
-            
+
             // Repository已返回数组格式，直接返回
-            return $userCollection;
         } catch (Exception $e) {
             $this->logger->error('获取用户列表失败: ' . $e->getMessage(), ['params' => $params]);
             throw $e;
@@ -550,7 +428,7 @@ class UserService
      */
     public function isAdmin(array $userData): bool
     {
-        return (bool)($userData['is_admin'] ?? false);
+        return (bool) ($userData['is_admin'] ?? false);
     }
 
     /**
@@ -568,7 +446,7 @@ class UserService
             throw new InvalidArgumentException('用户不存在');
         }
 
-        $newActiveStatus = !($userData['is_active'] ?? false);
+        $newActiveStatus = ! ($userData['is_active'] ?? false);
 
         try {
             return $this->userRepository->update($id, [
@@ -578,6 +456,125 @@ class UserService
         } catch (Exception $e) {
             $this->logger->error('切换用户活跃状态失败: ' . $e->getMessage(), ['user_id' => $id]);
             throw $e;
+        }
+    }
+
+    /**
+     * 记录登录失败.
+     *
+     * @param int $userId 用户ID
+     * @param string $loginIp 登录IP地址
+     */
+    protected function recordLoginFailure(int $userId, string $loginIp): void
+    {
+        try {
+            // 获取当前登录失败次数
+            $userData = $this->userRepository->findById($userId);
+            if (! $userData) {
+                return;
+            }
+
+            $loginAttempts = ($userData['login_attempts'] ?? 0) + 1;
+            $updateData = ['login_attempts' => $loginAttempts];
+
+            // 如果失败次数达到5次，锁定账号30分钟
+            if ($loginAttempts >= 5) {
+                $updateData['is_locked'] = true;
+                $updateData['lock_expire_time'] = time() + 30 * 60; // 30分钟后解锁
+                $this->logger->warning('用户账号被锁定', ['user_id' => $userId, 'attempts' => $loginAttempts, 'ip' => $loginIp]);
+            }
+
+            // 更新用户信息
+            $this->userRepository->update($userId, $updateData);
+            $this->logger->info('记录登录失败', ['user_id' => $userId, 'attempts' => $loginAttempts, 'ip' => $loginIp]);
+        } catch (Exception $e) {
+            $this->logger->error('记录登录失败异常', ['user_id' => $userId, 'ip' => $loginIp, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 清除失败登录尝试记录.
+     * @param int $userId 用户ID
+     */
+    protected function clearFailedLoginAttempts(int $userId): void
+    {
+        try {
+            // 清除缓存中的失败尝试记录
+            $cacheKey = "login:failed_attempts:user:{$userId}";
+            $this->cache->delete($cacheKey);
+
+            // 更新数据库中的失败尝试记录
+            $this->resetLoginAttempts($userId);
+        } catch (Exception $e) {
+            $this->logger->error('清除失败登录尝试记录失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 更新用户登录信息.
+     *
+     * @param int $userId 用户ID
+     * @param string $loginIp 登录IP地址
+     */
+    protected function updateLoginInfo(int $userId, string $loginIp): void
+    {
+        try {
+            $updateData = [
+                'last_login_at' => date('Y-m-d H:i:s'),
+                'last_login_ip' => $loginIp,
+            ];
+            $this->userRepository->update($userId, $updateData);
+            $this->logger->info('更新登录信息成功', ['user_id' => $userId, 'ip' => $loginIp]);
+        } catch (Exception $e) {
+            $this->logger->error('更新登录信息异常', ['user_id' => $userId, 'ip' => $loginIp, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 重置登录失败次数.
+     *
+     * @param int $userId 用户ID
+     */
+    protected function resetLoginAttempts(int $userId): void
+    {
+        try {
+            $this->userRepository->update($userId, ['login_attempts' => 0]);
+        } catch (Exception $e) {
+            $this->logger->error('重置登录失败次数异常', ['user_id' => $userId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * 模拟密码哈希计算，防止用户枚举攻击.
+     */
+    protected function simulatePasswordHash(): void
+    {
+        // 执行与password_verify类似时间复杂度的操作
+        password_hash('dummy_password', PASSWORD_DEFAULT);
+    }
+
+    /**
+     * 记录登录失败尝试.
+     * @param int $userId 用户ID
+     * @param string $ip IP地址
+     */
+    protected function recordFailedLoginAttempt(int $userId, string $ip): void
+    {
+        try {
+            // 记录在缓存中
+            $cacheKey = "login:failed_attempts:user:{$userId}";
+            $attempts = (int) $this->cache->get($cacheKey, 0) + 1;
+            $this->cache->set($cacheKey, $attempts, 1800); // 30分钟过期
+
+            // 也记录在数据库中
+            $this->recordLoginFailure($userId, $ip);
+
+            // 记录IP失败尝试
+            $ipCacheKey = "login:failed_attempts:ip:{$ip}";
+            $this->cache->incr($ipCacheKey);
+            $this->cache->set($ipCacheKey, (int) $this->cache->get($ipCacheKey, 0), 300); // 5分钟过期
+        } catch (Exception $e) {
+            $this->logger->error('记录登录失败尝试失败', ['error' => $e->getMessage()]);
         }
     }
 
@@ -607,6 +604,4 @@ class UserService
             throw new InvalidArgumentException('密码长度不能少于6位');
         }
     }
-
-
 }

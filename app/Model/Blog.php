@@ -13,9 +13,9 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Hyperf\Database\Model\Collection;
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\BelongsToMany;
-use Hyperf\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\BelongsToMany;
+use Hyperf\DbConnection\Model\Relations\HasMany;
 
 /**
  * 博客模型.
@@ -23,7 +23,7 @@ use Hyperf\Model\Relations\HasMany;
 class Blog extends Model
 {
     /**
-     * 状态常量.
+     * 状态常�?
      */
     public const STATUS_DRAFT = 0;
 
@@ -42,20 +42,22 @@ class Blog extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'title',
         'slug',
-        'excerpt',
         'content',
+        'summary',
         'category_id',
         'author_id',
         'status',
         'cover_image',
         'view_count',
         'comment_count',
-        'published_at',
+        'is_recommended',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -64,12 +66,11 @@ class Blog extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
-        'published_at' => 'timestamp',
         'status' => 'integer',
         'is_recommended' => 'boolean',
         'view_count' => 'integer',
@@ -77,7 +78,7 @@ class Blog extends Model
     ];
 
     /**
-     * 获取博客作者.
+     * 获取博客作�?
      * @return BelongsTo
      */
     public function author()
@@ -104,8 +105,7 @@ class Blog extends Model
         $query = Comment::with('user:id,username,avatar')
             ->where('post_id', $this->id)
             ->where('post_type', Comment::POST_TYPE_BLOG)
-            ->approved(); // 使用作用域方法获取已审核通过的评论
-
+            ->approved(); // 使用作用域方法获取已审核通过的评�?
         // 排序
         $query->orderBy('created_at', 'desc');
 
@@ -136,3 +136,4 @@ class Blog extends Model
         );
     }
 }
+

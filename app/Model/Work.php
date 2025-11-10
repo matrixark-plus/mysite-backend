@@ -13,8 +13,9 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Hyperf\Database\Model\Collection;
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
+use App\Model\WorkCategory;
 
 /**
  * 作品模型.
@@ -22,7 +23,7 @@ use Hyperf\Model\Relations\HasMany;
 class Work extends Model
 {
     /**
-     * 状态常量.
+     * 状态常量
      */
     public const STATUS_DRAFT = 0;
 
@@ -41,7 +42,7 @@ class Work extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'title',
@@ -54,15 +55,15 @@ class Work extends Model
         'github_link',
         'images',
         'type',
-        'author_id',
+        'user_id',
         'category_id',
         'status',
+        'is_public',
         'is_recommended',
         'view_count',
         'like_count',
         'created_at',
         'updated_at',
-        'published_at',
     ];
 
     /**
@@ -71,27 +72,28 @@ class Work extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
-        'published_at' => 'timestamp',
         'status' => 'integer',
+        'is_public' => 'boolean',
         'is_recommended' => 'boolean',
         'view_count' => 'integer',
         'like_count' => 'integer',
         'category_id' => 'integer',
+        'user_id' => 'integer',
         'images' => 'array',
     ];
 
     /**
-     * 获取作品作者.
+     * 获取作品作者
      * @return BelongsTo
      */
-    public function author()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'author_id', 'id');
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
     /**
@@ -105,7 +107,6 @@ class Work extends Model
             ->where('post_id', $this->id)
             ->where('post_type', Comment::POST_TYPE_WORK)
             ->approved(); // 使用作用域方法获取已审核通过的评论
-
         // 排序
         $query->orderBy('created_at', 'desc');
 
@@ -123,20 +124,22 @@ class Work extends Model
     }
 
     /**
-     * 获取作品文件.
+     * 获取作品文件 - 暂时注释，WorkFile类不存在
      * @return HasMany
-     */
+     *//*
     public function files()
     {
         return $this->hasMany(WorkFile::class, 'work_id', 'id');
     }
+    */
 
     /**
      * 获取作品分类.
-     * @return \Hyperf\Model\Relations\BelongsTo
+     * @return BelongsTo
      */
     public function category()
     {
         return $this->belongsTo(WorkCategory::class, 'category_id', 'id');
     }
 }
+

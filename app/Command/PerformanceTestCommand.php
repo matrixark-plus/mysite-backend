@@ -12,20 +12,23 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use Hyperf\Utils\Coroutine;
-use Hyperf\Utils\WaitGroup;
 use App\Service\EventDemoService;
 use App\Service\RedisLockService;
+use App\Service\TaskService;
 use Hyperf\Command\Annotation\Command;
 use Hyperf\Command\Command as HyperfCommand;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\RedisFactory;
+use Hyperf\Utils\Coroutine;
+use Hyperf\Utils\WaitGroup;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Throwable;
 
 /**
  * 性能测试命令
- * 用于测试系统在高并发场景下的性能表现
+ * 用于测试系统在高并发场景下的性能表现.
  */
 #[Command]
 class PerformanceTestCommand extends HyperfCommand
@@ -71,18 +74,24 @@ class PerformanceTestCommand extends HyperfCommand
     {
         parent::configure();
         $this->setDescription('系统性能测试命令，用于验证高并发性能');
-        $this->addOption('type', 't', 
-            \Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL,
+        $this->addOption(
+            'type',
+            't',
+            InputOption::VALUE_OPTIONAL,
             '测试类型: lock(锁测试), event(事件测试), async(异步任务测试), batch(批量测试)',
             'lock'
         );
-        $this->addOption('concurrency', 'c',
-            \Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL,
+        $this->addOption(
+            'concurrency',
+            'c',
+            InputOption::VALUE_OPTIONAL,
             '并发数',
             100
         );
-        $this->addOption('iterations', 'i',
-            \Symfony\Component\Console\Input\InputOption::VALUE_OPTIONAL,
+        $this->addOption(
+            'iterations',
+            'i',
+            InputOption::VALUE_OPTIONAL,
             '每个协程的迭代次数',
             10
         );
@@ -94,11 +103,11 @@ class PerformanceTestCommand extends HyperfCommand
         $concurrency = (int) $this->input->getOption('concurrency');
         $iterations = (int) $this->input->getOption('iterations');
 
-        $this->output->writeln("开始性能测试");
+        $this->output->writeln('开始性能测试');
         $this->output->writeln("测试类型: {$type}");
         $this->output->writeln("并发数: {$concurrency}");
         $this->output->writeln("每协程迭代: {$iterations}");
-        $this->output->writeln("总请求数: " . ($concurrency * $iterations));
+        $this->output->writeln('总请求数: ' . ($concurrency * $iterations));
         $this->output->writeln(str_repeat('=', 50));
 
         $startTime = microtime(true);
@@ -131,12 +140,12 @@ class PerformanceTestCommand extends HyperfCommand
         $errorCount = count($results) - $successCount;
 
         $this->output->writeln(str_repeat('=', 50));
-        $this->output->writeln("测试完成");
-        $this->output->writeln(sprintf("总耗时: %.4f 秒", $totalTime));
-        $this->output->writeln(sprintf("成功请求: %d", $successCount));
-        $this->output->writeln(sprintf("失败请求: %d", $errorCount));
-        $this->output->writeln(sprintf("每秒请求数(RPS): %.2f", $rps));
-        $this->output->writeln(sprintf("平均响应时间: %.4f 毫秒", ($totalTime / $totalRequests) * 1000));
+        $this->output->writeln('测试完成');
+        $this->output->writeln(sprintf('总耗时: %.4f 秒', $totalTime));
+        $this->output->writeln(sprintf('成功请求: %d', $successCount));
+        $this->output->writeln(sprintf('失败请求: %d', $errorCount));
+        $this->output->writeln(sprintf('每秒请求数(RPS): %.2f', $rps));
+        $this->output->writeln(sprintf('平均响应时间: %.4f 毫秒', ($totalTime / $totalRequests) * 1000));
 
         // 记录测试报告
         $this->logger->info('性能测试报告', [
@@ -153,12 +162,12 @@ class PerformanceTestCommand extends HyperfCommand
     }
 
     /**
-     * 测试Redis分布式锁性能
+     * 测试Redis分布式锁性能.
      */
     private function testRedisLock(int $concurrency, int $iterations): array
     {
-        $this->output->writeln("开始Redis分布式锁测试...");
-        
+        $this->output->writeln('开始Redis分布式锁测试...');
+
         // 清理可能存在的锁
         $redis = $this->redisFactory->get('default');
         $keys = $redis->keys('test:lock:*');
@@ -180,23 +189,23 @@ class PerformanceTestCommand extends HyperfCommand
                     for ($j = 0; $j < $iterations; ++$j) {
                         $lockKey = 'test:lock:concurrent_test';
                         $lockValue = uniqid("{$i}_{$j}_");
-                        
+
                         try {
-                                $start = microtime(true);
-                                $lockValue = $this->redisLockService->lock($lockKey, 2, 1);
-                                $lockTime = microtime(true) - $start;
-                                
-                                if ($lockValue) {
-                                    // 模拟临界区操作
-                                    usleep(1000); // 1ms
-                                    
-                                    // 释放锁
-                                    $unlocked = $this->redisLockService->unlock($lockKey, $lockValue);
-                                    $coroutineResults[] = $unlocked;
-                                } else {
-                                    $coroutineResults[] = false;
-                                }
-                            
+                            $start = microtime(true);
+                            $lockValue = $this->redisLockService->lock($lockKey, 2, 1);
+                            $lockTime = microtime(true) - $start;
+
+                            if ($lockValue) {
+                                // 模拟临界区操作
+                                usleep(1000); // 1ms
+
+                                // 释放锁
+                                $unlocked = $this->redisLockService->unlock($lockKey, $lockValue);
+                                $coroutineResults[] = $unlocked;
+                            } else {
+                                $coroutineResults[] = false;
+                            }
+
                             if ($j % 10 === 0) {
                                 $this->logger->debug('锁测试进度', [
                                     'coroutine' => $i,
@@ -205,14 +214,14 @@ class PerformanceTestCommand extends HyperfCommand
                                     'lock_time_ms' => $lockTime * 1000,
                                 ]);
                             }
-                        } catch (\Throwable $e) {
+                        } catch (Throwable $e) {
                             $this->logger->error('锁测试错误', [
                                 'error' => $e->getMessage(),
                             ]);
                             $coroutineResults[] = false;
                         }
                     }
-                    
+
                     $results = array_merge($results, $coroutineResults);
                 } finally {
                     $waitGroup->done();
@@ -224,17 +233,17 @@ class PerformanceTestCommand extends HyperfCommand
         $waitGroup->wait();
         $bar->finish();
         $this->output->writeln('');
-        
+
         return $results;
     }
 
     /**
-     * 测试事件分发性能
+     * 测试事件分发性能.
      */
     private function testEventDispatcher(int $concurrency, int $iterations): array
     {
-        $this->output->writeln("开始事件分发测试...");
-        
+        $this->output->writeln('开始事件分发测试...');
+
         $results = [];
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
@@ -254,17 +263,17 @@ class PerformanceTestCommand extends HyperfCommand
                                 'value' => $i * $j,
                                 'timestamp' => time(),
                             ];
-                            
+
                             $result = $this->eventDemoService->createEntity($entityType, $entityData);
                             $coroutineResults[] = $result['success'] ?? false;
-                        } catch (\Throwable $e) {
+                        } catch (Throwable $e) {
                             $this->logger->error('事件测试错误', [
                                 'error' => $e->getMessage(),
                             ]);
                             $coroutineResults[] = false;
                         }
                     }
-                    
+
                     $results = array_merge($results, $coroutineResults);
                 } finally {
                     $waitGroup->done();
@@ -276,17 +285,17 @@ class PerformanceTestCommand extends HyperfCommand
         $waitGroup->wait();
         $bar->finish();
         $this->output->writeln('');
-        
+
         return $results;
     }
 
     /**
-     * 测试异步任务性能
+     * 测试异步任务性能.
      */
     private function testAsyncTasks(int $concurrency, int $iterations): array
     {
-        $this->output->writeln("开始异步任务测试...");
-        
+        $this->output->writeln('开始异步任务测试...');
+
         $results = [];
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
@@ -300,7 +309,7 @@ class PerformanceTestCommand extends HyperfCommand
                     $coroutineResults = [];
                     for ($j = 0; $j < $iterations; ++$j) {
                         try {
-                            $taskService = $this->container->get(\App\Service\TaskService::class);
+                            $taskService = $this->container->get(TaskService::class);
                             $result = $taskService->logAsync(
                                 'info',
                                 '异步任务性能测试',
@@ -308,14 +317,14 @@ class PerformanceTestCommand extends HyperfCommand
                                 'performance'
                             );
                             $coroutineResults[] = $result;
-                        } catch (\Throwable $e) {
+                        } catch (Throwable $e) {
                             $this->logger->error('异步任务测试错误', [
                                 'error' => $e->getMessage(),
                             ]);
                             $coroutineResults[] = false;
                         }
                     }
-                    
+
                     $results = array_merge($results, $coroutineResults);
                 } finally {
                     $waitGroup->done();
@@ -327,17 +336,17 @@ class PerformanceTestCommand extends HyperfCommand
         $waitGroup->wait();
         $bar->finish();
         $this->output->writeln('');
-        
+
         return $results;
     }
 
     /**
-     * 测试批量处理性能
+     * 测试批量处理性能.
      */
     private function testBatchProcessing(int $concurrency, int $iterations): array
     {
-        $this->output->writeln("开始批量处理测试...");
-        
+        $this->output->writeln('开始批量处理测试...');
+
         $results = [];
         $bar = $this->output->createProgressBar($concurrency);
         $bar->start();
@@ -360,17 +369,17 @@ class PerformanceTestCommand extends HyperfCommand
                                     'timestamp' => time(),
                                 ];
                             }
-                            
+
                             $result = $this->eventDemoService->processBatchItems($batchItems);
                             $coroutineResults[] = $result['success'] >= 0;
-                        } catch (\Throwable $e) {
+                        } catch (Throwable $e) {
                             $this->logger->error('批量处理测试错误', [
                                 'error' => $e->getMessage(),
                             ]);
                             $coroutineResults[] = false;
                         }
                     }
-                    
+
                     $results = array_merge($results, $coroutineResults);
                 } finally {
                     $waitGroup->done();
@@ -382,7 +391,7 @@ class PerformanceTestCommand extends HyperfCommand
         $waitGroup->wait();
         $bar->finish();
         $this->output->writeln('');
-        
+
         return $results;
     }
 }

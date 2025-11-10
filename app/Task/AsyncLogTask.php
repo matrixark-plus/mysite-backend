@@ -14,11 +14,12 @@ namespace App\Task;
 
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Logger\LoggerFactory;
-use Psr\Log\LoggerInterface;
+use InvalidArgumentException;
+use Throwable;
 
 /**
  * 异步日志任务
- * 用于异步处理各种日志记录
+ * 用于异步处理各种日志记录.
  */
 class AsyncLogTask extends AbstractTask
 {
@@ -30,8 +31,6 @@ class AsyncLogTask extends AbstractTask
 
     /**
      * 处理异步日志任务
-     *
-     * @return bool
      */
     protected function handle(): bool
     {
@@ -43,7 +42,7 @@ class AsyncLogTask extends AbstractTask
 
         // 验证必要参数
         if (empty($message)) {
-            throw new \InvalidArgumentException('日志消息不能为空');
+            throw new InvalidArgumentException('日志消息不能为空');
         }
 
         // 验证日志级别
@@ -60,7 +59,7 @@ class AsyncLogTask extends AbstractTask
             $logger->{$level}($message, $context);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 如果写入到指定通道失败，尝试写入到error通道
             try {
                 $errorLogger = $this->loggerFactory->get('error');
@@ -70,7 +69,7 @@ class AsyncLogTask extends AbstractTask
                     'original_channel' => $channel,
                     'error' => $e->getMessage(),
                 ]);
-            } catch (\Throwable $innerE) {
+            } catch (Throwable $innerE) {
                 // 如果所有日志写入都失败，至少在控制台记录一下
                 echo sprintf('[ERROR] Async log writing failed: %s\n', $e->getMessage());
             }
@@ -80,11 +79,9 @@ class AsyncLogTask extends AbstractTask
     }
 
     /**
-     * 错误处理 - 实现重试机制
-     *
-     * @param \Throwable $e
+     * 错误处理 - 实现重试机制.
      */
-    protected function handleError(\Throwable $e): void
+    protected function handleError(Throwable $e): void
     {
         // 获取重试次数
         $retryCount = $this->data['retry_count'] ?? 0;
@@ -114,7 +111,7 @@ class AsyncLogTask extends AbstractTask
 
     /**
      * 计算重试延迟时间
-     * 使用指数退避算法
+     * 使用指数退避算法.
      *
      * @param int $retryCount 当前重试次数
      * @return int 延迟时间（毫秒）

@@ -43,10 +43,10 @@ class MindmapNodeService
     protected $mindmapRootRepository;
 
     /**
-     * 创建节点
+     * 创建节点.
      *
      * @param array<string, mixed> $nodeData 节点数据
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function createNode(array $nodeData, ?int $userId = null): array
@@ -111,10 +111,10 @@ class MindmapNodeService
     }
 
     /**
-     * 批量创建节点
+     * 批量创建节点.
      *
      * @param array<array<string, mixed>> $nodesData 节点数据数组
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function batchCreateNodes(array $nodesData, ?int $userId = null): array
@@ -167,10 +167,10 @@ class MindmapNodeService
     }
 
     /**
-     * 获取思维导图的所有节点
+     * 获取思维导图的所有节点.
      *
      * @param int $rootId 思维导图根ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function getMindmapNodes(int $rootId, ?int $userId = null): array
@@ -219,11 +219,10 @@ class MindmapNodeService
     }
 
     /**
-     * 更新节点
+     * 更新节点.
      *
      * @param int $nodeId 节点ID
-     * @param array<string, mixed> $nodeData 更新数据
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function updateNode(int $nodeId, array $data, ?int $userId = null): array
@@ -268,10 +267,10 @@ class MindmapNodeService
     }
 
     /**
-     * 删除节点
+     * 删除节点.
      *
      * @param int $nodeId 节点ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function deleteNode(int $nodeId, ?int $userId = null): array
@@ -320,7 +319,7 @@ class MindmapNodeService
     }
 
     /**
-     * 递归删除子节点
+     * 递归删除子节点.
      *
      * @param int $parentId 父节点ID
      */
@@ -336,10 +335,10 @@ class MindmapNodeService
     }
 
     /**
-     * 检查思维导图操作权限
+     * 检查思维导图操作权限.
      *
      * @param int $rootId 思维导图根ID
-     * @param int|null $userId 用户ID
+     * @param null|int $userId 用户ID
      * @return bool 是否有权限
      */
     protected function checkMindmapPermission(int $rootId, ?int $userId): bool
@@ -353,10 +352,10 @@ class MindmapNodeService
     }
 
     /**
-     * 检查思维导图访问权限
+     * 检查思维导图访问权限.
      *
      * @param int $rootId 思维导图根ID
-     * @param int|null $userId 用户ID
+     * @param null|int $userId 用户ID
      * @return bool 是否有权限
      */
     protected function checkMindmapAccess(int $rootId, ?int $userId): bool

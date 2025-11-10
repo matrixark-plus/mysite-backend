@@ -14,7 +14,7 @@ use App\Middleware\JwtAuthMiddleware;
 use App\Middleware\RateLimiterMiddleware;
 use App\Middleware\RequestLogMiddleware;
 
-/**
+/*
  * This file is part of Hyperf.
  *
  * @see     https://www.hyperf.io

@@ -15,6 +15,7 @@ use Qbhy\HyperfAuth\Guard\SessionGuard;
 use Qbhy\HyperfAuth\Provider\EloquentProvider;
 use Qbhy\SimpleJwt\Encoders;
 use Qbhy\SimpleJwt\EncryptAdapters as Encrypter;
+
 use function Hyperf\Support\env;
 
 return [
@@ -32,7 +33,7 @@ return [
             'provider' => 'users',
 
             // JWT配置
-            'secret' => env('JWT_SECRET', 'your-jwt-secret-key'),
+            'secret' => env('JWT_SECRET'), // 移除默认值，确保必须通过环境变量设置密钥
             'header_name' => env('JWT_HEADER_NAME', 'Authorization'),
             'ttl' => (int) env('JWT_TTL', 60 * 60 * 24), // 24小时
             'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 60 * 60 * 24 * 7), // 7天

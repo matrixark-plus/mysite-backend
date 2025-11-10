@@ -14,7 +14,6 @@ namespace App\Repository;
 
 use App\Model\User;
 use Exception;
-use Hyperf\Database\Model\Collection;
 use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
@@ -35,13 +34,13 @@ class UserRepository
      * 根据ID查找用户.
      *
      * @param int $id 用户ID
-     * @return array|null 用户数据数组或null
+     * @return null|array 用户数据数组或null
      */
     public function findById(int $id): ?array
     {
         try {
             $result = Db::table('users')->find($id);
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找用户失败: ' . $e->getMessage(), ['user_id' => $id]);
             return null;
@@ -53,7 +52,7 @@ class UserRepository
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
-     * @return array|null 用户数据数组或null
+     * @return null|array 用户数据数组或null
      */
     public function findBy(array $conditions, array $columns = ['*']): ?array
     {
@@ -72,23 +71,23 @@ class UserRepository
                 }
             }
             $result = $query->select($columns)->first();
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据条件查询用户失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
         }
     }
-    
+
     /**
-     * 根据用户名查询用户
+     * 根据用户名查询用户.
      * @param string $username 用户名
-     * @return array|null 用户数据
+     * @return null|array 用户数据
      */
     public function findByUsername(string $username): ?array
     {
         return $this->findBy(['username' => $username]);
     }
-    
+
     /**
      * 更新用户密码
      * @param int $userId 用户ID
@@ -100,16 +99,15 @@ class UserRepository
         try {
             return User::where('id', $userId)->update([
                 'password' => password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]),
-                'updated_at' => date('Y-m-d H:i:s')
             ]) > 0;
         } catch (Exception $e) {
             $this->logger->error('更新用户密码失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
             return false;
         }
     }
-    
+
     /**
-     * 更新登录信息
+     * 更新登录信息.
      * @param int $userId 用户ID
      * @param string $loginIp IP地址
      * @return bool 是否成功
@@ -118,17 +116,17 @@ class UserRepository
     {
         try {
             return User::where('id', $userId)->update([
-                'last_login_ip' => $loginIp,
-                'last_login_at' => date('Y-m-d H:i:s')
+                'login_ip' => $loginIp,
+                'login_time' => date('Y-m-d H:i:s'),
             ]) > 0;
         } catch (Exception $e) {
             $this->logger->error('更新登录信息失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
             return false;
         }
     }
-    
+
     /**
-     * 锁定账号
+     * 锁定账号.
      * @param int $userId 用户ID
      * @return bool 是否成功
      */
@@ -137,17 +135,15 @@ class UserRepository
         try {
             return User::where('id', $userId)->update([
                 'status' => 0,
-                'lock_expire_time' => date('Y-m-d H:i:s', time() + 1800), // 30分钟后过期
-                'updated_at' => date('Y-m-d H:i:s')
             ]) > 0;
         } catch (Exception $e) {
             $this->logger->error('锁定账号失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
             return false;
         }
     }
-    
+
     /**
-     * 重置失败尝试次数
+     * 重置失败尝试次数.
      * @param int $userId 用户ID
      * @return bool 是否成功
      */
@@ -155,9 +151,8 @@ class UserRepository
     {
         try {
             return User::where('id', $userId)->update([
-                'failed_login_attempts' => 0,
-                'is_locked' => false,
-                'lock_expire_time' => null
+                'failed_attempts' => 0,
+                'locked' => 0,
             ]) > 0;
         } catch (Exception $e) {
             $this->logger->error('重置失败尝试次数失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
@@ -231,7 +226,7 @@ class UserRepository
                 }
             }
 
-            return (int)$query->count();
+            return (int) $query->count();
         } catch (Exception $e) {
             $this->logger->error('统计用户数量失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return 0;
@@ -242,30 +237,21 @@ class UserRepository
      * 创建用户.
      *
      * @param array<string, mixed> $data 用户数据
-     * @return array|null 创建的用户数据数组或null
+     * @return null|array 创建的用户数据数组或null
      */
     public function create(array $data): ?array
     {
         try {
-            $result = Db::transaction(function () use ($data) {
-                $user = new User();
-                foreach ($data as $key => $value) {
-                    if (property_exists($user, $key)) {
-                        $user->{$key} = $value;
-                    }
+            $user = new User();
+            foreach ($data as $key => $value) {
+                if (property_exists($user, $key)) {
+                    $user->{$key} = $value;
                 }
-
-                // 确保注册时间戳
-                if (! isset($data['created_at'])) {
-                    $user->created_at = date('Y-m-d H:i:s');
-                }
-
-                $user->save();
-                return $user;
-            });
-            
-            // 转换为数组返回
-            return $result instanceof User ? $result->toArray() : null;
+            }
+            if ($user->save()) {
+                return $user->toArray();
+            }
+            return null;
         } catch (Exception $e) {
             $this->logger->error('创建用户失败: ' . $e->getMessage(), ['data' => $data]);
             return null;
@@ -283,8 +269,6 @@ class UserRepository
     {
         try {
             return Db::transaction(function () use ($id, $data) {
-                // 不再需要updated_at字段
-
                 return (bool) User::where('id', $id)->update($data);
             });
         } catch (Exception $e) {

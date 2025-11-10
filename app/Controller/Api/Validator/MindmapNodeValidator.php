@@ -1,11 +1,19 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
 
 /**
@@ -21,7 +29,7 @@ class MindmapNodeValidator
     protected $validationFactory;
 
     /**
-     * 验证创建节点的请求参数
+     * 验证创建节点的请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -55,7 +63,7 @@ class MindmapNodeValidator
     }
 
     /**
-     * 验证批量创建节点的请求参数
+     * 验证批量创建节点的请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -92,7 +100,7 @@ class MindmapNodeValidator
     }
 
     /**
-     * 验证更新节点的请求参数
+     * 验证更新节点的请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -121,7 +129,7 @@ class MindmapNodeValidator
     }
 
     /**
-     * 验证思维导图ID
+     * 验证思维导图ID.
      *
      * @param int $mindmapId 思维导图ID
      * @return bool 验证通过返回true
@@ -145,7 +153,7 @@ class MindmapNodeValidator
     }
 
     /**
-     * 验证节点ID
+     * 验证节点ID.
      *
      * @param int $nodeId 节点ID
      * @return bool 验证通过返回true

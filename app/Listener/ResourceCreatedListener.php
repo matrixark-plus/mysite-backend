@@ -16,7 +16,7 @@ use Hyperf\Event\Contract\ListenerInterface;
 use Psr\Container\ContainerInterface;
 
 /**
- * 资源创建事件监听器.
+ * 资源创建事件监听�?
  */
 class ResourceCreatedListener implements ListenerInterface
 {
@@ -35,9 +35,8 @@ class ResourceCreatedListener implements ListenerInterface
      */
     public function listen(): array
     {
-        // 这里可以添加实际的资源创建事件
-        // 由于项目中可能没有定义具体的事件类，我们暂时返回一个空数组
-        // 实际使用时，应该返回项目中定义的资源创建事件类
+        // 返回需要监听的事件列表（字符串数组）
+        // 由于项目中可能没有定义具体的事件类，暂时返回空数组
         return [];
     }
 
@@ -60,3 +59,4 @@ class ResourceCreatedListener implements ListenerInterface
         // 布隆过滤器功能已移除
     }
 }
+

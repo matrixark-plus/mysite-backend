@@ -13,12 +13,12 @@ declare(strict_types=1);
 namespace App\Task;
 
 use Hyperf\Di\Annotation\Inject;
-use Hyperf\Logger\LoggerFactory;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * 抽象任务类
- * 所有异步任务的基类，提供通用功能
+ * 所有异步任务的基类，提供通用功能.
  */
 abstract class AbstractTask
 {
@@ -29,28 +29,28 @@ abstract class AbstractTask
     protected $logger;
 
     /**
-     * 任务数据
+     * 任务数据.
      *
      * @var array
      */
     protected $data;
 
     /**
-     * 任务执行结果
+     * 任务执行结果.
      *
      * @var mixed
      */
     protected $result;
 
     /**
-     * 任务开始时间
+     * 任务开始时间.
      *
      * @var float
      */
     protected $startTime;
 
     /**
-     * 构造函数
+     * 构造函数.
      *
      * @param array $data 任务数据
      */
@@ -84,7 +84,7 @@ abstract class AbstractTask
             ]);
 
             return $this->result;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 记录任务执行失败
             $this->logger->error('任务执行失败', [
                 'task_type' => get_class($this),
@@ -101,27 +101,43 @@ abstract class AbstractTask
     }
 
     /**
-     * 处理任务的具体逻辑
-     * 由子类实现
+     * 获取任务结果.
      *
      * @return mixed
      */
-    abstract protected function handle();
+    public function getResult()
+    {
+        return $this->result;
+    }
+
+    /**
+     * 获取任务数据.
+     */
+    public function getData(): array
+    {
+        return $this->data;
+    }
+
+    /**
+     * 处理任务的具体逻辑
+     * 由子类实现.
+     *
+     * @return bool
+     */
+    abstract protected function handle(): bool;
 
     /**
      * 错误处理
-     * 子类可以覆盖此方法实现自定义错误处理
-     *
-     * @param \Throwable $e
+     * 子类可以覆盖此方法实现自定义错误处理.
      */
-    protected function handleError(\Throwable $e): void
+    protected function handleError(Throwable $e): void
     {
         // 默认实现，不做处理
         // 子类可以覆盖此方法，例如添加重试逻辑
     }
 
     /**
-     * 获取任务执行时间
+     * 获取任务执行时间.
      *
      * @return float 执行时间（毫秒）
      */
@@ -132,10 +148,7 @@ abstract class AbstractTask
 
     /**
      * 掩码敏感数据
-     * 避免在日志中记录敏感信息
-     *
-     * @param array $data
-     * @return array
+     * 避免在日志中记录敏感信息.
      */
     private function maskSensitiveData(array $data): array
     {
@@ -150,25 +163,5 @@ abstract class AbstractTask
         }
 
         return $result;
-    }
-
-    /**
-     * 获取任务结果
-     *
-     * @return mixed
-     */
-    public function getResult()
-    {
-        return $this->result;
-    }
-
-    /**
-     * 获取任务数据
-     *
-     * @return array
-     */
-    public function getData(): array
-    {
-        return $this->data;
     }
 }

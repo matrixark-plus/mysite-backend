@@ -33,7 +33,7 @@ class EventDemoController
     protected $eventDemoService;
 
     /**
-     * 创建实体演示
+     * 创建实体演示.
      * @RequestMapping(path="create-entity", methods={"POST"})
      */
     public function createEntity(RequestInterface $request, ResponseInterface $response)
@@ -58,7 +58,7 @@ class EventDemoController
     }
 
     /**
-     * 更新实体演示
+     * 更新实体演示.
      * @RequestMapping(path="update-entity", methods={"PUT"})
      */
     public function updateEntity(RequestInterface $request, ResponseInterface $response)
@@ -84,7 +84,7 @@ class EventDemoController
     }
 
     /**
-     * 删除实体演示
+     * 删除实体演示.
      * @RequestMapping(path="delete-entity", methods={"DELETE"})
      */
     public function deleteEntity(RequestInterface $request, ResponseInterface $response)
@@ -109,7 +109,7 @@ class EventDemoController
     }
 
     /**
-     * 创建评论演示
+     * 创建评论演示.
      * @RequestMapping(path="create-comment", methods={"POST"})
      */
     public function createComment(RequestInterface $request, ResponseInterface $response)
@@ -133,7 +133,7 @@ class EventDemoController
     }
 
     /**
-     * 批量处理演示
+     * 批量处理演示.
      * @RequestMapping(path="batch-process", methods={"POST"})
      */
     public function batchProcess(RequestInterface $request, ResponseInterface $response)

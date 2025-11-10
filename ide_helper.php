@@ -9,18 +9,15 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
-
-use Hyperf\Logger\LoggerFactory;
-use Psr\Log\LoggerInterface;
 use Hyperf\Context\ApplicationContext;
+use Hyperf\Logger\LoggerFactory;
 use Psr\Container\ContainerInterface;
-use App\Model\User;
+use Psr\Log\LoggerInterface;
 
 /**
  * Get logger instance.
  *
  * @param string $name The name of the logger
- * @return LoggerInterface
  */
 function logger(string $name = 'app'): LoggerInterface
 {
@@ -29,8 +26,6 @@ function logger(string $name = 'app'): LoggerInterface
 
 /**
  * Get container instance.
- *
- * @return ContainerInterface
  */
 function container(): ContainerInterface
 {
@@ -79,8 +74,6 @@ function dispatcher()
 
 /**
  * Get stdout logger instance.
- *
- * @return LoggerInterface
  */
 function stdout_logger(): LoggerInterface
 {
@@ -110,7 +103,6 @@ function redis()
 /**
  * Get value from config.
  *
- * @param string $key
  * @param mixed $default
  * @return mixed
  */
@@ -122,7 +114,6 @@ function config_get(string $key, $default = null)
 /**
  * Set value to config.
  *
- * @param string $key
  * @param mixed $value
  */
 function config_set(string $key, $value): void
@@ -132,9 +123,6 @@ function config_set(string $key, $value): void
 
 /**
  * Determine if the config exists.
- *
- * @param string $key
- * @return bool
  */
 function config_has(string $key): bool
 {
@@ -142,7 +130,7 @@ function config_has(string $key): bool
 }
 
 /**
- * Load the ide helper files from vendor directory
+ * Load the ide helper files from vendor directory.
  */
 $ideHelperPath = __DIR__ . '/vendor/hyperf/ide-helper/output';
 if (is_dir($ideHelperPath)) {
@@ -159,9 +147,7 @@ if (is_dir($ideHelperPath)) {
 swoole_ide_helper();
 
 /**
- * 加载Swoole IDE助手
- *
- * @return void
+ * 加载Swoole IDE助手.
  */
 function swoole_ide_helper(): void
 {

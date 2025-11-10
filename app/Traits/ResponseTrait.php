@@ -111,9 +111,9 @@ trait ResponseTrait
 
         return $this->success($responseData, $message, $code);
     }
-    
+
     /**
-     * 错误响应的简化版本，默认为500错误
+     * 错误响应的简化版本，默认为500错误.
      * @param string $message 错误消息
      * @param mixed $data 响应数据
      */
@@ -121,9 +121,9 @@ trait ResponseTrait
     {
         return $this->fail(StatusCode::INTERNAL_SERVER_ERROR, $message, $data);
     }
-    
+
     /**
-     * 验证错误响应
+     * 验证错误响应.
      * @param string $message 错误消息
      * @param mixed $data 响应数据
      */
@@ -131,9 +131,9 @@ trait ResponseTrait
     {
         return $this->fail(StatusCode::VALIDATION_ERROR, $message, $data);
     }
-    
+
     /**
-     * 未授权响应
+     * 未授权响应.
      * @param string $message 错误消息
      * @param mixed $data 响应数据
      */
@@ -141,9 +141,9 @@ trait ResponseTrait
     {
         return $this->fail(StatusCode::UNAUTHORIZED, $message, $data);
     }
-    
+
     /**
-     * 资源不存在响应
+     * 资源不存在响应.
      * @param string $message 错误消息
      * @param mixed $data 响应数据
      */
@@ -151,9 +151,9 @@ trait ResponseTrait
     {
         return $this->fail(StatusCode::NOT_FOUND, $message, $data);
     }
-    
+
     /**
-     * 禁止访问响应
+     * 禁止访问响应.
      * @param string $message 错误消息
      * @param mixed $data 响应数据
      */
@@ -161,9 +161,9 @@ trait ResponseTrait
     {
         return $this->fail(StatusCode::FORBIDDEN, $message, $data);
     }
-    
+
     /**
-     * 服务器错误响应
+     * 服务器错误响应.
      * @param string $message 错误消息
      * @param mixed $data 响应数据
      */

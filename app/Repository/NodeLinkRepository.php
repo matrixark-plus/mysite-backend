@@ -2,12 +2,18 @@
 
 declare(strict_types=1);
 /**
- * 节点链接数据访问层
- * 封装所有与节点链接数据相关的数据库操作.
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
 namespace App\Repository;
 
 use App\Model\NodeLink;
+use Hyperf\DbConnection\Db;
 
 /**
  * 节点链接数据访问层
@@ -15,15 +21,6 @@ use App\Model\NodeLink;
  */
 class NodeLinkRepository extends BaseRepository
 {
-    /**
-     * 获取模型类名
-     * @return string 模型类名
-     */
-    protected function getModel(): string
-    {
-        return NodeLink::class;
-    }
-
     /**
      * 根据源节点ID查找链接.
      *
@@ -56,7 +53,11 @@ class NodeLinkRepository extends BaseRepository
     {
         return $this->handleDatabaseOperation(
             function () use ($nodeId) {
-                return $this->model->where('source_node_id', $nodeId)
+                // 使用Db类进行数据库操作，避免直接通过model属性
+                $modelClass = $this->getModel();
+                $tableName = (new $modelClass())->getTable();
+                return Db::table($tableName)
+                    ->where('source_node_id', $nodeId)
                     ->orWhere('target_node_id', $nodeId)
                     ->delete();
             },
@@ -64,5 +65,14 @@ class NodeLinkRepository extends BaseRepository
             ['node_id' => $nodeId],
             0
         );
+    }
+
+    /**
+     * 获取模型类名.
+     * @return string 模型类名
+     */
+    protected function getModel(): string
+    {
+        return NodeLink::class;
     }
 }

@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 /**
- * 博客管理控制器
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
@@ -48,14 +53,14 @@ class BlogController extends AbstractController
     {
         try {
             $params = $this->request->all();
-            
+
             // 验证参数
             try {
                 $validatedData = $this->validator->validateBlogList($params);
             } catch (ValidationException $e) {
                 return $this->fail(StatusCode::BAD_REQUEST, $e->validator->errors()->first());
             }
-            
+
             $blogs = $this->blogService->getBlogs(array_merge($params, $validatedData));
             return $this->success($blogs, '获取博客列表成功');
         } catch (Exception $e) {
@@ -109,7 +114,7 @@ class BlogController extends AbstractController
             // 获取当前用户ID
             $user = $this->request->getAttribute('user');
             $validatedData['author_id'] = $user->id;
-            
+
             // 添加标签支持
             $validatedData['tags'] = $this->request->input('tags', []);
 
@@ -138,9 +143,9 @@ class BlogController extends AbstractController
             }
 
             $data = $this->request->all();
-            
+
             // 特别处理标签字段，确保是数组类型
-            if (isset($data['tags']) && !is_array($data['tags'])) {
+            if (isset($data['tags']) && ! is_array($data['tags'])) {
                 $data['tags'] = [];
             }
 

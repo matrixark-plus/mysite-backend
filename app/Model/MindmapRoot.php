@@ -12,11 +12,11 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\HasMany;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
 
 /**
- * 脑图根节点模型.
+ * 脑图根节点模型
  */
 class MindmapRoot extends Model
 {
@@ -31,7 +31,7 @@ class MindmapRoot extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字�?
      */
     protected array $fillable = [
         'title',
@@ -47,7 +47,7 @@ class MindmapRoot extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字�?
      */
     protected array $casts = [
         'created_at' => 'timestamp',
@@ -56,7 +56,7 @@ class MindmapRoot extends Model
     ];
 
     /**
-     * 获取创建者
+     * 获取创建�?
      * @return BelongsTo
      */
     public function creator()
@@ -65,7 +65,7 @@ class MindmapRoot extends Model
     }
 
     /**
-     * 获取所有节点
+     * 获取所有节�?
      * @return HasMany
      */
     public function nodes()
@@ -73,3 +73,4 @@ class MindmapRoot extends Model
         return $this->hasMany(MindmapNode::class, 'root_id', 'id');
     }
 }
+

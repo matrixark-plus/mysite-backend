@@ -13,9 +13,8 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Hyperf\Database\Model\Collection;
-use Hyperf\Model\Relations\BelongsTo;
-use Hyperf\Model\Relations\HasMany;
-use App\Model\NoteVersion;
+use Hyperf\DbConnection\Model\Relations\BelongsTo;
+use Hyperf\DbConnection\Model\Relations\HasMany;
 
 /**
  * 笔记模型.
@@ -23,16 +22,14 @@ use App\Model\NoteVersion;
 class Note extends Model
 {
     /**
-     * 状态常量.
+     * 状态常�?
      */
     public const STATUS_DRAFT = 0;      // 草稿
 
-    public const STATUS_PUBLISHED = 1;  // 已发布
-
-    public const STATUS_ARCHIVED = 2;   // 已归档
-
+    public const STATUS_PUBLISHED = 1;  // 已发�?
+    public const STATUS_ARCHIVED = 2;   // 已归�?
     /**
-     * 可见性常量.
+     * 可见性常�?
      */
     public const VISIBILITY_PRIVATE = 0;   // 私有
 
@@ -41,7 +38,7 @@ class Note extends Model
     public const VISIBILITY_SHARED = 2;    // 共享
 
     /**
-     * 时间戳字段.
+     * 时间戳字�?
      */
     public bool $timestamps = true;
 
@@ -56,7 +53,7 @@ class Note extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字�?
      */
     protected array $fillable = [
         'title',
@@ -74,7 +71,7 @@ class Note extends Model
     protected array $hidden = [];
 
     /**
-     * 获取笔记创建者.
+     * 获取笔记创建�?
      * @return BelongsTo
      */
     public function creator()
@@ -92,7 +89,7 @@ class Note extends Model
     }
 
     /**
-     * 笔记版本历史关联（一对多）.
+     * 笔记版本历史关联（一对多�?
      * @return HasMany
      */
     public function versions()
@@ -100,6 +97,5 @@ class Note extends Model
         return $this->hasMany(NoteVersion::class, 'note_id', 'id')
             ->orderBy('version_number', 'desc');
     }
-
-
 }
+

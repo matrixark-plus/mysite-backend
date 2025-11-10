@@ -22,24 +22,27 @@ use Psr\Log\LoggerInterface;
  * 博客标签关联数据访问层
  * 封装所有与博客标签关联数据相关的数据库操作.
  */
-class BlogTagRelationRepository
+class BlogTagRelationRepository extends BaseRepository
 {
     /**
-     * @Inject
-     * @var LoggerInterface
+     * 获取模型实例.
      */
-    protected $logger;
+    protected function getModel(): string
+    {
+        return BlogTagRelation::class;
+    }
 
     /**
      * 根据ID查找博客标签关联记录.
      *
      * @param int $id 关联记录ID
-     * @return null|BlogTagRelation 模型对象或null
+     * @return null|array 数据数组或null
      */
-    public function findById(int $id): ?BlogTagRelation
+    public function findById(int $id): ?array
     {
         try {
-            return BlogTagRelation::find($id);
+            $model = $this->model->find($id);
+            return $model ? $model->toArray() : null;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找博客标签关联记录失败: ' . $e->getMessage(), ['relation_id' => $id]);
             return null;
@@ -50,16 +53,16 @@ class BlogTagRelationRepository
      * 根据博客ID获取关联的标签记录.
      *
      * @param int $blogId 博客ID
-     * @return Collection<int, BlogTagRelation> 模型集合
+     * @return array 数据数组
      */
-    public function findByBlogId(int $blogId): Collection
+    public function findByBlogId(int $blogId): array
     {
         try {
             $result = BlogTagRelation::where('blog_id', $blogId)->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $result->toArray();
         } catch (Exception $e) {
             $this->logger->error('根据博客ID获取标签关联失败: ' . $e->getMessage(), ['blog_id' => $blogId]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -67,16 +70,16 @@ class BlogTagRelationRepository
      * 根据标签ID获取关联的博客记录.
      *
      * @param int $tagId 标签ID
-     * @return Collection<int, BlogTagRelation> 模型集合
+     * @return array 数据数组
      */
-    public function findByTagId(int $tagId): Collection
+    public function findByTagId(int $tagId): array
     {
         try {
             $result = BlogTagRelation::where('tag_id', $tagId)->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $result->toArray();
         } catch (Exception $e) {
             $this->logger->error('根据标签ID获取博客关联失败: ' . $e->getMessage(), ['tag_id' => $tagId]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -101,15 +104,16 @@ class BlogTagRelationRepository
      * 创建博客标签关联记录.
      *
      * @param array<string, mixed> $data 关联数据
-     * @return null|BlogTagRelation 创建的模型对象或null
+     * @return bool 是否创建成功
      */
-    public function create(array $data): ?BlogTagRelation
+    public function create(array $data): bool
     {
         try {
-            return BlogTagRelation::create($data);
+            BlogTagRelation::create($data);
+            return true;
         } catch (Exception $e) {
             $this->logger->error('创建博客标签关联记录失败: ' . $e->getMessage(), ['data' => $data]);
-            return null;
+            return false;
         }
     }
 
@@ -178,7 +182,7 @@ class BlogTagRelationRepository
             return 0;
         }
     }
-    
+
     /**
      * 根据博客ID和标签ID数组删除关联.
      *
@@ -195,7 +199,7 @@ class BlogTagRelationRepository
         } catch (Exception $e) {
             $this->logger->error('根据博客ID和标签ID数组删除关联失败: ' . $e->getMessage(), [
                 'blog_id' => $blogId,
-                'tag_ids' => $tagIds
+                'tag_ids' => $tagIds,
             ]);
             return 0;
         }

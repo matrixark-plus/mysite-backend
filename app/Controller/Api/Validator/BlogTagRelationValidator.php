@@ -1,11 +1,19 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
 
 /**
@@ -21,7 +29,7 @@ class BlogTagRelationValidator
     protected $validationFactory;
 
     /**
-     * 验证添加标签的请求参数
+     * 验证添加标签的请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -48,7 +56,7 @@ class BlogTagRelationValidator
     }
 
     /**
-     * 验证更新标签的请求参数
+     * 验证更新标签的请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -60,7 +68,7 @@ class BlogTagRelationValidator
     }
 
     /**
-     * 验证移除标签的请求参数
+     * 验证移除标签的请求参数.
      *
      * @param array $data 请求数据
      * @return array 验证通过的数据
@@ -72,7 +80,7 @@ class BlogTagRelationValidator
     }
 
     /**
-     * 验证博客ID
+     * 验证博客ID.
      *
      * @param int $blogId 博客ID
      * @return bool 验证通过返回true
@@ -96,7 +104,7 @@ class BlogTagRelationValidator
     }
 
     /**
-     * 验证标签ID
+     * 验证标签ID.
      *
      * @param int $tagId 标签ID
      * @return bool 验证通过返回true

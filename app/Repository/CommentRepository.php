@@ -2,13 +2,20 @@
 
 declare(strict_types=1);
 /**
- * 评论数据访问层
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
 namespace App\Repository;
 
+use Exception;
 use Hyperf\DbConnection\Db;
-use Psr\Log\LoggerInterface;
 use Hyperf\Di\Annotation\Inject;
+use Psr\Log\LoggerInterface;
 
 class CommentRepository extends BaseRepository
 {
@@ -17,15 +24,24 @@ class CommentRepository extends BaseRepository
      * @var LoggerInterface
      */
     protected $logger;
-    
+
     /**
-     * 表名
+     * 表名.
      * @var string
      */
     protected $table = 'comments';
     
     /**
-     * 带分页的评论查询
+     * 获取模型类名.
+     * @return string
+     */
+    public function getModel(): string
+    {
+        return 'App\Model\Comment';
+    }
+
+    /**
+     * 带分页的评论查询.
      * @param array $params 查询参数
      * @return array 分页结果
      */
@@ -64,38 +80,38 @@ class CommentRepository extends BaseRepository
                 'page' => $page,
                 'page_size' => $pageSize,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('评论分页查询失败', [
                 'params' => $params,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
     }
-    
+
     /**
-     * 创建评论
+     * 创建评论.
      * @param array $data 评论数据
-     * @return int 评论ID
+     * @return bool
      */
-    public function create(array $data): int
+    public function create(array $data): bool
     {
         try {
-            return Db::table($this->table)->insertGetId($data);
-        } catch (\Exception $e) {
+            return Db::table($this->table)->insert($data) > 0;
+        } catch (Exception $e) {
             $this->logger->error('创建评论失败', [
                 'data' => $data,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            throw $e;
+            return false;
         }
     }
-    
+
     /**
-     * 根据ID获取评论
+     * 根据ID获取评论.
      * @param int $id 评论ID
-     * @return array|null 评论信息
+     * @return null|array 评论信息
      */
     public function findById(int $id): ?array
     {
@@ -104,14 +120,14 @@ class CommentRepository extends BaseRepository
                 ->where('id', $id)
                 ->first();
             return $comment ? (array) $comment : null;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('查询评论详情失败', ['id' => $id, 'error' => $e->getMessage()]);
             return null;
         }
     }
-    
+
     /**
-     * 更新评论
+     * 更新评论.
      * @param int $id 评论ID
      * @param array $data 更新数据
      * @return bool 是否成功
@@ -122,18 +138,18 @@ class CommentRepository extends BaseRepository
             return Db::table($this->table)
                 ->where('id', $id)
                 ->update($data) > 0;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('更新评论失败', [
                 'id' => $id,
                 'data' => $data,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
             return false;
         }
     }
-    
+
     /**
-     * 删除评论
+     * 删除评论.
      * @param int $id 评论ID
      * @return bool 是否成功
      */
@@ -143,14 +159,14 @@ class CommentRepository extends BaseRepository
             return Db::table($this->table)
                 ->where('id', $id)
                 ->delete() > 0;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('删除评论失败', ['id' => $id, 'error' => $e->getMessage()]);
             return false;
         }
     }
-    
+
     /**
-     * 获取用户评论总数
+     * 获取用户评论总数.
      * @param int $userId 用户ID
      * @return int 评论总数
      */
@@ -161,8 +177,32 @@ class CommentRepository extends BaseRepository
                 ->where('user_id', $userId)
                 ->where('status', '=', 1)
                 ->count();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('统计用户评论数失败', ['user_id' => $userId, 'error' => $e->getMessage()]);
+            return 0;
+        }
+    }
+    
+    /**
+     * 统计指定内容的已审核评论数量
+     * @param int $postId 内容ID
+     * @param string $postType 内容类型
+     * @return int 评论数量
+     */
+    public function countApprovedByPost(int $postId, string $postType): int
+    {
+        try {
+            return Db::table($this->table)
+                ->where('post_id', $postId)
+                ->where('content_type', $postType)
+                ->where('status', '=', 1) // 只统计已审核通过的评论
+                ->count();
+        } catch (Exception $e) {
+            $this->logger->error('统计内容评论数失败', [
+                'post_id' => $postId,
+                'post_type' => $postType,
+                'error' => $e->getMessage()
+            ]);
             return 0;
         }
     }

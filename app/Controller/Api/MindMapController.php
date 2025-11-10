@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
-use App\Constants\StatusCode;
 use App\Controller\AbstractController;
 use App\Controller\Api\Validator\MindMapValidator;
 use App\Service\MindMapService;
@@ -36,7 +35,7 @@ class MindMapController extends AbstractController
      * @var MindMapService
      */
     protected $mindMapService;
-    
+
     /**
      * @Inject
      * @var MindMapValidator

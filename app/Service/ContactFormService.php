@@ -15,20 +15,13 @@ namespace App\Service;
 use App\Repository\ContactFormRepository;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
-use Psr\Log\LoggerInterface;
 
 /**
  * 联系表单服务层
  * 处理联系表单相关的业务逻辑.
  */
-class ContactFormService
+class ContactFormService extends BaseService
 {
-    /**
-     * @Inject
-     * @var LoggerInterface
-     */
-    protected $logger;
-
     /**
      * @Inject
      * @var ContactFormRepository
@@ -42,41 +35,31 @@ class ContactFormService
     protected $mailService;
 
     /**
-     * 创建联系表单
+     * 创建联系表单.
      *
      * @param array<string, mixed> $formData 表单数据
      * @return array 操作结果
      */
     public function createContactForm(array $formData): array
     {
-        try {
+        return $this->executeWithErrorHandling(function () use ($formData) {
             // 验证必要字段
             $requiredFields = ['name', 'email', 'subject', 'message'];
-            foreach ($requiredFields as $field) {
-                if (! isset($formData[$field]) || empty($formData[$field])) {
-                    return [
-                        'success' => false,
-                        'message' => "缺少必要字段: {$field}",
-                    ];
-                }
+            $errorMessage = $this->validateRequiredFields($formData, $requiredFields);
+            if ($errorMessage) {
+                return $this->fail($errorMessage);
             }
 
             // 验证邮箱格式
-            if (! filter_var($formData['email'], FILTER_VALIDATE_EMAIL)) {
-                return [
-                    'success' => false,
-                    'message' => '邮箱格式无效',
-                ];
+            if (!filter_var($formData['email'], FILTER_VALIDATE_EMAIL)) {
+                return $this->fail('邮箱格式无效');
             }
 
             // 创建联系表单记录
             $formData['status'] = 'unprocessed'; // 默认状态为未处理
             $result = $this->contactFormRepository->create($formData);
-            if (! $result) {
-                return [
-                    'success' => false,
-                    'message' => '提交失败，请稍后重试',
-                ];
+            if (!$result) {
+                return $this->fail('提交失败，请稍后重试');
             }
 
             // 发送邮件通知（可选）
@@ -87,25 +70,18 @@ class ContactFormService
                 $this->logger->warning('联系表单通知邮件发送失败: ' . $e->getMessage(), ['form_id' => $result->id]);
             }
 
-            return [
-                'success' => true,
-                'message' => '感谢您的留言，我们会尽快回复您',
-                'data' => [
+            return $this->success(
+                [
                     'id' => $result->id,
                     'created_at' => $result->created_at,
                 ],
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('创建联系表单异常: ' . $e->getMessage(), $formData);
-            return [
-                'success' => false,
-                'message' => '系统异常，请稍后重试',
-            ];
-        }
+                '感谢您的留言，我们会尽快回复您'
+            );
+        }, '创建联系表单异常', $formData);
     }
 
     /**
-     * 获取联系表单列表
+     * 获取联系表单列表.
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string, string> $order 排序方式
@@ -115,7 +91,7 @@ class ContactFormService
      */
     public function getContactForms(array $conditions = [], array $order = ['created_at' => 'desc'], int $page = 1, int $limit = 20): array
     {
-        try {
+        return $this->executeWithErrorHandling(function () use ($conditions, $order, $page, $limit) {
             $offset = ($page - 1) * $limit;
             $forms = $this->contactFormRepository->findAllBy($conditions, ['*'], $order, $limit, $offset);
             $total = $this->contactFormRepository->count($conditions);
@@ -135,40 +111,28 @@ class ContactFormService
                 ];
             }
 
-            return [
-                'success' => true,
-                'data' => [
-                    'items' => $data,
-                    'total' => $total,
-                    'page' => $page,
-                    'limit' => $limit,
-                    'pages' => ceil($total / $limit),
-                ],
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('获取联系表单列表异常: ' . $e->getMessage(), $conditions);
-            return [
-                'success' => false,
-                'message' => '获取列表失败',
-            ];
-        }
+            return $this->success([
+                'items' => $data,
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'pages' => ceil($total / $limit),
+            ]);
+        }, '获取联系表单列表异常', $conditions);
     }
 
     /**
-     * 获取单个联系表单详情
+     * 获取单个联系表单详情.
      *
      * @param int $id 表单ID
      * @return array 操作结果
      */
     public function getContactFormDetail(int $id): array
     {
-        try {
+        return $this->executeWithErrorHandling(function () use ($id) {
             $form = $this->contactFormRepository->findById($id);
-            if (! $form) {
-                return [
-                    'success' => false,
-                    'message' => '联系表单不存在',
-                ];
+            if (!$form) {
+                return $this->fail('联系表单不存在');
             }
 
             $data = [
@@ -183,21 +147,12 @@ class ContactFormService
                 'updated_at' => $form->updated_at,
             ];
 
-            return [
-                'success' => true,
-                'data' => $data,
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('获取联系表单详情异常: ' . $e->getMessage(), ['form_id' => $id]);
-            return [
-                'success' => false,
-                'message' => '获取详情失败',
-            ];
-        }
+            return $this->success($data);
+        }, '获取联系表单详情异常', ['form_id' => $id]);
     }
 
     /**
-     * 标记表单为已处理
+     * 标记表单为已处理.
      *
      * @param int $id 表单ID
      * @param string $processorNote 处理备注
@@ -205,33 +160,19 @@ class ContactFormService
      */
     public function markAsProcessed(int $id, string $processorNote = ''): array
     {
-        try {
+        return $this->executeWithErrorHandling(function () use ($id, $processorNote) {
             $form = $this->contactFormRepository->findById($id);
-            if (! $form) {
-                return [
-                    'success' => false,
-                    'message' => '联系表单不存在',
-                ];
+            if (!$form) {
+                return $this->fail('联系表单不存在');
             }
 
             $result = $this->contactFormRepository->markAsProcessed($id, $processorNote);
             if ($result) {
-                return [
-                    'success' => true,
-                    'message' => '表单已标记为已处理',
-                ];
+                $this->logAction('标记表单为已处理', ['form_id' => $id]);
+                return $this->success(null, '表单已标记为已处理');
             }
 
-            return [
-                'success' => false,
-                'message' => '更新状态失败',
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('标记表单为已处理异常: ' . $e->getMessage(), ['form_id' => $id]);
-            return [
-                'success' => false,
-                'message' => '更新状态失败',
-            ];
-        }
+            return $this->fail('更新状态失败');
+        }, '标记表单为已处理异常', ['form_id' => $id]);
     }
 }

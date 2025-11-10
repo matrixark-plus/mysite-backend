@@ -2,15 +2,19 @@
 
 declare(strict_types=1);
 /**
- * 联系表单验证器
- * 处理联系表单相关请求参数的验证
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api\Validator;
 
+use Hyperf\Di\Annotation\Inject;
 use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Validation\ValidationException;
-use Hyperf\Di\Annotation\Inject;
 
 /**
  * 联系表单相关的参数验证器.

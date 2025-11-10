@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 namespace App\Service;
 
-use App\Repository\MindmapRootRepository;
 use App\Repository\MindmapNodeRepository;
+use App\Repository\MindmapRootRepository;
 use Exception;
 use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
@@ -36,34 +36,15 @@ class MindmapRootService
      * @var MindmapRootRepository
      */
     protected $mindmapRootRepository;
-    
+
     /**
      * @Inject
      * @var MindmapNodeRepository
      */
     protected $mindmapNodeRepository;
-    
-    /**
-     * 统计满足条件的思维导图数量
-     * 
-     * @param array $conditions 查询条件
-     * @return int 符合条件的记录数
-     */
-    private function countMindmaps(array $conditions = []): int
-    {
-        try {
-            // 使用repository进行统计，而不是直接调用模型类
-            // 由于repository没有直接的count方法，我们使用查询构建器获取总数
-            $mindmaps = $this->mindmapRootRepository->findAllBy($conditions, ['page' => 1, 'limit' => 1]);
-            return $mindmaps['total'] ?? 0;
-        } catch (Exception $e) {
-            $this->logger->error('统计思维导图数量异常: ' . $e->getMessage(), ['conditions' => $conditions]);
-            return 0;
-        }
-    }
 
     /**
-     * 创建思维导图
+     * 创建思维导图.
      *
      * @param array<string, mixed> $data 思维导图数据
      * @return array 操作结果
@@ -111,7 +92,7 @@ class MindmapRootService
     }
 
     /**
-     * 获取用户的思维导图列表
+     * 获取用户的思维导图列表.
      *
      * @param int $userId 用户ID
      * @param array<string, mixed> $conditions 额外条件
@@ -164,7 +145,7 @@ class MindmapRootService
     }
 
     /**
-     * 获取公开的思维导图列表
+     * 获取公开的思维导图列表.
      *
      * @param array<string, mixed> $conditions 额外条件
      * @param array<string, string> $order 排序方式
@@ -212,10 +193,10 @@ class MindmapRootService
     }
 
     /**
-     * 获取思维导图详情
+     * 获取思维导图详情.
      *
      * @param int $id 思维导图ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function getMindmapDetail(int $id, ?int $userId = null): array
@@ -262,11 +243,11 @@ class MindmapRootService
     }
 
     /**
-     * 更新思维导图
+     * 更新思维导图.
      *
      * @param int $id 思维导图ID
      * @param array<string, mixed> $data 更新数据
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function updateMindmap(int $id, array $data, ?int $userId = null): array
@@ -313,7 +294,7 @@ class MindmapRootService
      * 切换思维导图的公开状态
      *
      * @param int $id 思维导图ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function togglePublicStatus(int $id, ?int $userId = null): array
@@ -343,11 +324,11 @@ class MindmapRootService
                     'message' => '思维导图不存在',
                 ];
             }
-            
+
             // 切换状态（取反）
             $newPublicStatus = ! $mindmap->is_public;
             $result = $this->mindmapRootRepository->togglePublicStatus($id, $newPublicStatus);
-            
+
             if ($result) {
                 return [
                     'success' => true,
@@ -370,12 +351,12 @@ class MindmapRootService
             ];
         }
     }
-    
+
     /**
-     * 删除思维导图
+     * 删除思维导图.
      *
      * @param int $id 思维导图ID
-     * @param int|null $userId 用户ID（用于权限验证）
+     * @param null|int $userId 用户ID（用于权限验证）
      * @return array 操作结果
      */
     public function deleteMindmap(int $id, ?int $userId = null): array
@@ -423,6 +404,25 @@ class MindmapRootService
                 'success' => false,
                 'message' => '删除失败',
             ];
+        }
+    }
+
+    /**
+     * 统计满足条件的思维导图数量.
+     *
+     * @param array $conditions 查询条件
+     * @return int 符合条件的记录数
+     */
+    private function countMindmaps(array $conditions = []): int
+    {
+        try {
+            // 使用repository进行统计，而不是直接调用模型类
+            // 由于repository没有直接的count方法，我们使用查询构建器获取总数
+            $mindmaps = $this->mindmapRootRepository->findAllBy($conditions, ['page' => 1, 'limit' => 1]);
+            return $mindmaps['total'] ?? 0;
+        } catch (Exception $e) {
+            $this->logger->error('统计思维导图数量异常: ' . $e->getMessage(), ['conditions' => $conditions]);
+            return 0;
         }
     }
 }

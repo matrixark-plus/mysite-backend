@@ -37,7 +37,7 @@ class UserAnalyticsService
     protected $userAnalyticsRepository;
 
     /**
-     * 记录用户事件
+     * 记录用户事件.
      *
      * @param array<string, mixed> $eventData 事件数据
      * @return array 操作结果
@@ -85,7 +85,7 @@ class UserAnalyticsService
     }
 
     /**
-     * 获取用户的活动记录
+     * 获取用户的活动记录.
      *
      * @param int $userId 用户ID
      * @param int $limit 限制数量
@@ -95,7 +95,7 @@ class UserAnalyticsService
     {
         try {
             $activities = $this->userAnalyticsRepository->findByUserId($userId, ['created_at' => 'desc']);
-            
+
             // 转换为数组格式
             $data = [];
             foreach ($activities as $activity) {
@@ -122,7 +122,7 @@ class UserAnalyticsService
     }
 
     /**
-     * 获取用户统计数据
+     * 获取用户统计数据.
      *
      * @param array<string, mixed> $conditions 查询条件
      * @return array 操作结果
@@ -160,7 +160,7 @@ class UserAnalyticsService
     }
 
     /**
-     * 清理过期的分析数据
+     * 清理过期的分析数据.
      *
      * @param int $days 保留天数
      * @return array 操作结果
@@ -168,7 +168,7 @@ class UserAnalyticsService
     public function cleanOldAnalyticsData(int $days = 90): array
     {
         try {
-            $beforeDate = Carbon::now()->subDays($days)-u003etoDateTimeString();
+            $beforeDate = Carbon::now()->subDays($days)->toDateTimeString();
             $deletedCount = $this->userAnalyticsRepository->cleanOldData($beforeDate);
 
             return [

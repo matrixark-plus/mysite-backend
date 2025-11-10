@@ -36,7 +36,7 @@ class BlogTagRelationService
     protected $blogTagRelationRepository;
 
     /**
-     * 为博客添加标签
+     * 为博客添加标签.
      *
      * @param int $blogId 博客ID
      * @param array $tagIds 标签ID数组
@@ -69,10 +69,10 @@ class BlogTagRelationService
             $relations = [];
             foreach ($tagIds as $tagId) {
                 // 检查是否已存在
-                if (! $this->blogTagRelationRepository->exists($blogId, (int)$tagId)) {
+                if (! $this->blogTagRelationRepository->exists($blogId, (int) $tagId)) {
                     $relations[] = [
                         'blog_id' => $blogId,
-                        'tag_id' => (int)$tagId,
+                        'tag_id' => (int) $tagId,
                     ];
                 }
             }
@@ -86,7 +86,7 @@ class BlogTagRelationService
 
             // 批量创建关联
             $result = $this->blogTagRelationRepository->batchCreate($relations);
-            
+
             if ($result) {
                 return [
                     'success' => true,
@@ -115,7 +115,7 @@ class BlogTagRelationService
 
     /**
      * 更新博客的标签
-     * 会先删除原有的关联，然后添加新的关联
+     * 会先删除原有的关联，然后添加新的关联.
      *
      * @param int $blogId 博客ID
      * @param array $tagIds 标签ID数组
@@ -153,13 +153,13 @@ class BlogTagRelationService
             foreach ($tagIds as $tagId) {
                 $relations[] = [
                     'blog_id' => $blogId,
-                    'tag_id' => (int)$tagId,
+                    'tag_id' => (int) $tagId,
                 ];
             }
 
             // 批量创建关联
             $result = $this->blogTagRelationRepository->batchCreate($relations);
-            
+
             if ($result) {
                 return [
                     'success' => true,
@@ -187,7 +187,7 @@ class BlogTagRelationService
     }
 
     /**
-     * 从博客中移除标签
+     * 从博客中移除标签.
      *
      * @param int $blogId 博客ID
      * @param array $tagIds 标签ID数组
@@ -218,7 +218,7 @@ class BlogTagRelationService
 
             // 删除指定的标签关联
             $result = $this->blogTagRelationRepository->deleteByBlogAndTagIds($blogId, $tagIds);
-            
+
             if ($result) {
                 return [
                     'success' => true,
@@ -243,7 +243,7 @@ class BlogTagRelationService
     }
 
     /**
-     * 获取博客的标签ID列表
+     * 获取博客的标签ID列表.
      *
      * @param int $blogId 博客ID
      * @return array 标签ID列表
@@ -257,7 +257,7 @@ class BlogTagRelationService
 
             $relations = $this->blogTagRelationRepository->findByBlogId($blogId);
             $tagIds = [];
-            
+
             foreach ($relations as $relation) {
                 $tagIds[] = $relation->tag_id;
             }
@@ -270,7 +270,7 @@ class BlogTagRelationService
     }
 
     /**
-     * 获取标签下的博客ID列表
+     * 获取标签下的博客ID列表.
      *
      * @param int $tagId 标签ID
      * @return array 博客ID列表
@@ -284,7 +284,7 @@ class BlogTagRelationService
 
             $relations = $this->blogTagRelationRepository->findByTagId($tagId);
             $blogIds = [];
-            
+
             foreach ($relations as $relation) {
                 $blogIds[] = $relation->blog_id;
             }
@@ -297,7 +297,7 @@ class BlogTagRelationService
     }
 
     /**
-     * 检查博客是否包含指定标签
+     * 检查博客是否包含指定标签.
      *
      * @param int $blogId 博客ID
      * @param int $tagId 标签ID

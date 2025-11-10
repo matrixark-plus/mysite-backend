@@ -33,13 +33,13 @@ class ContactFormRepository
      * 根据ID查找联系表单记录.
      *
      * @param int $id 记录ID
-     * @return array|null 联系表单数据数组或null
+     * @return null|array 联系表单数据数组或null
      */
     public function findById(int $id): ?array
     {
         try {
             $result = Db::table('contact_forms')->find($id);
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据ID查找联系表单记录失败: ' . $e->getMessage(), ['contact_form_id' => $id]);
             return null;
@@ -51,13 +51,13 @@ class ContactFormRepository
      *
      * @param array<string, mixed> $conditions 查询条件
      * @param array<string> $columns 查询字段
-     * @return array|null 联系表单数据数组或null
+     * @return null|array 联系表单数据数组或null
      */
     public function findBy(array $conditions, array $columns = ['*']): ?array
     {
         try {
             $query = Db::table('contact_forms');
-            
+
             foreach ($conditions as $key => $value) {
                 // 处理复杂条件如OR
                 if ($key === 'OR' && is_array($value)) {
@@ -70,9 +70,9 @@ class ContactFormRepository
                     $query = $query->where($key, $value);
                 }
             }
-            
+
             $result = $query->select($columns)->first();
-            return is_object($result) ? (array)$result : $result;
+            return is_object($result) ? (array) $result : $result;
         } catch (Exception $e) {
             $this->logger->error('根据条件查询联系表单记录失败: ' . $e->getMessage(), ['conditions' => $conditions]);
             return null;
@@ -145,7 +145,7 @@ class ContactFormRepository
      * 创建联系表单记录.
      *
      * @param array<string, mixed> $data 表单数据
-     * @return array|null 创建的联系表单数据数组或null
+     * @return null|array 创建的联系表单数据数组或null
      */
     public function create(array $data): ?array
     {
@@ -193,7 +193,7 @@ class ContactFormRepository
             $data = [
                 'status' => 2, // 假设2代表已处理状态
                 'processed_by' => $processorId,
-                'processed_at' => date('Y-m-d H:i:s')
+                'processed_at' => date('Y-m-d H:i:s'),
             ];
             $result = Db::table('contact_forms')->where('id', $id)->update($data);
             return $result > 0;

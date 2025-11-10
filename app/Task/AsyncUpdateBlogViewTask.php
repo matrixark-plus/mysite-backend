@@ -12,12 +12,14 @@ declare(strict_types=1);
 
 namespace App\Task;
 
-use Hyperf\Di\Annotation\Inject;
 use App\Repository\BlogRepository;
+use Hyperf\Di\Annotation\Inject;
+use InvalidArgumentException;
+use Throwable;
 
 /**
  * 异步更新博客阅读量任务
- * 用于异步处理博客阅读量的数据库更新，减轻实时压力
+ * 用于异步处理博客阅读量的数据库更新，减轻实时压力.
  */
 class AsyncUpdateBlogViewTask extends AbstractTask
 {
@@ -29,41 +31,37 @@ class AsyncUpdateBlogViewTask extends AbstractTask
 
     /**
      * 处理异步更新博客阅读量任务
-     *
-     * @return bool
      */
     protected function handle(): bool
     {
         // 解析任务数据
         $blogId = $this->data['blog_id'] ?? 0;
-        
+
         // 验证必要参数
-        if (empty($blogId) || !is_numeric($blogId)) {
-            throw new \InvalidArgumentException('博客ID不能为空');
+        if (empty($blogId) || ! is_numeric($blogId)) {
+            throw new InvalidArgumentException('博客ID不能为空');
         }
 
         try {
             // 更新数据库中的阅读量
-            $this->blogRepository->incrementViewCount((int)$blogId);
-            
+            $this->blogRepository->incrementViewCount((int) $blogId);
+
             $this->logger->info('异步更新博客阅读量成功', ['blog_id' => $blogId]);
             return true;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('异步更新博客阅读量失败', [
                 'blog_id' => $blogId,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             return false;
         }
     }
 
     /**
-     * 错误处理 - 实现重试机制
-     *
-     * @param \Throwable $e
+     * 错误处理 - 实现重试机制.
      */
-    protected function handleError(\Throwable $e): void
+    protected function handleError(Throwable $e): void
     {
         // 获取重试次数
         $retryCount = $this->data['retry_count'] ?? 0;
@@ -79,15 +77,15 @@ class AsyncUpdateBlogViewTask extends AbstractTask
             $this->logger->info('准备重试异步更新博客阅读量', [
                 'blog_id' => $this->data['blog_id'] ?? 0,
                 'retry_count' => $this->data['retry_count'],
-                'max_retries' => $maxRetries
+                'max_retries' => $maxRetries,
             ]);
-            
+
             // 注意：这里只是记录日志，实际重试需要在TaskService中实现
         }
     }
-    
+
     /**
-     * 脱敏敏感数据
+     * 脱敏敏感数据.
      *
      * @param array $data 原始数据
      * @return array 脱敏后的数据

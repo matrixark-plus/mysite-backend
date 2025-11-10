@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 /**
- * 系统管理验证器
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api\Validator;
 
-use Hyperf\Validation\Contract\ValidatorFactoryInterface;
 use Hyperf\Di\Annotation\Inject;
+use Hyperf\Validation\Contract\ValidatorFactoryInterface;
+use Hyperf\Validation\ValidationException;
 
 class SystemValidator
 {
@@ -19,7 +25,7 @@ class SystemValidator
     protected $validationFactory;
 
     /**
-     * 验证统计数据参数
+     * 验证统计数据参数.
      * @param array $data 请求数据
      * @return array 验证后的数据
      */
@@ -37,7 +43,7 @@ class SystemValidator
         ]);
 
         if ($validator->fails()) {
-            throw new \Hyperf\Validation\ValidationException($validator);
+            throw new ValidationException($validator);
         }
 
         return $validator->validated();

@@ -2,17 +2,24 @@
 
 declare(strict_types=1);
 /**
- * 博客数据访问层
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
 namespace App\Repository;
 
 use App\Model\Blog;
+use Exception;
 use Hyperf\DbConnection\Db;
 
 class BlogRepository
 {
     /**
-     * 获取博客列表
+     * 获取博客列表.
      * @param array $params 查询参数
      * @return array 分页结果
      */
@@ -56,9 +63,9 @@ class BlogRepository
     }
 
     /**
-     * 根据ID获取博客详情
+     * 根据ID获取博客详情.
      * @param int $id 博客ID
-     * @return array|null 博客信息
+     * @return null|array 博客信息
      */
     public function findById(int $id): ?array
     {
@@ -71,7 +78,7 @@ class BlogRepository
     }
 
     /**
-     * 创建博客
+     * 创建博客.
      * @param array $data 博客数据
      * @return array 创建的博客信息
      */
@@ -97,10 +104,10 @@ class BlogRepository
     }
 
     /**
-     * 更新博客
+     * 更新博客.
      * @param int $id 博客ID
      * @param array $data 更新数据
-     * @return array|null 更新后的博客信息
+     * @return null|array 更新后的博客信息
      */
     public function update(int $id, array $data): ?array
     {
@@ -116,7 +123,7 @@ class BlogRepository
     }
 
     /**
-     * 删除博客
+     * 删除博客.
      * @param int $id 博客ID
      * @return bool 删除结果
      */
@@ -133,9 +140,8 @@ class BlogRepository
     }
 
     /**
-     * 增加博客阅读量
+     * 增加博客阅读量.
      * @param int $id 博客ID
-     * @return void
      */
     public function incrementViewCount(int $id): void
     {
@@ -143,42 +149,38 @@ class BlogRepository
     }
 
     /**
-     * 获取热门博客
+     * 获取热门博客.
      * @param int $limit 数量限制
      * @return array 热门博客列表
      */
     public function getHotBlogs(int $limit = 10): array
     {
-        $blogs = Blog::with(['author', 'category'])
+        return Blog::with(['author', 'category'])
             ->where('status', Blog::STATUS_PUBLISHED)
             ->orderBy('view_count', 'desc')
             ->limit($limit)
             ->get()
             ->toArray();
-
-        return $blogs;
     }
 
     /**
-     * 获取推荐博客
+     * 获取推荐博客.
      * @param int $limit 数量限制
      * @return array 推荐博客列表
      */
     public function getRecommendedBlogs(int $limit = 10): array
     {
-        $blogs = Blog::with(['author', 'category'])
+        return Blog::with(['author', 'category'])
             ->where('status', Blog::STATUS_PUBLISHED)
             ->where('is_recommended', true)
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get()
             ->toArray();
-
-        return $blogs;
     }
 
     /**
-     * 搜索博客
+     * 搜索博客.
      * @param string $keyword 搜索关键词
      * @param array $params 其他参数
      * @return array 搜索结果
@@ -224,7 +226,7 @@ class BlogRepository
     }
 
     /**
-     * 检查slug是否已存在
+     * 检查slug是否已存在.
      * @param string $slug slug
      * @param int $excludeId 排除的ID
      * @return bool 是否存在
@@ -240,20 +242,35 @@ class BlogRepository
     }
 
     /**
-     * 获取博客数量
+     * 获取博客数量.
      * @param array $conditions 条件
      * @return int 数量
      */
     public function count(array $conditions = []): int
     {
         $query = Blog::query();
-        
-        if (!empty($conditions)) {
+
+        if (! empty($conditions)) {
             foreach ($conditions as $key => $value) {
                 $query->where($key, $value);
             }
         }
-        
+
         return $query->count();
+    }
+    
+    /**
+     * 更新博客评论计数.
+     * @param int $id 博客ID
+     * @param int $count 评论数量
+     * @return bool 更新结果
+     */
+    public function updateCommentCount(int $id, int $count): bool
+    {
+        try {
+            return Blog::where('id', $id)->update(['comment_count' => $count]) > 0;
+        } catch (Exception $e) {
+            return false;
+        }
     }
 }

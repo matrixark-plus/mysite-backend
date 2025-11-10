@@ -12,6 +12,7 @@ declare(strict_types=1);
 use Hyperf\Tracer\Adapter\JaegerTracerFactory;
 use Hyperf\Tracer\Adapter\ZipkinTracerFactory;
 use Zipkin\Samplers\BinarySampler;
+
 use function Hyperf\Support\env;
 
 return [

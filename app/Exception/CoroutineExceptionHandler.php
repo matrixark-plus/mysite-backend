@@ -15,16 +15,15 @@ namespace App\Exception;
 use Hyperf\Context\Context;
 use Hyperf\ExceptionHandler\ExceptionHandler;
 use Hyperf\HttpMessage\Stream\SwooleStream;
-use Hyperf\Utils\Coroutine;
+use Swoole\Coroutine;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
-use Swoole\Coroutine\Exception as SwooleCoroutineException;
 use Throwable;
 
 /**
  * Swoole协程异常处理器
- * 专门处理协程相关异常，防止协程泄漏和崩溃
+ * 专门处理协程相关异常，防止协程泄漏和崩溃.
  */
 class CoroutineExceptionHandler extends ExceptionHandler
 {
@@ -35,20 +34,33 @@ class CoroutineExceptionHandler extends ExceptionHandler
 
     public function __construct(ContainerInterface $container)
     {
-        parent::__construct($container);
+        // 移除对不存在的父类构造函数的调用
         $this->logger = $container->get(LoggerInterface::class);
     }
 
     /**
-     * 处理异常
+     * 处理异常.
      */
     public function handle(Throwable $throwable, ResponseInterface $response)
     {
         // 记录协程上下文信息
-        $coroutineId = Coroutine::id();
-        $coroutineStack = Coroutine::listCoroutines();
-        $context = Context::getAll();
-        
+        $coroutineId = Coroutine::getCid(); // 使用正确的方法获取协程ID
+        $coroutineStack = []; // 移除对不存在方法的调用
+        // 移除对不存在的Context::getKeys()方法的调用
+        // 只获取几个关键的上下文信息
+        $context = [];
+        try {
+            $commonKeys = ['request_id', 'trace_id', 'request_method', 'request_uri'];
+            foreach ($commonKeys as $key) {
+                $value = Context::get($key);
+                if ($value !== null) {
+                    $context[$key] = $value;
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('无法获取上下文信息', ['error' => $e->getMessage()]);
+        }
+
         // 清理敏感信息
         $sensitiveKeys = ['password', 'token', 'secret', 'key'];
         foreach ($sensitiveKeys as $key) {
@@ -56,11 +68,12 @@ class CoroutineExceptionHandler extends ExceptionHandler
                 $context[$key] = '*** REDACTED ***';
             }
         }
-        
+
         // 区分异常类型并记录不同级别的日志
-        $isSwooleCoroutineException = $throwable instanceof SwooleCoroutineException;
+        $isSwooleCoroutineException = strpos(get_class($throwable), 'Swoole\\Coroutine') !== false || 
+                                      strpos($throwable->getMessage(), 'coroutine') !== false;
         $logLevel = $isSwooleCoroutineException ? 'error' : 'warning';
-        
+
         // 记录异常信息
         $this->logger->{$logLevel}('协程异常捕获', [
             'exception_type' => get_class($throwable),
@@ -81,8 +94,8 @@ class CoroutineExceptionHandler extends ExceptionHandler
 
         // 向客户端返回友好的错误信息
         $statusCode = $isSwooleCoroutineException ? 503 : 500;
-        $errorMessage = $isSwooleCoroutineException 
-            ? '系统临时繁忙，请稍后重试' 
+        $errorMessage = $isSwooleCoroutineException
+            ? '系统临时繁忙，请稍后重试'
             : '内部服务器错误';
 
         // 非生产环境返回详细错误信息
@@ -101,9 +114,19 @@ class CoroutineExceptionHandler extends ExceptionHandler
     }
 
     /**
-     * 处理Swoole特定的协程异常
+     * 判断异常是否由该处理器处理.
      */
-    protected function handleSwooleCoroutineException(SwooleCoroutineException $exception, int $coroutineId): void
+    public function isValid(Throwable $throwable): bool
+    {
+        // 处理所有协程相关异常
+        return strpos(get_class($throwable), 'Swoole\\Coroutine') !== false
+               || strpos($throwable->getMessage(), 'coroutine') !== false;
+    }
+
+    /**
+     * 处理Swoole特定的协程异常.
+     */
+    protected function handleSwooleCoroutineException(Throwable $exception, int $coroutineId): void
     {
         // 处理协程资源泄漏
         $this->logger->error('检测到Swoole协程异常', [
@@ -130,16 +153,5 @@ class CoroutineExceptionHandler extends ExceptionHandler
                     'error_code' => $exception->getCode(),
                 ]);
         }
-    }
-
-    /**
-     * 判断异常是否由该处理器处理
-     */
-    public function isValid(Throwable $throwable): bool
-    {
-        // 处理所有协程相关异常
-        return $throwable instanceof SwooleCoroutineException ||
-               strpos(get_class($throwable), 'Swoole\\Coroutine') !== false ||
-               strpos($throwable->getMessage(), 'coroutine') !== false;
     }
 }

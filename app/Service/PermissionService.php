@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\Model\User;
 use App\Repository\UserRepository;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
@@ -139,19 +140,19 @@ class PermissionService
         if (! $userInfo) {
             return false;
         }
-        
+
         // 如果请求的是管理员角色，检查is_admin字段
         if ($role === 'admin') {
             return $userInfo['is_admin'] ?? false;
         }
-        
+
         return false;
     }
 
     /**
      * 检查用户是否为管理员.
      *
-     * @param \App\Model\User|object $user 用户对象
+     * @param object|User $user 用户对象
      * @return bool 是否为管理员
      */
     public function isAdmin($user): bool
@@ -174,12 +175,12 @@ class PermissionService
         }
         return in_array($userInfo['role'] ?? '', ['admin', 'editor']);
     }
-    
+
     /**
-     * 获取用户信息
+     * 获取用户信息.
      *
      * @param array|int $user 用户信息数组或用户ID
-     * @return array|null 用户信息数组
+     * @return null|array 用户信息数组
      */
     protected function getUserInfo($user): ?array
     {
@@ -187,7 +188,7 @@ class PermissionService
         if (is_array($user)) {
             return $user;
         }
-        
+
         // 如果是整数，通过Repository获取
         if (is_int($user)) {
             $userInfo = $this->userRepository->find($user);
@@ -198,7 +199,7 @@ class PermissionService
         } else {
             $this->logger->error('Invalid user parameter type', ['actual_type' => gettype($user)]);
         }
-        
+
         return null;
     }
 }

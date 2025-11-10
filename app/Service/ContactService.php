@@ -90,7 +90,7 @@ class ContactService
 
             // 保存联系记录
             $contact = $this->contactRepository->create($contactData);
-            
+
             if (! $contact) {
                 return [
                     'success' => false,
@@ -148,9 +148,157 @@ class ContactService
     }
 
     /**
+     * 获取未处理的联系记录数量.
+     *
+     * @return int
+     */
+    public function getUnprocessedCount()
+    {
+        return $this->contactRepository->getUnprocessedCount();
+    }
+
+    /**
+     * 删除联系表单.
+     *
+     * @param int $id 联系记录ID
+     * @return array 删除结果
+     */
+    public function deleteContactForm(int $id)
+    {
+        try {
+            // 先检查记录是否存在
+            $contact = $this->contactRepository->findById($id);
+            if (! $contact) {
+                return [
+                    'success' => false,
+                    'message' => '联系记录不存在',
+                ];
+            }
+
+            // 执行删除操作
+            $success = $this->contactRepository->delete($id);
+
+            if ($success) {
+                return [
+                    'success' => true,
+                    'message' => '联系记录删除成功',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => '联系记录删除失败',
+            ];
+        } catch (Exception $e) {
+            $this->logger->error('删除联系表单异常: ' . $e->getMessage(), ['id' => $id]);
+            return [
+                'success' => false,
+                'message' => '删除失败，请稍后重试',
+            ];
+        }
+    }
+
+    /**
+     * 获取单个联系表单详情.
+     *
+     * @param int $id 联系记录ID
+     * @return array 联系表单详情
+     */
+    public function getContactFormDetail(int $id)
+    {
+        try {
+            // 查询联系表单详情
+            $contact = $this->contactRepository->findById($id);
+
+            if (! $contact) {
+                return [
+                    'success' => false,
+                    'message' => '联系表单不存在',
+                ];
+            }
+
+            // 转换为数组格式
+            $data = [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'subject' => $contact->subject,
+                'message' => $contact->message,
+                'phone' => $contact->phone ?? '',
+                'status' => $contact->status,
+                'created_at' => $contact->created_at,
+                'updated_at' => $contact->updated_at,
+            ];
+
+            return [
+                'success' => true,
+                'data' => $data,
+            ];
+        } catch (Exception $e) {
+            $this->logger->error('获取联系表单详情异常: ' . $e->getMessage(), ['id' => $id]);
+            return [
+                'success' => false,
+                'message' => '获取详情失败',
+            ];
+        }
+    }
+
+    /**
+     * 批量删除联系表单.
+     *
+     * @param array $ids 联系记录ID数组
+     * @return array 删除结果
+     */
+    public function batchDeleteContactForms(array $ids)
+    {
+        try {
+            // 验证ID数组
+            if (empty($ids)) {
+                return [
+                    'success' => false,
+                    'message' => 'ID列表不能为空',
+                ];
+            }
+
+            // 过滤有效的ID
+            $validIds = array_filter($ids, function ($id) {
+                return is_numeric($id) && $id > 0;
+            });
+
+            if (empty($validIds)) {
+                return [
+                    'success' => false,
+                    'message' => '没有有效的ID',
+                ];
+            }
+
+            // 执行批量删除
+            $deletedCount = 0;
+
+            foreach ($validIds as $id) {
+                $result = $this->deleteContactForm((int) $id);
+                if ($result['success']) {
+                    ++$deletedCount;
+                }
+            }
+
+            return [
+                'success' => true,
+                'deleted_count' => $deletedCount,
+                'message' => "成功删除{$deletedCount}条记录",
+            ];
+        } catch (Exception $e) {
+            $this->logger->error('批量删除联系表单异常: ' . $e->getMessage(), ['ids' => $ids]);
+            return [
+                'success' => false,
+                'message' => '批量删除失败，请稍后重试',
+            ];
+        }
+    }
+
+    /**
      * 验证联系表单数据.
      *
-     * @param array $data
      * @return array
      */
     protected function validateContactData(array $data)
@@ -183,154 +331,5 @@ class ContactService
         }
 
         return ['valid' => true];
-    }
-
-    /**
-     * 获取未处理的联系记录数量.
-     *
-     * @return int
-     */
-    public function getUnprocessedCount()
-    {
-        return $this->contactRepository->getUnprocessedCount();
-    }
-
-    /**
-     * 删除联系表单.
-     *
-     * @param int $id 联系记录ID
-     * @return array 删除结果
-     */
-    public function deleteContactForm(int $id)
-    {
-        try {
-            // 先检查记录是否存在
-            $contact = $this->contactRepository->findById($id);
-            if (! $contact) {
-                return [
-                    'success' => false,
-                    'message' => '联系记录不存在'
-                ];
-            }
-
-            // 执行删除操作
-            $success = $this->contactRepository->delete($id);
-            
-            if ($success) {
-                return [
-                    'success' => true,
-                    'message' => '联系记录删除成功'
-                ];
-            }
-            
-            return [
-                'success' => false,
-                'message' => '联系记录删除失败'
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('删除联系表单异常: ' . $e->getMessage(), ['id' => $id]);
-            return [
-                'success' => false,
-                'message' => '删除失败，请稍后重试'
-            ];
-        }
-    }
-    
-    /**
-     * 获取单个联系表单详情.
-     *
-     * @param int $id 联系记录ID
-     * @return array 联系表单详情
-     */
-    public function getContactFormDetail(int $id)
-    {
-        try {
-            // 查询联系表单详情
-            $contact = $this->contactRepository->findById($id);
-            
-            if (! $contact) {
-                return [
-                    'success' => false,
-                    'message' => '联系表单不存在'
-                ];
-            }
-            
-            // 转换为数组格式
-            $data = [
-                'id' => $contact->id,
-                'name' => $contact->name,
-                'email' => $contact->email,
-                'subject' => $contact->subject,
-                'message' => $contact->message,
-                'phone' => $contact->phone ?? '',
-                'status' => $contact->status,
-                'created_at' => $contact->created_at,
-                'updated_at' => $contact->updated_at,
-            ];
-            
-            return [
-                'success' => true,
-                'data' => $data
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('获取联系表单详情异常: ' . $e->getMessage(), ['id' => $id]);
-            return [
-                'success' => false,
-                'message' => '获取详情失败'
-            ];
-        }
-    }
-    
-    /**
-     * 批量删除联系表单.
-     *
-     * @param array $ids 联系记录ID数组
-     * @return array 删除结果
-     */
-    public function batchDeleteContactForms(array $ids)
-    {
-        try {
-            // 验证ID数组
-            if (empty($ids)) {
-                return [
-                    'success' => false,
-                    'message' => 'ID列表不能为空'
-                ];
-            }
-            
-            // 过滤有效的ID
-            $validIds = array_filter($ids, function($id) {
-                return is_numeric($id) && $id > 0;
-            });
-            
-            if (empty($validIds)) {
-                return [
-                    'success' => false,
-                    'message' => '没有有效的ID'
-                ];
-            }
-            
-            // 执行批量删除
-            $deletedCount = 0;
-            
-            foreach ($validIds as $id) {
-                $result = $this->deleteContactForm((int)$id);
-                if ($result['success']) {
-                    $deletedCount++;
-                }
-            }
-            
-            return [
-                'success' => true,
-                'deleted_count' => $deletedCount,
-                'message' => "成功删除{$deletedCount}条记录"
-            ];
-        } catch (Exception $e) {
-            $this->logger->error('批量删除联系表单异常: ' . $e->getMessage(), ['ids' => $ids]);
-            return [
-                'success' => false,
-                'message' => '批量删除失败，请稍后重试'
-            ];
-        }
     }
 }

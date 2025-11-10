@@ -16,15 +16,17 @@ use App\Event\DataUpdatedEvent;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Event\Annotation\Listener;
 use Hyperf\Event\Contract\ListenerInterface;
-use Hyperf\Logger\LoggerFactory;
 use Hyperf\Redis\Redis;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * 数据更新监听器
- * 处理数据更新事件，实现缓存更新、日志记录等异步操作
+ * 处理数据更新事件，实现缓存更新、日志记录等异步操作.
  */
-#[Listener]
+/**
+ * @Listener
+ */
 class DataUpdatedListener implements ListenerInterface
 {
     /**
@@ -40,7 +42,7 @@ class DataUpdatedListener implements ListenerInterface
     protected $redis;
 
     /**
-     * 返回需要监听的事件列表
+     * 返回需要监听的事件列表.
      */
     public function listen(): array
     {
@@ -50,7 +52,7 @@ class DataUpdatedListener implements ListenerInterface
     }
 
     /**
-     * 处理数据更新事件
+     * 处理数据更新事件.
      *
      * @param DataUpdatedEvent $event
      */
@@ -83,7 +85,7 @@ class DataUpdatedListener implements ListenerInterface
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->logger->error('处理数据更新事件失败', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -92,14 +94,13 @@ class DataUpdatedListener implements ListenerInterface
     }
 
     /**
-     * 记录数据变更日志
+     * 记录数据变更日志.
      *
      * @param string $action 操作类型
      * @param string $entityType 实体类型
      * @param int $entityId 实体ID
      * @param array $changedData 变更数据
-     * @param int $timestamp 时间戳
-     */
+     * @param int $timestamp 时间�?     */
     private function logDataChange(string $action, string $entityType, int $entityId, array $changedData, int $timestamp): void
     {
         try {
@@ -118,7 +119,7 @@ class DataUpdatedListener implements ListenerInterface
 
             // 也记录到日志文件
             $this->logger->info('数据变更记录', $logData);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 确保日志记录失败不会影响主要流程
             $this->logger->error('记录数据变更日志失败', [
                 'error' => $e->getMessage(),
@@ -129,7 +130,7 @@ class DataUpdatedListener implements ListenerInterface
     }
 
     /**
-     * 更新缓存
+     * 更新缓存.
      *
      * @param string $action 操作类型
      * @param string $entityType 实体类型
@@ -144,10 +145,8 @@ class DataUpdatedListener implements ListenerInterface
 
             switch ($action) {
                 case 'create':
-                    // 创建实体时，缓存可能不需要立即更新
-                    // 等待读取时再缓存
+                    // 创建实体时，缓存可能不需要立即更�?                    // 等待读取时再缓存
                     break;
-
                 case 'update':
                     // 更新实体时，清除对应的缓存，下次读取时会重新生成
                     $this->redis->del($cacheKey);
@@ -155,10 +154,9 @@ class DataUpdatedListener implements ListenerInterface
                     if (! empty($changedData)) {
                         // 从数据库获取最新数据并更新缓存
                         // 这里为了演示，简化处理，实际应该根据具体业务从Repository获取数据
-                        $this->logger->info('缓存已清除', ['key' => $cacheKey]);
+                        $this->logger->info('缓存已清理', ['key' => $cacheKey]);
                     }
                     break;
-
                 case 'delete':
                     // 删除实体时，彻底清除缓存
                     $this->redis->del($cacheKey);
@@ -166,7 +164,7 @@ class DataUpdatedListener implements ListenerInterface
                     $this->clearRelatedListCache($entityType);
                     break;
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // 确保缓存更新失败不会影响主要流程
             $this->logger->error('更新缓存失败', [
                 'error' => $e->getMessage(),
@@ -177,19 +175,18 @@ class DataUpdatedListener implements ListenerInterface
     }
 
     /**
-     * 获取实体的缓存键
+     * 获取实体的缓存键.
      *
      * @param string $entityType 实体类型
      * @param int $entityId 实体ID
-     * @return string 缓存键
-     */
+     * @return string 缓存�?     */
     private function getEntityCacheKey(string $entityType, int $entityId): string
     {
         return sprintf('entity:%s:%d', $entityType, $entityId);
     }
 
     /**
-     * 清除相关的列表缓存
+     * 清除相关的列表缓�?
      *
      * @param string $entityType 实体类型
      */
@@ -199,10 +196,11 @@ class DataUpdatedListener implements ListenerInterface
         // 例如：最近更新列表、热门列表等
         $pattern = sprintf('list:%s:*', $entityType);
         $keys = $this->redis->keys($pattern);
-        
+
         if (! empty($keys)) {
             $this->redis->del(...$keys);
-            $this->logger->info('相关列表缓存已清除', ['pattern' => $pattern, 'count' => count($keys)]);
+            $this->logger->info('相关列表缓存已清理', ['pattern' => $pattern, 'count' => count($keys)]);
         }
     }
 }
+

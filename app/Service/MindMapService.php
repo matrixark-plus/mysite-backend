@@ -127,7 +127,6 @@ class MindMapService
      *
      * @param int $rootId 根节点ID
      * @param bool $includeContent 是否包含内容
-     * @return array
      */
     protected function getAllNodes(int $rootId, bool $includeContent = false): array
     {
@@ -143,7 +142,7 @@ class MindMapService
     }
 
     /**
-     * 注意：getEdges方法已移至Repository层，这里不再需要保留
+     * 注意：getEdges方法已移至Repository层，这里不再需要保留.
      */
 
     /**
@@ -151,7 +150,6 @@ class MindMapService
      *
      * @param array $node 节点数据
      * @param bool $includeContent 是否包含内容
-     * @return array
      */
     protected function formatNode(array $node, bool $includeContent = false): array
     {

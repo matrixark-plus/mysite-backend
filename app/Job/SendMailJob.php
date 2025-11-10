@@ -26,7 +26,7 @@ class SendMailJob extends AbstractJob
     /**
      * 执行任务
      */
-    public function handle()
+    public function handle(): void
     {
         $params = $this->getParams();
         $to = $params['to'] ?? '';

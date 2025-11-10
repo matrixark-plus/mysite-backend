@@ -16,7 +16,7 @@ use App\Listener\NewCommentListener;
 use Hyperf\Command\Listener\FailToHandleListener;
 use Hyperf\ExceptionHandler\Listener\ErrorExceptionHandler;
 
-/**
+/*
  * This file is part of Hyperf.
  *
  * @see     https://www.hyperf.io

@@ -14,35 +14,29 @@ namespace App\Service;
 
 use App\Constants\ResponseMessage;
 use App\Event\NewCommentEvent;
-use Exception;
-use Hyperf\Context\ApplicationContext;
-use App\Repository\CommentRepository;
 use App\Repository\BlogRepository;
 use App\Repository\CommentLikeRepository;
-use Hyperf\Di\Annotation\Inject;
-use Hyperf\Logger\LoggerFactory;
-use Psr\Log\LoggerInterface;
-use Hyperf\Event\Contract\EventDispatcherInterface;
+use App\Repository\CommentRepository;
+use Exception;
 use Hyperf\Cache\Cache;
+use Hyperf\Di\Annotation\Inject;
+use Hyperf\Event\Contract\EventDispatcher;
+use Hyperf\DbConnection\Db;
 
 /**
  * 评论服务
  * 处理评论的增删改查功能.
  */
-class CommentService
+class CommentService extends BaseService
 {
-    /**
-     * @Inject
-     * @var LoggerInterface
-     */
-    protected $logger;
+
 
     /**
      * @Inject
-     * @var EventDispatcherInterface
+     * @var EventDispatcher
      */
     protected $dispatcher;
-    
+
     /**
      * @Inject
      * @var CommentLikeRepository
@@ -60,146 +54,114 @@ class CommentService
      * @var BlogRepository
      */
     protected $blogRepository;
-    
+
     /**
      * @Inject
      * @var Cache
      */
     protected $cache;
+
     /**
      * 获取评论列表.
      *
      * @param array $params 查询参数
-     * @param int|null $userId 当前用户ID（可选，用于判断是否点赞）
+     * @param null|int $userId 当前用户ID（可选，用于判断是否点赞）
      * @return array{total:int, data:array, page:int, page_size:int} 评论列表和总数
      */
     public function getComments(array $params = [], ?int $userId = null): array
     {
-        $this->logger->info('获取评论列表', ['params' => $params]);
-        
-        try {
-            // 构建缓存键 - 只有匿名用户的查询才缓存
-            $cacheKey = null;
-            if (!$userId) {
-                $cacheKey = 'comments:list:' . md5(json_encode([
-                    'content_type' => $params['content_type'] ?? '',
-                    'content_id' => $params['content_id'] ?? '',
-                    'page' => $params['page'] ?? 1,
-                    'page_size' => $params['page_size'] ?? 10
-                ]));
+        return $this->executeWithErrorHandling(
+            function () use ($params, $userId) {
+                $this->logAction('获取评论列表', ['params' => $params]);
                 
-                // 尝试从缓存获取
-                $cachedResult = $this->cache->get($cacheKey);
-                if ($cachedResult) {
-                    return $cachedResult;
+                // 构建缓存键 - 只有匿名用户的查询才缓存
+                $cacheKey = null;
+                if (! $userId) {
+                    $cacheKey = 'comments:list:' . md5(json_encode([
+                        'content_type' => $params['content_type'] ?? '',
+                        'content_id' => $params['content_id'] ?? '',
+                        'page' => $params['page'] ?? 1,
+                        'page_size' => $params['page_size'] ?? 10,
+                    ]));
+
+                    // 尝试从缓存获取
+                    $cachedResult = $this->cache->get($cacheKey);
+                    if ($cachedResult) {
+                        return $cachedResult;
+                    }
                 }
-            }
-            
-            // 使用Repository获取评论列表，统一数据访问层
-            $result = $this->commentRepository->findWithPagination($params);
-            
-            // 添加点赞信息
-            $this->enrichCommentsWithLikeData($result['data'], $userId);
-            
-            // 缓存非个性化结果
-            if ($cacheKey) {
-                $this->cache->set($cacheKey, $result, 300); // 5分钟缓存
-            }
-            
-            $this->logger->info('获取评论列表成功', ['total' => $result['total']]);
-            return $result;
-        } catch (Exception $e) {
-            $this->logger->error('获取评论列表失败', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return [
-                'data' => [],
-                'total' => 0,
-                'page' => $params['page'] ?? 1,
-                'page_size' => $params['page_size'] ?? 10,
-            ];
-        }
-    }
-    
-    /**
-     * 为评论列表添加点赞数据
-     *
-     * @param array<string, mixed> $comments 评论列表
-     * @param int|null $userId 当前用户ID
-     */
-    protected function enrichCommentsWithLikeData(array &$comments, ?int $userId = null): void
-    {
-        if (empty($comments)) {
-            return;
-        }
 
-        // 获取评论ID列表
-        $commentIds = array_column($comments, 'id');
+                // 使用Repository获取评论列表，统一数据访问层
+                $result = $this->commentRepository->findWithPagination($params);
 
-        // 查询点赞数量
-        $likeCountMap = $this->commentLikeRepository->getLikeCountsByCommentIds($commentIds);
+                // 添加点赞信息
+                $this->enrichCommentsWithLikeData($result['data'], $userId);
 
-        // 查询当前用户的点赞记录
-        $userLikes = $userId ? $this->commentLikeRepository->getUserLikesByCommentIds($commentIds, $userId) : [];
+                // 缓存非个性化结果
+                if ($cacheKey) {
+                    $this->cache->set($cacheKey, $result, 300); // 5分钟缓存
+                }
 
-        // 为评论添加点赞信息
-        foreach ($comments as &$comment) {
-            $commentId = $comment['id'];
-            $comment['likes'] = $likeCountMap[$commentId] ?? 0;
-            $comment['user_liked'] = isset($userLikes[$commentId]) ? true : false;
-        }
+                $this->logAction('获取评论列表成功', ['total' => $result['total']]);
+                return $result;
+            },
+            '获取评论列表失败',
+            ['params' => $params]
+        )['data'] ?? [
+            'data' => [],
+            'total' => 0,
+            'page' => $params['page'] ?? 1,
+            'page_size' => $params['page_size'] ?? 10,
+        ];
     }
 
     /**
-     * 点赞评论
+     * 点赞评论.
      *
      * @param int $commentId 评论ID
      * @param int $userId 用户ID
      * @return bool 是否点赞成功
-     * @throws Exception
      */
     public function likeComment(int $commentId, int $userId): bool
     {
-        // 检查评论是否存在
-        $comment = Comment::find($commentId);
-        if (! $comment) {
-            throw new Exception('评论不存在');
-        }
+        return $this->executeWithErrorHandling(
+            function () use ($commentId, $userId) {
+                // 检查评论是否存在
+                $comment = $this->commentRepository->findById($commentId);
+                if (! $comment) {
+                    throw new Exception('评论不存在');
+                }
 
-        // 检查是否已经点赞
-        $existingLike = Db::table('comment_likes')
-            ->where('comment_id', $commentId)
-            ->where('user_id', $userId)
-            ->first();
+                // 检查是否已经点赞
+                $existingLike = $this->commentLikeRepository->findByCommentAndUser($commentId, $userId);
+                if ($existingLike) {
+                    return true; // 已经点赞过了
+                }
 
-        if ($existingLike) {
-            return true; // 已经点赞过了
-        }
+                // 添加点赞记录
+                $this->commentLikeRepository->create([
+                    'comment_id' => $commentId,
+                    'user_id' => $userId,
+                    'created_at' => time(),
+                ]);
 
-        // 添加点赞记录
-        Db::table('comment_likes')->insert([
-            'comment_id' => $commentId,
-            'user_id' => $userId,
-            'created_at' => time(),
-        ]);
+                // 更新评论点赞数（可选，可以在查询时实时计算）
+                try {
+                    $this->commentRepository->update($commentId, ['like_count' => ($comment['like_count'] ?? 0) + 1]);
+                } catch (Exception $e) {
+                    $this->logger->error('更新评论点赞数失败', ['comment_id' => $commentId, 'error' => $e->getMessage()]);
+                }
 
-        // 更新评论点赞数（可选，可以在查询时实时计算）
-        try {
-            Db::table('comments')
-                ->where('id', $commentId)
-                ->increment('like_count');
-        } catch (\Exception $e) {
-            $this->logger->error('更新评论点赞数失败', ['comment_id' => $commentId, 'error' => $e->getMessage()]);
-        }
-
-        $this->logger->info('评论点赞成功', ['comment_id' => $commentId, 'user_id' => $userId]);
-        return true;
+                $this->logAction('评论点赞成功', ['comment_id' => $commentId, 'user_id' => $userId]);
+                return true;
+            },
+            '点赞评论失败',
+            ['comment_id' => $commentId, 'user_id' => $userId]
+        )['data'] ?? false;
     }
 
     /**
-     * 取消点赞评论
+     * 取消点赞评论.
      *
      * @param int $commentId 评论ID
      * @param int $userId 用户ID
@@ -207,26 +169,38 @@ class CommentService
      */
     public function unlikeComment(int $commentId, int $userId): bool
     {
-        // 删除点赞记录
-        $result = Db::table('comment_likes')
-            ->where('comment_id', $commentId)
-            ->where('user_id', $userId)
-            ->delete();
+        return $this->executeWithErrorHandling(
+            function () use ($commentId, $userId) {
+                // 查找点赞记录
+                $likeRecord = $this->commentLikeRepository->findByCommentAndUser($commentId, $userId);
+                if (! $likeRecord) {
+                    return false; // 没有点赞记录，直接返回false
+                }
 
-        if ($result) {
-            // 更新评论点赞数（可选）
-            try {
-                Db::table('comments')
-                    ->where('id', $commentId)
-                    ->decrement('like_count', 1, 0); // 确保不会小于0
-            } catch (\Exception $e) {
-                $this->logger->error('更新评论点赞数失败', ['comment_id' => $commentId, 'error' => $e->getMessage()]);
-            }
+                // 删除点赞记录
+                $result = $this->commentLikeRepository->deleteById($likeRecord['id']);
 
-            $this->logger->info('取消评论点赞成功', ['comment_id' => $commentId, 'user_id' => $userId]);
-        }
+                if ($result) {
+                    // 获取评论信息以更新点赞数
+                    $comment = $this->commentRepository->findById($commentId);
+                    if ($comment) {
+                        // 更新评论点赞数（确保不会小于0）
+                        try {
+                            $newLikeCount = max(0, ($comment['like_count'] ?? 0) - 1);
+                            $this->commentRepository->update($commentId, ['like_count' => $newLikeCount]);
+                        } catch (Exception $e) {
+                            $this->logger->error('更新评论点赞数失败', ['comment_id' => $commentId, 'error' => $e->getMessage()]);
+                        }
+                    }
 
-        return $result > 0;
+                    $this->logAction('取消评论点赞成功', ['comment_id' => $commentId, 'user_id' => $userId]);
+                }
+
+                return $result;
+            },
+            '取消点赞评论失败',
+            ['comment_id' => $commentId, 'user_id' => $userId]
+        )['data'] ?? false;
     }
 
     /**
@@ -238,39 +212,45 @@ class CommentService
      */
     public function createComment(array $data): int
     {
-        $this->logger->info('创建评论', ['data' => $data]);
-        
-        try {
-            // 验证评论内容长度（限制1000个中文字符）
-            if (isset($data['content'])) {
-                $this->validateContentLength($data['content']);
-            }
+        return $this->executeWithErrorHandling(
+            function () use ($data) {
+                $this->logAction('创建评论', ['data' => $data]);
 
-            // 过滤不需要的字段
-            $commentData = [
-                'user_id' => $data['user_id'],
-                'post_id' => $data['post_id'] ?? null,
-                'post_type' => $data['post_type'] ?? null,
-                'parent_id' => $data['parent_id'] ?? null,
-                'content' => $data['content'],
-                'status' => $data['status'] ?? Comment::STATUS_PENDING, // 默认为0（待审核）
-            ];
+                // 验证评论内容长度（限制1000个中文字符）
+                if (isset($data['content'])) {
+                    $this->validateContentLength($data['content']);
+                }
 
-            // 使用模型创建评论
-            $comment = Comment::create($commentData);
+                // 过滤不需要的字段
+                $commentData = [
+                    'user_id' => $data['user_id'],
+                    'post_id' => $data['post_id'] ?? null,
+                    'post_type' => $data['post_type'] ?? null,
+                    'parent_id' => $data['parent_id'] ?? null,
+                    'content' => $data['content'],
+                    'status' => $data['status'] ?? 0, // 默认为0（待审核）
+                    'created_at' => time(),
+                    'updated_at' => time(),
+                ];
 
-            // 触发审核通知（可以在这里调用邮件服务通知管理员有新评论需要审核）
-            $this->notifyNewCommentForReview($comment->id);
-            
-            $this->logger->info('创建评论成功', ['comment_id' => $comment->id]);
-            return $comment->id;
-        } catch (Exception $e) {
-            $this->logger->error('创建评论失败', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
+                // 使用Repository创建评论
+                $success = $this->commentRepository->create($commentData);
+                if (! $success) {
+                    throw new Exception('创建评论失败');
+                }
+
+                // 获取新创建的评论ID
+                $commentId = Db::getPdo()->lastInsertId();
+                
+                // 触发审核通知
+                $this->notifyNewCommentForReview((int) $commentId);
+
+                $this->logAction('创建评论成功', ['comment_id' => $commentId]);
+                return (int) $commentId;
+            },
+            '创建评论失败',
+            ['data' => $data]
+        )['data'] ?? throw new Exception('创建评论失败');
     }
 
     /**
@@ -283,24 +263,34 @@ class CommentService
      */
     public function updateComment(int $id, array $data): bool
     {
-        // 验证评论内容长度（如果更新内容）
-        if (isset($data['content'])) {
-            $this->validateContentLength($data['content']);
-        }
+        return $this->executeWithErrorHandling(
+            function () use ($id, $data) {
+                // 验证评论内容长度（如果更新内容）
+                if (isset($data['content'])) {
+                    $this->validateContentLength($data['content']);
+                }
 
-        // 过滤不需要的字段
-        $commentData = [];
-        if (isset($data['content'])) {
-            $commentData['content'] = $data['content'];
-        }
-        if (isset($data['status'])) {
-            $commentData['status'] = $data['status'];
-        }
+                // 过滤不需要的字段
+                $commentData = [];
+                if (isset($data['content'])) {
+                    $commentData['content'] = $data['content'];
+                }
+                if (isset($data['status'])) {
+                    $commentData['status'] = $data['status'];
+                }
+                
+                // 添加更新时间
+                $commentData['updated_at'] = time();
 
-        // 更新评论数据
-        return Db::table('comments')
-            ->where('id', '=', $id)
-            ->update($commentData) > 0;
+                // 使用Repository更新评论数据
+                $result = $this->commentRepository->update($id, $commentData);
+                
+                $this->logAction('更新评论', ['comment_id' => $id, 'success' => $result]);
+                return $result;
+            },
+            '更新评论失败',
+            ['comment_id' => $id, 'data' => $data]
+        )['data'] ?? false;
     }
 
     /**
@@ -333,47 +323,12 @@ class CommentService
      */
     public function getPendingComments(array $params = []): array
     {
-        $query = Db::table('comments')
-            ->select(
-                'comments.*',
-                'users.username',
-                'users.avatar',
-                'blogs.title as blog_title',
-                'works.title as work_title'
-            )
-            ->leftJoin('users', 'comments.user_id', '=', 'users.id')
-            ->leftJoin('blogs', function ($join) {
-                $join->on('comments.post_id', '=', 'blogs.id')
-                    ->where('comments.post_type', '=', 'blog');
-            })
-            ->leftJoin('works', function ($join) {
-                $join->on('comments.post_id', '=', 'works.id')
-                    ->where('comments.post_type', '=', 'work');
-            })
-            ->where('comments.status', '=', 0);
-
-        // 可选的类型筛选
-        if (isset($params['post_type'])) {
-            $query->where('comments.post_type', '=', $params['post_type']);
-        }
-
-        // 排序
-        $query->orderBy('comments.created_at', 'desc');
-
-        // 分页
-        $page = $params['page'] ?? 1;
-        $pageSize = $params['page_size'] ?? 20;
-        $offset = ($page - 1) * $pageSize;
-
-        $total = $query->count();
-        $comments = $query->offset($offset)->limit($pageSize)->get();
-
-        return [
-            'data' => $comments,
-            'total' => $total,
-            'page' => $page,
-            'page_size' => $pageSize,
-        ];
+        // 由于CommentRepository中没有直接的方法，我们扩展一下查询参数并使用findWithPagination
+        $pendingParams = $params;
+        $pendingParams['status'] = 0; // 待审核状态
+        
+        // 使用Repository获取待审核评论列表
+        return $this->commentRepository->findWithPagination($pendingParams);
     }
 
     /**
@@ -384,65 +339,59 @@ class CommentService
      */
     public function deleteComment(int $id): bool
     {
-        $this->logger->info('删除评论', ['comment_id' => $id]);
-        
-        try {
-            $comment = Comment::find($id);
-            if (! $comment) {
-                $this->logger->warning('评论不存在', ['comment_id' => $id]);
-                return false;
-            }
-            
-            $result = $comment->delete();
-            
-            if ($result) {
-                $this->logger->info('删除评论成功', ['comment_id' => $id]);
-            } else {
-                $this->logger->warning('删除评论失败', ['comment_id' => $id]);
-            }
-            
-            return $result;
-        } catch (Exception $e) {
-            $this->logger->error('删除评论异常', [
-                'comment_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            return false;
-        }
+        return $this->executeWithErrorHandling(
+            function () use ($id) {
+                $this->logAction('删除评论', ['comment_id' => $id]);
+
+                // 检查评论是否存在
+                $comment = $this->commentRepository->findById($id);
+                if (! $comment) {
+                    $this->logAction('评论不存在', ['comment_id' => $id], 'warning');
+                    return false;
+                }
+
+                // 使用Repository删除评论
+                $result = $this->commentRepository->delete($id);
+
+                if ($result) {
+                    $this->logAction('删除评论成功', ['comment_id' => $id]);
+                } else {
+                    $this->logAction('删除评论失败', ['comment_id' => $id], 'warning');
+                }
+
+                return $result;
+            },
+            '删除评论失败',
+            ['comment_id' => $id]
+        )['data'] ?? false;
     }
 
     /**
      * 获取评论详情.
      *
      * @param int $id 评论ID
-     * @return array|null 评论数据
+     * @return null|array 评论数据
      */
     public function getCommentById(int $id): ?array
     {
-        $this->logger->info('获取评论详情', ['comment_id' => $id]);
-        
-        try {
-            $comment = Comment::with('user:id,username,avatar')
-                ->find($id);
+        return $this->executeWithErrorHandling(
+            function () use ($id) {
+                $this->logAction('获取评论详情', ['comment_id' => $id]);
 
-            $result = $comment ? $comment->toArray() : null;
-            
-            if ($result) {
-                $this->logger->info('获取评论详情成功', ['comment_id' => $id]);
-            } else {
-                $this->logger->info('评论不存在', ['comment_id' => $id]);
-            }
-            
-            return $result;
-        } catch (Exception $e) {
-            $this->logger->error('获取评论详情失败', [
-                'comment_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            return null;
-        }
+                // 使用Repository获取评论详情
+                $result = $this->commentRepository->findById($id);
+
+                if ($result) {
+                    $this->logAction('获取评论详情成功', ['comment_id' => $id]);
+                } else {
+                    $this->logAction('评论不存在', ['comment_id' => $id]);
+                }
+
+                return $result;
+            },
+            '获取评论详情失败',
+            ['comment_id' => $id]
+        )['data'] ?? null;
     }
 
     /**
@@ -464,43 +413,40 @@ class CommentService
      *
      * @param int $parentId 父评论ID
      * @param array{include_pending?:bool, page?:int, page_size?:int} $params 查询参数
-     * @param int|null $userId 当前用户ID（可选，用于判断是否点赞）
+     * @param null|int $userId 当前用户ID（可选，用于判断是否点赞）
      * @return array{data:array, total:int, page:int, page_size:int} 回复列表
      */
     public function getReplies(int $parentId, array $params = [], ?int $userId = null): array
     {
-        $query = Db::table('comments')
-            ->select('comments.*', 'users.username', 'users.avatar')
-            ->leftJoin('users', 'comments.user_id', '=', 'users.id')
-            ->where('parent_id', '=', $parentId);
+        return $this->executeWithErrorHandling(
+            function () use ($parentId, $params, $userId) {
+                // 构建查询参数
+                $replyParams = $params;
+                $replyParams['parent_id'] = $parentId;
+                
+                // 非管理员查询时只返回已审核评论
+                if (empty($params['include_pending']) || ! $params['include_pending']) {
+                    $replyParams['status'] = 1;
+                }
+                
+                $replyParams['order_by'] = 'created_at';
+                $replyParams['order_direction'] = 'asc';
+                
+                // 使用Repository获取回复列表
+                $result = $this->commentRepository->findWithPagination($replyParams);
+                
+                // 添加点赞信息
+                $this->enrichCommentsWithLikeData($result['data'], $userId);
 
-        // 非管理员查询时只返回已审核评论
-        if (empty($params['include_pending']) || ! $params['include_pending']) {
-            $query->where('status', '=', 1);
-        }
-
-        // 排序
-        $query->orderBy('created_at', 'asc');
-
-        // 分页
-        $page = $params['page'] ?? 1;
-        $pageSize = $params['page_size'] ?? 20;
-        $offset = ($page - 1) * $pageSize;
-
-        $total = $query->count();
-        $replies = $query->offset($offset)->limit($pageSize)->get();
-        
-        // 转换为数组
-        $replyData = $replies->toArray();
-        
-        // 添加点赞信息
-        $this->enrichCommentsWithLikeData($replyData, $userId);
-
-        return [
-            'data' => $replyData,
-            'total' => $total,
-            'page' => $page,
-            'page_size' => $pageSize,
+                return $result;
+            },
+            '获取评论回复失败',
+            ['parent_id' => $parentId, 'params' => $params]
+        )['data'] ?? [
+            'data' => [],
+            'total' => 0,
+            'page' => $params['page'] ?? 1,
+            'page_size' => $params['page_size'] ?? 20,
         ];
     }
 
@@ -513,62 +459,103 @@ class CommentService
      */
     public function batchReviewComments(array $ids, int $status): array
     {
-        $this->logger->info('批量审核评论', ['comment_ids' => $ids, 'status' => $status]);
-        
-        $success = 0;
-        $failed = 0;
-        $results = [];
+        return $this->executeWithErrorHandling(
+            function () use ($ids, $status) {
+                $this->logAction('批量审核评论', ['comment_ids' => $ids, 'status' => $status]);
 
-        foreach ($ids as $id) {
-            try {
-                $result = $this->updateCommentStatus($id, $status);
-                if ($result) {
-                    ++$success;
-                    $results[$id] = true;
-                    $this->logger->info('评论审核成功', ['comment_id' => $id, 'status' => $status]);
-                } else {
-                    ++$failed;
-                    $results[$id] = false;
-                    $this->logger->warning('评论审核失败', ['comment_id' => $id]);
+                $success = 0;
+                $failed = 0;
+                $results = [];
+
+                foreach ($ids as $id) {
+                    try {
+                        $result = $this->updateCommentStatus($id, $status);
+                        if ($result) {
+                            ++$success;
+                            $results[$id] = true;
+                            $this->logAction('评论审核成功', ['comment_id' => $id, 'status' => $status]);
+                        } else {
+                            ++$failed;
+                            $results[$id] = false;
+                            $this->logAction('评论审核失败', ['comment_id' => $id], 'warning');
+                        }
+                    } catch (Exception $e) {
+                        ++$failed;
+                        $results[$id] = false;
+                        $this->logAction('评论审核异常', [
+                            'comment_id' => $id,
+                            'error' => $e->getMessage(),
+                        ], 'error');
+                    }
                 }
-            } catch (Exception $e) {
-                ++$failed;
-                $results[$id] = false;
-                $this->logger->error('评论审核异常', [
-                    'comment_id' => $id,
-                    'error' => $e->getMessage()
+
+                $result = [
+                    'total' => count($ids),
+                    'success' => $success,
+                    'failed' => $failed,
+                    'results' => $results,
+                ];
+
+                $this->logAction('批量审核评论完成', [
+                    'total' => count($ids),
+                    'success' => $success,
+                    'failed' => $failed,
                 ]);
-            }
+
+                return $result;
+            },
+            '批量审核评论失败',
+            ['comment_ids' => $ids, 'status' => $status]
+        )['data'] ?? [
+            'total' => count($ids),
+            'success' => 0,
+            'failed' => count($ids),
+            'results' => array_fill_keys($ids, false),
+        ];
+    }
+
+    /**
+     * 为评论列表添加点赞数据.
+     *
+     * @param array<string, mixed> $comments 评论列表
+     * @param null|int $userId 当前用户ID
+     */
+    protected function enrichCommentsWithLikeData(array &$comments, ?int $userId = null): void
+    {
+        if (empty($comments)) {
+            return;
         }
 
-        $result = [
-            'total' => count($ids),
-            'success' => $success,
-            'failed' => $failed,
-            'results' => $results,
-        ];
-        
-        $this->logger->info('批量审核评论完成', [
-            'total' => count($ids),
-            'success' => $success,
-            'failed' => $failed
-        ]);
-        
-        return $result;
+        // 获取评论ID列表
+        $commentIds = array_column($comments, 'id');
+
+        // 查询点赞数量
+        $likeCountMap = $this->commentLikeRepository->countByComments($commentIds);
+
+        // 查询当前用户的点赞记录
+        $userLikes = $userId ? $this->commentLikeRepository->checkUserLikes($commentIds, $userId) : [];
+        // 将返回的数组转换为以comment_id为键的关联数组，方便查找
+        $userLikesMap = array_flip($userLikes);
+
+        // 为评论添加点赞信息
+        foreach ($comments as &$comment) {
+            $commentId = $comment['id'];
+            $comment['likes'] = $likeCountMap[$commentId] ?? 0;
+            $comment['user_liked'] = isset($userLikesMap[$commentId]) ? true : false;
+        }
     }
 
     /**
      * 验证评论内容长度.
      *
      * @param string $content 评论内容
-     * @return void
      * @throws Exception 当内容超长时抛出异常
      */
     private function validateContentLength(string $content): void
     {
         // 计算中文字符数量（一个中文字符算1个，英文、数字、符号算半个）
         $chineseCount = preg_match_all('/[\x{4e00}-\x{9fa5}]/u', $content) ?: 0;
-        $nonChineseCount = mb_strlen((string)preg_replace('/[\x{4e00}-\x{9fa5}]/u', '', $content));
+        $nonChineseCount = mb_strlen((string) preg_replace('/[\x{4e00}-\x{9fa5}]/u', '', $content));
         $totalLength = $chineseCount + $nonChineseCount / 2;
 
         // 限制在1000个中文字符以内
@@ -593,9 +580,7 @@ class CommentService
         }
 
         // 更新状态
-        $result = Db::table('comments')
-            ->where('id', '=', $id)
-            ->update(['status' => $status]);
+        $result = $this->commentRepository->update($id, ['status' => $status]);
 
         if ($result && $status == 1) {
             // 如果是通过审核，更新相关内容的评论计数
@@ -604,7 +589,7 @@ class CommentService
             }
         }
 
-        return $result > 0;
+        return $result;
     }
 
     /**
@@ -622,12 +607,12 @@ class CommentService
             // 根据内容类型更新对应表的评论计数
             if ($postType === 'blog') {
                 $this->blogRepository->updateCommentCount($postId, $commentCount);
-            } else if ($postType === 'works') {
+            } elseif ($postType === 'works') {
                 // 如果有WorkRepository，使用它更新评论计数
                 // $this->workRepository->updateCommentCount($postId, $commentCount);
                 $this->logger->info('更新作品评论计数', ['post_id' => $postId, 'count' => $commentCount]);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('更新评论计数失败', ['post_id' => $postId, 'post_type' => $postType, 'error' => $e->getMessage()]);
         }
     }
@@ -639,22 +624,21 @@ class CommentService
      */
     private function notifyNewCommentForReview(int $commentId): void
     {
-        $this->logger->info('通知新评论需要审核', ['comment_id' => $commentId]);
-        
-        try {
-            // 获取评论数据
-            $commentData = $this->getCommentById($commentId);
+        $this->executeWithErrorHandling(
+            function () use ($commentId) {
+                $this->logAction('通知新评论需要审核', ['comment_id' => $commentId]);
 
-            // 使用依赖注入的事件分发器触发事件
-            $this->dispatcher->dispatch(new NewCommentEvent($commentId, $commentData ?? []));
-            
-            $this->logger->info('新评论审核通知触发成功', ['comment_id' => $commentId]);
-        } catch (Exception $e) {
-            $this->logger->error('触发新评论审核通知失败', [
-                'comment_id' => $commentId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-        }
+                // 获取评论数据
+                $commentData = $this->getCommentById($commentId);
+
+                // 使用依赖注入的事件分发器触发事件
+                $this->dispatcher->dispatch(new NewCommentEvent($commentId, $commentData ?? []));
+
+                $this->logAction('新评论审核通知触发成功', ['comment_id' => $commentId]);
+                return true;
+            },
+            '触发新评论审核通知失败',
+            ['comment_id' => $commentId]
+        );
     }
 }

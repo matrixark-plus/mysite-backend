@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Controller\Api\Validator;
 
@@ -21,7 +29,7 @@ class NodeLinksValidator
     protected $validationFactory;
 
     /**
-     * 验证创建节点链接的参数
+     * 验证创建节点链接的参数.
      *
      * @param array $data 请求数据
      * @throws ValidationException 验证失败时抛出异常
@@ -53,8 +61,8 @@ class NodeLinksValidator
         ]);
 
         // 检查源节点和目标节点不能相同
-        if ($data['source_node_id'] ?? null && $data['target_node_id'] ?? null && 
-            $data['source_node_id'] === $data['target_node_id']) {
+        if ($data['source_node_id'] ?? null && $data['target_node_id'] ?? null
+            && $data['source_node_id'] === $data['target_node_id']) {
             $customValidator = $this->validationFactory->make($data, [
                 'source_node_id' => 'required|different:target_node_id',
             ], [
@@ -69,7 +77,7 @@ class NodeLinksValidator
     }
 
     /**
-     * 验证批量创建节点链接的数据
+     * 验证批量创建节点链接的数据.
      *
      * @param array $linksData 链接数据数组
      * @throws ValidationException 验证失败时抛出异常
@@ -96,15 +104,15 @@ class NodeLinksValidator
 
         // 验证每条链接数据
         foreach ($linksData as $index => $link) {
-            if (!is_array($link)) {
+            if (! is_array($link)) {
                 $validator = $this->validationFactory->make(['link' => $link], [
                     'link' => 'array',
                 ], [
-                    'link.array' => "第" . ($index+1) . "条链接数据必须是数组格式",
+                    'link.array' => '第' . ($index + 1) . '条链接数据必须是数组格式',
                 ]);
                 throw new ValidationException($validator);
             }
-            
+
             $validator = $this->validationFactory->make($link, [
                 'source_node_id' => 'required|integer|gt:0|different:target_node_id',
                 'target_node_id' => 'required|integer|gt:0',
@@ -113,16 +121,16 @@ class NodeLinksValidator
                 'type' => 'nullable|string|max:50',
                 'properties' => 'nullable|array',
             ], [
-                'source_node_id.different' => "第" . ($index+1) . "条链接的源节点和目标节点不能相同",
+                'source_node_id.different' => '第' . ($index + 1) . '条链接的源节点和目标节点不能相同',
             ]);
 
             if ($validator->fails()) {
                 // 创建一个包含索引信息的错误消息
                 $errorMessages = [];
                 foreach ($validator->errors()->all() as $error) {
-                    $errorMessages[] = "第" . ($index+1) . "条链接数据无效: " . $error;
+                    $errorMessages[] = '第' . ($index + 1) . '条链接数据无效: ' . $error;
                 }
-                
+
                 // 创建一个新的验证器来包含自定义错误消息
                 $errorValidator = $this->validationFactory->make([], []);
                 foreach ($errorMessages as $error) {
@@ -134,7 +142,7 @@ class NodeLinksValidator
     }
 
     /**
-     * 验证更新节点链接的参数
+     * 验证更新节点链接的参数.
      *
      * @param array $data 请求数据
      * @throws ValidationException 验证失败时抛出异常
@@ -159,7 +167,7 @@ class NodeLinksValidator
     }
 
     /**
-     * 验证链接ID
+     * 验证链接ID.
      *
      * @param int $id 链接ID
      * @throws ValidationException 验证失败时抛出异常
@@ -177,7 +185,7 @@ class NodeLinksValidator
     }
 
     /**
-     * 验证脑图根节点ID
+     * 验证脑图根节点ID.
      *
      * @param int $rootId 脑图根节点ID
      * @throws ValidationException 验证失败时抛出异常
@@ -195,7 +203,7 @@ class NodeLinksValidator
     }
 
     /**
-     * 验证用户ID
+     * 验证用户ID.
      *
      * @param int $userId 用户ID
      * @throws ValidationException 验证失败时抛出异常

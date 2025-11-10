@@ -2,34 +2,37 @@
 
 declare(strict_types=1);
 /**
- * 认证控制器
- * 基于Hyperf Auth组件实现认证功能
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
 
-use App\Controller\AbstractController;
 use App\Constants\ResponseMessage;
-use App\Constants\StatusCode;
+use App\Controller\AbstractController;
 use App\Controller\Api\Validator\AuthValidator;
 use App\Model\User;
 use App\Service\UserService;
 use App\Traits\LogTrait;
+use Hyperf\Cache\Cache;
 use Hyperf\Config\Config;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
-use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Annotation\Middleware;
-use Hyperf\HttpServer\Annotation\RequestMethod;
+use Hyperf\HttpServer\Annotation\RequestMapping;
 use Hyperf\HttpServer\Contract\ResponseInterface;
 use Hyperf\Validation\ValidationException;
-use Qbhy\HyperfAuth\AuthManager;
 use Qbhy\HyperfAuth\Authenticatable;
-use Hyperf\Cache\Cache;
+use Qbhy\HyperfAuth\AuthManager;
+use Throwable;
 
 /**
  * 认证控制器
- * 负责用户注册、登录、登出、Token刷新和用户信息获取
+ * 负责用户注册、登录、登出、Token刷新和用户信息获取.
  */
 /**
  * @Controller(prefix="api/auth")
@@ -69,8 +72,7 @@ class AuthController extends AbstractController
     protected $validator;
 
     /**
-     * 用户注册
-     * @return ResponseInterface
+     * 用户注册.
      */
     /**
      * @RequestMapping(path="register", methods={"POST"})
@@ -90,7 +92,7 @@ class AuthController extends AbstractController
                     'username' => $username,
                     'email' => $email,
                     'password' => $password,
-                    'real_name' => $realName
+                    'real_name' => $realName,
                 ]);
             } catch (ValidationException $e) {
                 return $this->validationError($e->validator->errors()->first());
@@ -106,7 +108,7 @@ class AuthController extends AbstractController
                 'email' => $email,
                 'real_name' => $realName,
                 'is_active' => true, // 默认激活状态
-                'password' => $password
+                'password' => $password,
             ];
 
             $userData = $this->userService->createUser($userData);
@@ -117,15 +119,14 @@ class AuthController extends AbstractController
             $this->logAction('用户注册成功', ['user_id' => $userId, 'email' => $email]);
 
             return $this->success(['user_id' => $userId, 'email' => $email], ResponseMessage::CREATE_SUCCESS);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logError('用户注册失败', ['error' => $exception->getMessage()], $exception);
             return $this->error('注册失败');
         }
     }
 
     /**
-     * 用户登录
-     * @return ResponseInterface
+     * 用户登录.
      */
     /**
      * @RequestMapping(path="login", methods={"POST"})
@@ -138,20 +139,20 @@ class AuthController extends AbstractController
             $password = (string) $this->request->input('password', '');
             // 获取用户IP地址
             $loginIp = $this->request->getServerParams()['REMOTE_ADDR'] ?? '';
-            
+
             // 1. IP频率限制：每IP每分钟最多5次登录尝试
             $ipLoginKey = 'login:ip_limit:' . $loginIp;
-            $ipAttempts = (int)$this->cache->get($ipLoginKey, 0);
-            
+            $ipAttempts = (int) $this->cache->get($ipLoginKey, 0);
+
             if ($ipAttempts >= 5) {
                 $this->logWarning('IP登录频率限制触发', ['ip' => $loginIp]);
                 return $this->error('登录尝试过于频繁，请稍后再试', [], 429);
             }
-            
+
             // 2. 账号登录失败次数限制
             $accountLockKey = 'login:account_lock:' . $email;
-            $accountAttempts = (int)$this->cache->get($accountLockKey, 0);
-            
+            $accountAttempts = (int) $this->cache->get($accountLockKey, 0);
+
             if ($accountAttempts >= 3) {
                 $this->logWarning('账号登录失败次数过多', ['email' => $email]);
                 return $this->error('账号暂时被锁定，请30分钟后再试', [], 403);
@@ -161,30 +162,30 @@ class AuthController extends AbstractController
             try {
                 $this->validator->validateLogin([
                     'email' => $email,
-                    'password' => $password
+                    'password' => $password,
                 ]);
             } catch (ValidationException $e) {
                 // 验证失败也要计数
                 $this->cache->incr($ipLoginKey);
                 $this->cache->expire($ipLoginKey, 60);
-                
+
                 $this->cache->incr($accountLockKey);
                 $this->cache->expire($accountLockKey, 1800); // 30分钟锁定
-                
+
                 return $this->validationError($e->validator->errors()->first());
             }
 
             try {
                 // 使用userService处理登录逻辑，传入IP信息
                 $userData = $this->userService->login($email, $password, $loginIp);
-                
+
                 // 登录成功，重置账号失败次数
                 $this->cache->delete($accountLockKey);
-                
+
                 // 记录IP登录计数，1分钟过期
                 $this->cache->incr($ipLoginKey);
                 $this->cache->expire($ipLoginKey, 60);
-                
+
                 // 由于auth组件需要User对象进行登录，这里仍需创建User对象
                 // 但仅用于认证组件，不进行其他数据库操作
                 $user = new User();
@@ -192,7 +193,7 @@ class AuthController extends AbstractController
 
                 // 使用auth组件登录并生成token
                 $token = (string) $this->auth->login($user);
-                
+
                 // 获取token过期时间
                 $tokenTtl = (int) $this->config->get('auth.guards.jwt.ttl', 60 * 60 * 24);
                 $expiresIn = time() + $tokenTtl;
@@ -207,33 +208,32 @@ class AuthController extends AbstractController
                     'access_token' => $token,
                     'token_type' => 'Bearer',
                     'expires_in' => $expiresIn,
-                    'user' => $this->formatUserInfo($user)
+                    'user' => $this->formatUserInfo($user),
                 ], ResponseMessage::LOGIN_SUCCESS);
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 // 登录失败，增加失败计数
                 $this->cache->incr($ipLoginKey);
                 $this->cache->expire($ipLoginKey, 60);
-                
+
                 $this->cache->incr($accountLockKey);
                 $this->cache->expire($accountLockKey, 1800); // 30分钟锁定
-                
+
                 // 处理账号锁定异常
                 if (strpos($exception->getMessage(), '账号已被锁定') !== false) {
-                      $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
-                      return $this->forbidden($exception->getMessage());
-                  }
-                  $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
-                  return $this->error('登录失败');
+                    $this->logWarning('账号锁定异常', ['error' => $exception->getMessage()]);
+                    return $this->forbidden($exception->getMessage());
+                }
+                $this->logError('用户登录失败', ['error' => $exception->getMessage()], $exception);
+                return $this->error('登录失败');
             }
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logError('用户登录异常', ['error' => $exception->getMessage()], $exception);
             return $this->error('登录失败');
         }
     }
 
     /**
-     * 刷新Token
-     * @return ResponseInterface
+     * 刷新Token.
      */
     /**
      * @RequestMapping(path="refresh", methods={"POST"})
@@ -250,7 +250,7 @@ class AuthController extends AbstractController
 
             // 刷新token
             $token = (string) $this->auth->refresh();
-            
+
             // 获取新token过期时间
             $tokenTtl = (int) $this->config->get('auth.guards.jwt.ttl', 60 * 60 * 24);
             $expiresIn = time() + $tokenTtl;
@@ -263,17 +263,16 @@ class AuthController extends AbstractController
             return $this->success([
                 'access_token' => $token,
                 'token_type' => 'Bearer',
-                'expires_in' => $expiresIn
+                'expires_in' => $expiresIn,
             ], ResponseMessage::UPDATE_SUCCESS);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logError('Token刷新失败', ['error' => $exception->getMessage()], $exception);
             return $this->error('Token刷新失败');
         }
     }
 
     /**
-     * 用户登出
-     * @return ResponseInterface
+     * 用户登出.
      */
     /**
      * @RequestMapping(path="logout", methods={"POST"})
@@ -294,15 +293,14 @@ class AuthController extends AbstractController
             $this->logAction('用户登出成功', ['user_id' => $userId]);
 
             return $this->success(null, ResponseMessage::LOGOUT_SUCCESS);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logError('用户登出失败', ['error' => $exception->getMessage()], $exception);
             return $this->error('登出失败');
         }
     }
 
     /**
-     * 获取当前用户信息
-     * @return ResponseInterface
+     * 获取当前用户信息.
      */
     /**
      * @RequestMapping(path="me", methods={"GET"})
@@ -319,7 +317,7 @@ class AuthController extends AbstractController
 
             // 对于已认证用户，直接从认证组件获取ID
             $userId = $user->getId();
-            
+
             // 通过UserService获取完整用户信息
             $userData = $this->userService->getUserById($userId);
             if (! $userData) {
@@ -333,14 +331,14 @@ class AuthController extends AbstractController
                 ['user' => $this->formatUserInfo($userData)],
                 ResponseMessage::QUERY_SUCCESS
             );
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logError('获取用户信息失败', ['error' => $exception->getMessage()], $exception);
             return $this->error('获取用户信息失败');
         }
     }
 
     /**
-     * 格式化用户信息
+     * 格式化用户信息.
      * @param array $userData 用户数据数组
      * @return array 格式化后的用户信息数组
      */

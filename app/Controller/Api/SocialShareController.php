@@ -15,11 +15,11 @@ namespace App\Controller\Api;
 use App\Controller\AbstractController;
 use App\Controller\Api\Validator\SocialShareValidator;
 use App\Service\SocialShareService;
-use Hyperf\Validation\ValidationException;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
 use Hyperf\HttpServer\Annotation\RequestMapping;
+use Hyperf\Validation\ValidationException;
 
 /**
  * @Controller(prefix="/api/social")
@@ -31,7 +31,7 @@ class SocialShareController extends AbstractController
      * @var SocialShareService
      */
     protected $socialShareService;
-    
+
     /**
      * @Inject
      * @var SocialShareValidator
@@ -49,7 +49,7 @@ class SocialShareController extends AbstractController
             $params = $this->request->all();
             // 验证请求参数（虽然目前不需要参数）
             $this->validator->validateGetShareConfig($params);
-            
+
             $config = $this->socialShareService->getShareConfig();
             return $this->success($config);
         } catch (ValidationException $e) {

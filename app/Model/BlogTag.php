@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Hyperf\Model\Relations\BelongsToMany;
+use Hyperf\DbConnection\Model\Relations\BelongsToMany;
 
 /**
  * 博客标签模型.
@@ -30,13 +30,11 @@ class BlogTag extends Model
     protected string $primaryKey = 'id';
 
     /**
-     * 可填充字段.
+     * 可填充字段
      */
     protected array $fillable = [
         'name',
         'slug',
-        'description',
-        'use_count',
         'created_at',
         'updated_at',
     ];
@@ -47,16 +45,15 @@ class BlogTag extends Model
     protected array $hidden = [];
 
     /**
-     * 时间戳字段.
+     * 时间戳字段
      */
     protected array $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
-        'use_count' => 'integer',
     ];
 
     /**
-     * 获取标签关联的博客.
+     * 获取标签关联的博客
      * @return BelongsToMany
      */
     public function blogs()
@@ -69,3 +66,4 @@ class BlogTag extends Model
         );
     }
 }
+

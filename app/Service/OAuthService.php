@@ -251,28 +251,48 @@ class OAuthService
         if (! isset($this->oauthInstances[$platform])) {
             $config = $this->getPlatformConfig($platform);
 
-            switch ($platform) {
-                case 'github':
-                    $this->oauthInstances[$platform] = new GitHubOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
-                    // 设置scopes
-                    if (! empty($config['scopes'])) {
-                        $this->oauthInstances[$platform]->setScopes($config['scopes']);
-                    }
-                    break;
-                case 'google':
-                    $this->oauthInstances[$platform] = new GoogleOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
-                    // 设置scopes
-                    if (! empty($config['scopes'])) {
-                        $this->oauthInstances[$platform]->setScopes($config['scopes']);
-                    }
-                    break;
-                case 'wechat':
-                    $this->oauthInstances[$platform] = new WeixinOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
-                    // 设置scope
-                    if (! empty($config['scopes'][0])) {
-                        $this->oauthInstances[$platform]->setScope($config['scopes'][0]);
-                    }
-                    break;
+            try {
+                switch ($platform) {
+                    case 'github':
+                        // 检查类是否存在
+                        if (class_exists(GitHubOAuth::class)) {
+                            $this->oauthInstances[$platform] = new GitHubOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
+                            // 设置scopes
+                            if (! empty($config['scopes'])) {
+                                $this->oauthInstances[$platform]->setScopes($config['scopes']);
+                            }
+                        } else {
+                            throw new RuntimeException('GitHub OAuth类未找到，请检查依赖安装');
+                        }
+                        break;
+                    case 'google':
+                        // 检查类是否存在
+                        if (class_exists(GoogleOAuth::class)) {
+                            $this->oauthInstances[$platform] = new GoogleOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
+                            // 设置scopes
+                            if (! empty($config['scopes'])) {
+                                $this->oauthInstances[$platform]->setScopes($config['scopes']);
+                            }
+                        } else {
+                            throw new RuntimeException('Google OAuth类未找到，请检查依赖安装');
+                        }
+                        break;
+                    case 'wechat':
+                        // 检查类是否存在
+                        if (class_exists(WeixinOAuth::class)) {
+                            $this->oauthInstances[$platform] = new WeixinOAuth($config['client_id'], $config['client_secret'], $config['redirect_uri']);
+                            // 设置scope
+                            if (! empty($config['scopes'][0])) {
+                                $this->oauthInstances[$platform]->setScope($config['scopes'][0]);
+                            }
+                        } else {
+                            throw new RuntimeException('Weixin OAuth类未找到，请检查依赖安装');
+                        }
+                        break;
+                }
+            } catch (Throwable $e) {
+                $this->logger->error('初始化OAuth实例失败: ' . $e->getMessage(), ['platform' => $platform]);
+                throw new RuntimeException('第三方登录服务暂时不可用，请稍后重试');
             }
         }
 

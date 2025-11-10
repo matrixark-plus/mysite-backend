@@ -18,7 +18,9 @@ use Hyperf\Coordinator\CoordinatorManager;
 use Hyperf\Event\Annotation\Listener;
 use Hyperf\Event\Contract\ListenerInterface;
 
-#[Listener]
+/**
+ * @Listener
+ */
 class ResumeExitCoordinatorListener implements ListenerInterface
 {
     public function listen(): array

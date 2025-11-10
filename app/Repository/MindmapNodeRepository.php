@@ -15,53 +15,40 @@ namespace App\Repository;
 use App\Model\MindmapNode;
 use Exception;
 use Hyperf\Database\Model\Collection;
-use Hyperf\Di\Annotation\Inject;
 use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 use Psr\Log\LoggerInterface;
 
 /**
  * 脑图节点数据访问层
  * 封装所有与脑图节点数据相关的数据库操作.
  */
-class MindmapNodeRepository
+class MindmapNodeRepository extends BaseRepository
 {
     /**
-     * @Inject
-     * @var LoggerInterface
+     * 获取模型实例.
      */
-    protected $logger;
-
-    /**
-     * 根据ID查找脑图节点.
-     *
-     * @param int $id 节点ID
-     * @return array|null 节点数据数组或null
-     */
-    public function findById(int $id): ?array
+    protected function getModel(): string
     {
-        try {
-            $node = MindmapNode::find($id);
-            return $node ? $node->toArray() : null;
-        } catch (Exception $e) {
-            $this->logger->error('根据ID查找脑图节点失败: ' . $e->getMessage(), ['node_id' => $id]);
-            return null;
-        }
+        return MindmapNode::class;
     }
+
+
 
     /**
      * 根据根节点ID获取所有节点.
      *
      * @param int $rootId 根节点ID
-     * @return Collection<int, MindmapNode> 模型集合
+     * @return array 节点数据数组
      */
-    public function findByRootId(int $rootId): Collection
+    public function findByRootId(int $rootId): array
     {
         try {
             $result = MindmapNode::where('root_id', $rootId)->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $result->toArray();
         } catch (Exception $e) {
             $this->logger->error('根据根节点ID获取节点失败: ' . $e->getMessage(), ['root_id' => $rootId]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -69,16 +56,16 @@ class MindmapNodeRepository
      * 获取父节点的所有子节点.
      *
      * @param int $parentId 父节点ID
-     * @return Collection<int, MindmapNode> 模型集合
+     * @return array 子节点数据数组
      */
-    public function findChildren(int $parentId): Collection
+    public function findChildren(int $parentId): array
     {
         try {
             $result = MindmapNode::where('parent_id', $parentId)->get();
-            return $result instanceof Collection ? $result : new Collection();
+            return $result->toArray();
         } catch (Exception $e) {
             $this->logger->error('获取子节点失败: ' . $e->getMessage(), ['parent_id' => $parentId]);
-            return new Collection();
+            return [];
         }
     }
 
@@ -86,15 +73,16 @@ class MindmapNodeRepository
      * 创建脑图节点.
      *
      * @param array<string, mixed> $data 节点数据
-     * @return null|MindmapNode 创建的模型对象或null
+     * @return bool 创建是否成功
      */
-    public function create(array $data): ?MindmapNode
+    public function create(array $data): bool
     {
         try {
-            return MindmapNode::create($data);
+            $model = MindmapNode::create($data);
+            return $model !== null;
         } catch (Exception $e) {
             $this->logger->error('创建脑图节点失败: ' . $e->getMessage(), ['data' => $data]);
-            return null;
+            return false;
         }
     }
 
@@ -167,7 +155,7 @@ class MindmapNodeRepository
     }
 
     /**
-     * 获取根节点列表
+     * 获取根节点列表.
      *
      * @param array $params 查询参数
      * @return array 包含总数和列表数据
@@ -219,7 +207,7 @@ class MindmapNodeRepository
     }
 
     /**
-     * 获取所有节点（包括根节点和子节点）
+     * 获取所有节点（包括根节点和子节点）.
      *
      * @param int $rootId 根节点ID
      * @return array 节点数组
@@ -249,7 +237,7 @@ class MindmapNodeRepository
     }
 
     /**
-     * 获取节点间的关系
+     * 获取节点间的关系.
      *
      * @param int $rootId 根节点ID
      * @return array 边数组
@@ -282,7 +270,7 @@ class MindmapNodeRepository
     }
 
     /**
-     * 增加浏览次数
+     * 增加浏览次数.
      *
      * @param int $nodeId 节点ID
      */

@@ -28,6 +28,12 @@ class SubscribeRepository
      * @var LoggerInterface
      */
     protected $logger;
+    
+    // 订阅类型常量
+    public const TYPE_BLOG = 'blog';
+    
+    // 订阅状态常量
+    public const STATUS_CONFIRMED = 'confirmed';
 
     /**
      * 根据ID查找订阅记录.
@@ -95,14 +101,14 @@ class SubscribeRepository
      * @param string $type 订阅类型
      * @return array 邮箱地址数组
      */
-    public function getConfirmedSubscribers(string $type = Subscribe::TYPE_BLOG): array
+    public function getConfirmedSubscribers(string $type = self::TYPE_BLOG): array
     {
         try {
-            $result = Subscribe::where('type', $type)
-                ->where('status', Subscribe::STATUS_CONFIRMED)
+            return Db::table('subscribes')
+                ->where('type', $type)
+                ->where('status', self::STATUS_CONFIRMED)
                 ->pluck('email')
                 ->toArray();
-            return $result;
         } catch (Exception $e) {
             $this->logger->error('获取已确认订阅者列表失败: ' . $e->getMessage(), ['type' => $type]);
             return [];

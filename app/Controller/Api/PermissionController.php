@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 /**
- * 权限管理控制器
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
 
 namespace App\Controller\Api;
@@ -49,7 +54,7 @@ class PermissionController extends AbstractController
             // 验证请求参数
             $params = $this->request->all();
             $validatedData = $this->validator->validateGetRoles($params);
-            
+
             $roles = $this->permissionService->getAllRoles();
             return $this->success($roles);
         } catch (ValidationException $e) {

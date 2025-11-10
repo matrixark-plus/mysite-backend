@@ -1,6 +1,14 @@
 <?php
 
 declare(strict_types=1);
+/**
+ * This file is part of Hyperf.
+ *
+ * @link     https://www.hyperf.io
+ * @document https://hyperf.wiki
+ * @contact  group@hyperf.io
+ * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
+ */
 
 namespace App\Repository;
 
@@ -8,36 +16,27 @@ use App\Model\NodeLinks;
 
 /**
  * 节点链接数据访问层
- * 处理节点链接相关的数据库操作
+ * 处理节点链接相关的数据库操作.
  */
 class NodeLinksRepository extends BaseRepository
 {
     /**
-     * 获取模型类名
-     * @return string 模型类名
-     */
-    protected function getModel(): string
-    {
-        return NodeLinks::class;
-    }
-
-    /**
-     * 根据源节点ID和目标节点ID查找链接
+     * 根据源节点ID和目标节点ID查找链接.
      * @param int $sourceNodeId 源节点ID
      * @param int $targetNodeId 目标节点ID
-     * @return array|null 链接数据数组或null
+     * @return null|array 链接数据数组或null
      */
     public function findByNodes(int $sourceNodeId, int $targetNodeId): ?array
     {
         $results = $this->findWithConditionsInternal([
             'source_node_id' => $sourceNodeId,
-            'target_node_id' => $targetNodeId
+            'target_node_id' => $targetNodeId,
         ]);
         return $results[0] ?? null;
     }
 
     /**
-     * 根据脑图根节点ID获取所有链接
+     * 根据脑图根节点ID获取所有链接.
      * @param int $rootId 根节点ID
      * @return array 链接数据数组
      */
@@ -61,7 +60,7 @@ class NodeLinksRepository extends BaseRepository
     }
 
     /**
-     * 根据节点ID删除相关链接
+     * 根据节点ID删除相关链接.
      * @param int $nodeId 节点ID
      * @return int 影响的行数
      */
@@ -81,7 +80,7 @@ class NodeLinksRepository extends BaseRepository
     }
 
     /**
-     * 根据脑图根节点ID删除所有链接
+     * 根据脑图根节点ID删除所有链接.
      * @param int $rootId 根节点ID
      * @return int 影响的行数
      */
@@ -104,11 +103,11 @@ class NodeLinksRepository extends BaseRepository
                     ['root_id' => $rootId],
                     []
                 );
-                
+
                 if (empty($nodeIds)) {
                     return 0;
                 }
-                
+
                 // 删除相关链接
                 return $this->model->query()
                     ->whereIn('source_node_id', $nodeIds)
@@ -119,5 +118,14 @@ class NodeLinksRepository extends BaseRepository
             ['root_id' => $rootId],
             0
         );
+    }
+
+    /**
+     * 获取模型类名.
+     * @return string 模型类名
+     */
+    protected function getModel(): string
+    {
+        return NodeLinks::class;
     }
 }
